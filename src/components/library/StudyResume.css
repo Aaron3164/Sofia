@@ -1,0 +1,91 @@
+.study-resume-container {
+  padding: 1rem;
+  height: 100%;
+  overflow-y: auto;
+  border-radius: 1.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-primary) transparent;
+}
+
+.resume-glass-wrapper {
+  background: var(--bg-elevated);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-radius: 2rem;
+  border: 1px solid var(--border-color);
+  padding: 3rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+.resume-content-rendered {
+  line-height: 1.8;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.resume-content-rendered h1 {
+  font-size: 2.4rem;
+  font-weight: 900;
+  margin: 3rem 0 1.5rem;
+  color: var(--accent-primary);
+  letter-spacing: -0.02em;
+}
+
+.resume-content-rendered h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 2.5rem 0 1rem;
+  border-bottom: 2px solid var(--accent-primary)20;
+  padding-bottom: 0.5rem;
+}
+
+.resume-content-rendered h3 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 2rem 0 0.75rem;
+}
+
+.resume-content-rendered p {
+  margin-bottom: 1.25rem;
+}
+
+.resume-content-rendered ul, .resume-content-rendered ol {
+  margin-bottom: 2rem;
+  padding-left: 1.5rem;
+}
+
+.resume-content-rendered li {
+  margin-bottom: 0.75rem;
+}
+
+.resume-content-rendered strong {
+  color: var(--accent-primary);
+}
+
+.resume-content-rendered mark {
+  background-color: #6366f125; /* Use a specific hex-alpha for indigo */
+  color: #4f46e5;
+  padding: 0 0.3rem;
+  border-radius: 0.3rem;
+  font-weight: 500;
+}
+
+[data-theme='dark'] .resume-content-rendered mark {
+  background-color: #818cf840;
+  color: #cbd5e1;
+}
+
+.resume-content-rendered em {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Specific theme adjustment for glass mode if needed */
+[data-theme='glass'] .resume-glass-wrapper {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
