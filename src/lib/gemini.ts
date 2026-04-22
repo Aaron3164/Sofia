@@ -8,20 +8,16 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
-// On initialise le client UNE SEULE FOIS à l'extérieur
-// Cela permet de s'assurer que la clé est bien figée au chargement
+// INITIALISATION CORRIGÉE
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-if (apiKey) {
-  console.log('[DEBUG] Gemini API Key chargée avec succès (39 caractères)');
-} else {
-  console.error('[CRITICAL] Aucune clé API Gemini trouvée !');
-}
+// On utilise l'initialisation simplifiée recommandée pour le navigateur
+const ai = new GoogleGenAI({ 
+  apiKey: apiKey || '' 
+});
 
-// Initialisation directe du client
-const ai = new GoogleGenAI({ apiKey: apiKey || '' });
-
-// On utilise maintenant 'ai' directement au lieu de 'getGeminiClient()' dans les fonctions en dessous
+// MODÈLE QUE VOUS AVEZ DEMANDÉ (Quota 1500/jour)
+const TARGET_MODEL = 'gemini-1.5-flash-lite-preview-02-05';
 
 export async function getDailyUsage(): Promise<number> {
   const { data, error } = await supabase
@@ -72,7 +68,7 @@ export async function generateStudyMaterials(
 
   try {
     const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: TARGET_MODEL,
         contents: `${systemInstruction}${prompts[mode]}\n\nContext:\n${promptContext}`
     });
     return response.text || '';
@@ -87,7 +83,7 @@ export async function askQuestion(context: string, question: string, prefs?: AIP
   const systemInstruction = getSystemInstruction(prefs);
   try {
     const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: TARGET_MODEL,
         contents: `${systemInstruction}Contexte: ${context}\n\nQuestion: ${question}`,
     });
     return response.text || '';
@@ -100,7 +96,7 @@ export async function askQuestion(context: string, question: string, prefs?: AIP
 export async function generateChatTitle(question: string): Promise<string> {
   try {
     const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: TARGET_MODEL,
         contents: `Titre de 3 mots pour : "${question}"`,
     });
     return (response.text || 'Nouvelle discussion').trim();
@@ -114,7 +110,7 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
   const systemInstruction = getSystemInstruction(prefs);
   try {
     const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: TARGET_MODEL,
         contents: `${systemInstruction}Recherche sur : "${query}"\n\nContexte :\n${allCoursesContext}`,
     });
     return response.text || '';
