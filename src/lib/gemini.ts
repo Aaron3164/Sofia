@@ -8,14 +8,21 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
-// Modèle avec 1500 générations/jour
-const MODEL_NAME = 'gemini-1.5-flash';
+// MODÈLE QUE VOUS UTILISIEZ (Quota 1500/jour)
+const TARGET_MODEL = 'gemini-3.1-flash-lite-preview';
 
-// Correction de l'initialisation pour le navigateur
-const getClient = () => {
-  const key = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!key) throw new Error("Clé API Gemini manquante dans Vercel.");
-  return new GoogleGenAI({ apiKey: key });
+/**
+ * Initialisation sécurisée du client Gemini
+ */
+const getGeminiClient = () => {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('La clé API Gemini est manquante dans votre environnement Vercel.');
+  }
+  
+  // Utilisation de la syntaxe objet pour la version 1.46+ de @google/genai
+  return new GoogleGenAI({ apiKey });
 };
 
 export async function getDailyUsage(): Promise<number> {
@@ -58,6 +65,7 @@ export async function generateStudyMaterials(
   prefs?: AIPreferences
 ): Promise<string> {
   await ensureQuota();
+  const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
   const prompts = {
     flashcards: `Génère des flashcards JSON (front/back).`,
@@ -65,10 +73,9 @@ export async function generateStudyMaterials(
     resume: `Génère un résumé détaillé en Markdown.`
   };
 
-  const ai = getClient();
   try {
     const response = await ai.models.generateContent({
-        model: MODEL_NAME,
+        model: TARGET_MODEL,
         contents: `${systemInstruction}${prompts[mode]}\n\nContext:\n${promptContext}`
     });
     return response.text || '';
@@ -80,11 +87,11 @@ export async function generateStudyMaterials(
 
 export async function askQuestion(context: string, question: string, prefs?: AIPreferences): Promise<string> {
   await ensureQuota();
-  const ai = getClient();
+  const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
   try {
     const response = await ai.models.generateContent({
-        model: MODEL_NAME,
+        model: TARGET_MODEL,
         contents: `${systemInstruction}Contexte: ${context}\n\nQuestion: ${question}`,
     });
     return response.text || '';
@@ -95,10 +102,10 @@ export async function askQuestion(context: string, question: string, prefs?: AIP
 }
 
 export async function generateChatTitle(question: string): Promise<string> {
-  const ai = getClient();
+  const ai = getGeminiClient();
   try {
     const response = await ai.models.generateContent({
-        model: MODEL_NAME,
+        model: TARGET_MODEL,
         contents: `Titre de 3 mots pour : "${question}"`,
     });
     return (response.text || 'Nouvelle discussion').trim();
@@ -109,11 +116,11 @@ export async function generateChatTitle(question: string): Promise<string> {
 
 export async function globalSearch(query: string, allCoursesContext: string, prefs?: AIPreferences): Promise<string> {
   await ensureQuota();
-  const ai = getClient();
+  const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
   try {
     const response = await ai.models.generateContent({
-        model: MODEL_NAME,
+        model: TARGET_MODEL,
         contents: `${systemInstruction}Recherche sur : "${query}"\n\nContexte :\n${allCoursesContext}`,
     });
     return response.text || '';
