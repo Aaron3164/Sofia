@@ -172,21 +172,21 @@ export default function Library() {
                   {item.type === 'folder' ? <Folder size={28} /> : <FileText size={28} />}
                 </div>
                 
-                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                <div className="folder-actions" style={{ display: 'flex', gap: '0.4rem' }}>
                    <button className="icon-button" onClick={(e) => handleReorder(e, item, 'prev')} title="Déplacer vers la gauche" disabled={items.indexOf(item) === 0} style={{ opacity: items.indexOf(item) === 0 ? 0.3 : 1 }}>
-                    <ChevronLeft size={15} />
+                    <ChevronLeft size={16} />
                   </button>
                   <button className="icon-button" onClick={(e) => handleReorder(e, item, 'next')} title="Déplacer vers la droite" disabled={items.indexOf(item) === items.length - 1} style={{ opacity: items.indexOf(item) === items.length - 1 ? 0.3 : 1 }}>
-                    <ChevronRight size={15} />
+                    <ChevronRight size={16} />
                   </button>
                    <button className="icon-button" onClick={(e) => handleRename(e, item)} title="Renommer">
-                    <Edit3 size={15} />
+                    <Edit3 size={16} />
                   </button>
                   <button className="icon-button" onClick={(e) => handleMove(e, item)} title="Déplacer">
-                    <Move size={15} />
+                    <Move size={16} />
                   </button>
                   <button className="icon-button delete-btn" onClick={(e) => handleDelete(e, item.id)} title="Supprimer">
-                    <Trash2 size={15} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
