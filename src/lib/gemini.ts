@@ -12,7 +12,7 @@ const TARGET_MODEL = 'gemini-3.1-flash-lite-preview';
 
 const getGeminiClient = () => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('La clé API Gemini est manquante.');
+  if (!apiKey) throw new Error('La clé API Gemini est manquante. Vérifiez vos réglages Vercel.');
   return new GoogleGenAI({ apiKey });
 };
 
@@ -28,27 +28,28 @@ export async function getDailyUsage(): Promise<number> {
 
 async function ensureQuota() {
   const { data, error } = await supabase.rpc('check_and_increment_ai_usage');
-  if (error || !data) {
-     throw new Error('Limite de 20 générations par jour atteinte.');
+  if (error) {
+    if (error.message.includes('does not exist')) return;
+    throw new Error('Erreur technique lors de la vérification du quota.');
+  }
+  if (!data) {
+    throw new Error('Limite de 20 générations par jour atteinte. Passez au pack Premium !');
   }
 }
 
 function getSystemInstruction(prefs?: AIPreferences) {
   const personality = prefs?.ai_personality || 'benevolent';
   const studyMode = prefs?.ai_study_mode || 'understanding';
-
   const personalities = {
     benevolent: "Tu es Sofia, une assistante bienveillante et encourageante. Utilise un ton chaleureux, motive l'élève avec des emojis et des encouragements. Tu DOIS tutoyer l'étudiant.",
     concise: "Tu es Sofia, une assistante ultra-concise et efficace. Va droit au but, évite les fioritures et les phrases inutiles. Tu DOIS tutoyer l'étudiant.",
     academic: "Tu es Sofia, une assistante académique rigoureuse et experte. Utilise un vocabulaire soutenu et précis, cite les sources si possible et adopte une structure très formelle. Tu DOIS tutoyer l'étudiant."
   };
-
   const modes = {
     understanding: "Ton objectif principal est la COMPRÉHENSION : explique les concepts en profondeur, fais des liens logiques et utilise des analogies pédagogiques.",
     memorization: "Ton objectif principal est la MÉMORISATION : focus sur les définitions clés, utilise des moyens mnémotechniques et structure l'information pour qu'elle soit facile à retenir.",
     critical: "Ton objectif principal est l'ESPRIT CRITIQUE : analyse les nuances, présente les débats doctrinaux (essentiel en Droit) et les contre-arguments potentiels."
   };
-
   return `${personalities[personality]} ${modes[studyMode]}\n\n`;
 }
 
@@ -72,7 +73,7 @@ Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets ave
     mcq: `Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). 
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objects avec "question", "options" (tableau de 4 ou 5 cordes), et "correctAnswers" (tableau contenant les réponses exactes).`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du texte fourni. 
-    
+
 CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le texte section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
 
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. COMMENCE IMMÉDIATEMENT PAR LE TITRE DU RÉSUMÉ OU LE PREMIER CHAPITRE. 
@@ -88,12 +89,23 @@ Consignes de formatage strictes :
 Rédige tout en français de manière extrêmement précise, complète et académique.`
   };
 
+  const fullPrompt = `${systemInstruction}${prompts[mode]}\n\nContent Context:\n${promptContext}`;
+
   try {
     const response = await ai.models.generateContent({
         model: TARGET_MODEL,
-        contents: `${systemInstruction}${prompts[mode]}\n\nContenu :\n${promptContext}`
+        contents: [fullPrompt]
     });
-    return response.text || '';
+    
+    let generatedText = response.text || '';
+    if (mode === 'flashcards' || mode === 'mcq') {
+      const startIdx = generatedText.indexOf('[');
+      const endIdx = generatedText.lastIndexOf(']');
+      if (startIdx !== -1 && endIdx !== -1) {
+        generatedText = generatedText.substring(startIdx, endIdx + 1);
+      }
+    }
+    return generatedText;
   } catch (error) {
     console.error('Gemini Error:', error);
     throw error;
@@ -107,7 +119,7 @@ export async function askQuestion(context: string, question: string, prefs?: AIP
 
   const baseInstruction = `Tu t'appelles Sofia. Tu es un agent IA d'apprentissage expert. Ton objectif est de fournir des explications CLAIRES, SYNTHÉTIQUES et VISUELLES.
 
-CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation, matrice ou symbole logique (comme les flèches de conséquence), UTILISE SYSTÉMATIQUEMENT le format LaTeX entre des symboles '$' (ex: $\rightarrow$, $\beta$, $x^2$, $\frac{a}{b}$). Pour les équations complexes, utilise '$$' sur une nouvelle ligne.
+CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation, matrice ou symbole logique (comme les flèches de conséquence), UTILISE SYSTÉMATIQUEMENT le format LaTeX entre des symboles '$' (ex: $\\rightarrow$, $\\beta$, $x^2$, $\\frac{a}{b}$). Pour les équations complexes, utilise '$$' sur une nouvelle ligne.
 
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. NE DIS PAS "SALUT C'EST SOFIA". RÉPONDS DIRECTEMENT À LA QUESTION.
 
@@ -118,26 +130,26 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 - Utilise '__' pour souligner les précisions importantes.
 - Tu DOIS tutoyer l'étudiant (utilise "tu").`;
 
-  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte :\n${context}\n\nQuestion de l'étudiant : ${question}`;
+  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document :\n${context}\n\nQuestion de l'étudiant : ${question}`;
   
   try {
     const response = await ai.models.generateContent({
         model: TARGET_MODEL,
-        contents: fullPrompt,
+        contents: [fullPrompt],
     });
     return response.text || '';
   } catch (error) {
-    console.error('Error asking question to Gemini:', error);
     throw error;
   }
 }
 
 export async function generateChatTitle(question: string): Promise<string> {
   const ai = getGeminiClient();
+  const fullPrompt = `Génère un titre très court (3 à 5 mots maximum) résumant cette question posée par un étudiant : "${question}".\nNe retourne QUE le titre, sans guillemets.`;
   try {
     const response = await ai.models.generateContent({
         model: TARGET_MODEL,
-        contents: `Génère un titre très court (3 à 5 mots maximum) résumant cette question posée par un étudiant : "${question}".\nNe retourne QUE le titre, sans guillemets.`,
+        contents: [fullPrompt],
     });
     return (response.text || 'Nouvelle discussion').trim();
   } catch (error) {
@@ -154,11 +166,10 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
   try {
     const response = await ai.models.generateContent({
         model: TARGET_MODEL,
-        contents: fullPrompt,
+        contents: [fullPrompt],
     });
     return response.text || '';
   } catch (error) {
-    console.error('Error during global AI search:', error);
     throw error;
   }
 }
