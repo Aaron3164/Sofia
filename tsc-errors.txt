@@ -1,0 +1,8 @@
+src/components/layout/Sidebar.tsx(4,30): error TS6133: 'CreditCard' is declared but its value is never read.
+src/components/layout/Sidebar.tsx(4,59): error TS6133: 'Settings' is declared but its value is never read.
+src/lib/gemini.ts(38,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/Dashboard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/pages/Library.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/pages/PlanningCenter.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+
