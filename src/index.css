@@ -14,11 +14,11 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 14px 0 rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.07);
   --shadow-glass: 0 8px 32px 0 rgba(99, 102, 241, 0.04);
+  
+  /* Breakpoints */
+  --mobile-breakpoint: 768px;
+  --tablet-breakpoint: 1024px;
 }
 
 .dark {
@@ -56,6 +56,12 @@ body {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  #root {
+    flex-direction: column;
+  }
 }
 
 /* Typography */
@@ -136,6 +142,14 @@ h1, h2, h3, h4, h5, h6 {
   padding: 2rem;
 }
 
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem;
+    height: auto;
+    min-height: calc(100vh - 60px); /* Adjust for mobile top bar */
+  }
+}
+
 /* Scrollbar tweaks */
 ::-webkit-scrollbar {
   width: 6px;
@@ -206,4 +220,11 @@ h1, h2, h3, h4, h5, h6 {
 .glass .glass-panel {
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* Visibility Utilities */
+.mobile-only { display: none !important; }
+@media (max-width: 768px) {
+  .mobile-only { display: flex !important; }
+  .desktop-only { display: none !important; }
 }

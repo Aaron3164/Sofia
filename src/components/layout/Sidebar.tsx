@@ -1,12 +1,17 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { Sun, Moon, Sparkles, User as UserIcon, Crown } from 'lucide-react';
+import { Sun, Moon, Sparkles, User as UserIcon, Crown, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getDailyUsage } from '../../lib/gemini';
 import './Layout.css';
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, profile } = useAuth();
   const [usage, setUsage] = React.useState<number | null>(null);
@@ -26,9 +31,12 @@ export const Sidebar: React.FC = () => {
   }, [user]);
 
   return (
-    <aside className="sidebar glass-panel">
+    <aside className={`sidebar glass-panel ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <div className="logo-placeholder">Sof.IA</div>
+        <button className="mobile-only close-sidebar-btn" onClick={onClose} aria-label="Close Menu">
+          <X size={24} />
+        </button>
       </div>
       
       <nav className="sidebar-nav">
@@ -37,6 +45,9 @@ export const Sidebar: React.FC = () => {
             key={item.to}
             to={item.to}
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            onClick={() => {
+              if (window.innerWidth <= 768 && onClose) onClose();
+            }}
           >
             <span style={{ fontSize: '1.2rem', marginLeft: '0.2rem' }}>{item.label}</span>
           </NavLink>
@@ -44,7 +55,10 @@ export const Sidebar: React.FC = () => {
         
         <button 
           className="nav-item"
-          onClick={() => window.dispatchEvent(new CustomEvent('open-global-search'))}
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('open-global-search'));
+            if (window.innerWidth <= 768 && onClose) onClose();
+          }}
           style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginTop: '1rem', color: 'var(--text-secondary)' }}
         >
           <span style={{ fontSize: '1.1rem', marginLeft: '0.2rem' }}>🔍 Recherche Globale</span>

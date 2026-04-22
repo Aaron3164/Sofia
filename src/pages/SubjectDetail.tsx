@@ -12,6 +12,7 @@ import { useFileSystem } from '../hooks/useFileSystem';
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
 import { useAuth } from '../context/AuthContext';
 import { Calendar } from 'lucide-react';
+import './SubjectDetail.css';
 
 type GenerationTab = 'flashcards' | 'mcq' | 'explications' | 'resume';
 
@@ -401,37 +402,37 @@ export default function SubjectDetail() {
   }
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <header className="page-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-        <button className="icon-button" onClick={() => navigate(courseNode?.parentId ? `/${courseNode.parentId}` : '/')}>
-          <ArrowLeft size={24} />
-        </button>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h1 style={{ marginBottom: 0 }}>{courseNode ? courseNode.name : id}</h1>
+    <div className="fade-in subject-detail-container">
+      <header className="subject-header">
+        <div className="title-group">
+          <button className="icon-button" onClick={() => navigate(courseNode?.parentId ? `/${courseNode.parentId}` : '/')}>
+            <ArrowLeft size={24} />
+          </button>
+          <h1>{courseNode ? courseNode.name : id}</h1>
           {isScheduled && (
             <span style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', backgroundColor: 'var(--success)', color: 'white', borderRadius: '1rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-              <Calendar size={12} /> Programmé
+              <Calendar size={12} /> <span className="desktop-only">Programmé</span>
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className="action-group">
           {isSpacedLoading ? (
             <button className="btn btn-outline" disabled>
-              <RefreshCw className="animate-spin" size={18} /> Chargement...
+              <RefreshCw className="animate-spin" size={18} /> <span className="desktop-only">Chargement...</span>
             </button>
           ) : isScheduled ? (
             <button 
               className="btn btn-outline"
               onClick={handleUnschedule}
             >
-              <Calendar size={18} /> Déprogrammer
+              <Calendar size={18} /> <span>Déprogrammer</span>
             </button>
           ) : (
             <button 
-              className="btn btn-primary"
+              className="btn btn-primary shadow-sm"
               onClick={handleSchedule}
             >
-              <Calendar size={18} /> Programmer (Méthode J)
+              <Calendar size={18} /> <span>Programmer</span>
             </button>
           )}
           <button 
@@ -482,10 +483,10 @@ export default function SubjectDetail() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 320px) 1fr', gap: '2rem', flex: 1, minHeight: 0 }}>
+      <div className="subject-content-grid">
         
         {/* Left Column: Source Material */}
-        <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column' }}>
+        <div className="glass-panel source-column">
           <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <FileText size={20} className="text-accent" />
             Document Source
@@ -593,50 +594,30 @@ export default function SubjectDetail() {
         </div>
 
         {/* Right Column: AI Generations */}
-        <div className="glass-panel" style={{ borderRadius: '1rem', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', overflowX: 'auto' }}>
+        <div className="glass-panel generation-column">
+          <div className="tabs-container">
             <button
                onClick={() => setActiveTab('source')}
-               style={{
-                 padding: '1rem 1.5rem',
-                 border: 'none',
-                 background: 'transparent',
-                 color: activeTab === 'source' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                 borderBottom: activeTab === 'source' ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                 fontWeight: activeTab === 'source' ? 600 : 500,
-                 cursor: 'pointer',
-                 whiteSpace: 'nowrap',
-                 transition: 'all 0.2s'
-               }}
+               className={`tab-button ${activeTab === 'source' ? 'active' : ''}`}
              >
-               📄 Source (PDF)
+               📄 <span className="desktop-only">Source (PDF)</span><span className="mobile-only">PDF</span>
              </button>
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as GenerationTab)}
-                style={{
-                  padding: '1rem 1.5rem',
-                  border: 'none',
-                  background: 'transparent',
-                  color: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                  borderBottom: activeTab === tab.id ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                  fontWeight: activeTab === tab.id ? 600 : 500,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.2s'
-                }}
+                className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
               >
-                {tab.label}
+                {tab.label.split(' ')[0]} <span className="desktop-only">{tab.label.split(' ').slice(1).join(' ')}</span>
               </button>
             ))}
           </div>
 
-          <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="tab-content-area">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
                 <BrainCircuit size={20} className="text-accent" />
-                {tabs.find(t => t.id === activeTab)?.label}
+                {tabs.find(t => t.id === activeTab)?.label.split('(')[0]}
               </h3>
               {activeTab !== 'explications' && activeTab !== 'source' && (
                 <button 
@@ -644,12 +625,12 @@ export default function SubjectDetail() {
                   onClick={handleGenerate}
                   disabled={isGenerating || !extractedContent}
                 >
-                  {isGenerating ? <RefreshCw className="animate-spin" size={16} /> : 'Générer Maintenant'}
+                  {isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <span>Générer</span>}
                 </button>
               )}
             </div>
 
-            <div style={{ flex: 1, backgroundColor: 'var(--bg-secondary)', borderRadius: '0.5rem', padding: '1rem', overflowY: 'auto', border: '1px solid var(--border-color)', position: 'relative' }}>
+            <div className="content-viewer">
               {/* PDF Source Tab */}
               <div style={{ display: activeTab === 'source' ? 'block' : 'none', height: '100%' }}>
                 {!pdfUrl ? (

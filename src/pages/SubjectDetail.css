@@ -1,0 +1,145 @@
+.subject-detail-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.subject-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.subject-header .title-group {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 200px;
+}
+
+.subject-header .action-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .subject-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .subject-header .action-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .subject-header .action-group .btn-outline[style*="danger"] {
+    grid-column: span 2;
+  }
+}
+
+.subject-content-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) 1fr;
+  gap: 2rem;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 1024px) {
+  .subject-content-grid {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .subject-content-grid > div {
+    min-height: auto;
+  }
+}
+
+.source-column {
+  padding: 1.5rem;
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.generation-column {
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+@media (max-width: 1024px) {
+  .source-column, .generation-column {
+    height: auto;
+    overflow: visible;
+  }
+  
+  .generation-column {
+    min-height: 600px;
+  }
+}
+
+.tabs-container {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.tabs-container::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.tab-button {
+  padding: 1rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.tab-button.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.tab-content-area {
+  padding: 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .tab-content-area {
+    padding: 1rem;
+  }
+}
+
+.content-viewer {
+  flex: 1;
+  background-color: var(--bg-secondary);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  position: relative;
+  min-height: 400px;
+}

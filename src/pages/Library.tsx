@@ -98,58 +98,51 @@ export default function Library() {
   };
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1.5rem' }}>
+    <div className="fade-in library-page">
       {/* Header & Breadcrumbs */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+      <header className="library-header">
+        <div className="title-section">
+          <div className="breadcrumbs">
             {getBreadcrumbs().map((bc, idx) => (
               <React.Fragment key={bc.id || 'root'}>
-                {idx > 0 && <ChevronRight size={14} style={{ opacity: 0.5 }} />}
+                {idx > 0 && <ChevronRight size={14} className="separator" />}
                 <button 
                   onClick={() => navigateToFolder(bc.id)}
-                  style={{ 
-                    background: 'none', border: 'none', padding: '2px 4px', cursor: 'pointer',
-                    color: idx === getBreadcrumbs().length - 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    fontWeight: idx === getBreadcrumbs().length - 1 ? 600 : 400,
-                    borderRadius: '4px', transition: 'all 0.2s',
-                    textDecoration: idx === getBreadcrumbs().length - 1 ? 'none' : 'underline transparent'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  className={`breadcrumb-item ${idx === getBreadcrumbs().length - 1 ? 'last' : ''}`}
                 >
                   {bc.name}
                 </button>
               </React.Fragment>
             ))}
           </div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, margin: 0 }}>
+          <h1>
             {currentFolder ? `📁 ${currentFolder.name}` : '📚 Bibliothèque'}
           </h1>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="action-buttons">
           <button className="btn btn-outline shadow-sm" onClick={handleCreateFolder}>
-            <Plus size={18} /> Dossier
+            <Plus size={18} /> <span className="desktop-only">Dossier</span>
           </button>
           <button className="btn btn-primary shadow-md" onClick={handleCreateCourse}>
-            <Plus size={18} /> Nouveau Cours
+            <Plus size={18} /> <span className="desktop-only">Nouveau Cours</span>
+            <span className="mobile-only">Cours</span>
           </button>
         </div>
       </header>
 
       {/* Moving Overlay Mode */}
       {isMovingId && (
-        <div className="glass-panel" style={{ padding: '1rem', backgroundColor: 'var(--accent-primary)', color: 'white', borderRadius: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: 'slideInTop 0.3s' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="glass-panel moving-overlay">
+          <div className="moving-info">
             <Move size={20} />
-            <span>Déplacement de <strong>{getNode(isMovingId)?.name}</strong>. Cliquez sur "Placer ici" dans le dossier cible.</span>
+            <span>Déplaçant <strong>{getNode(isMovingId)?.name}</strong></span>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn" style={{ backgroundColor: 'white', color: 'var(--accent-primary)', padding: '0.5rem 1rem' }} onClick={() => confirmMove(currentFolderId)}>
+          <div className="moving-actions">
+            <button className="btn btn-place" onClick={() => confirmMove(currentFolderId)}>
               Placer ici
             </button>
-            <button className="btn" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', padding: '0.5rem 1rem', border: 'none' }} onClick={() => setIsMovingId(null)}>
+            <button className="btn btn-cancel" onClick={() => setIsMovingId(null)}>
               Annuler
             </button>
           </div>

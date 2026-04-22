@@ -1,26 +1,142 @@
 .page-header {
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
-.page-header h1 {
-  font-size: 2.25rem;
-  margin-bottom: 0.5rem;
+.library-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 1.5rem;
 }
 
-.subtitle {
+.library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .library-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
   color: var(--text-secondary);
-  font-size: 1.1rem;
+  font-size: 0.85rem;
+}
+
+.breadcrumb-item {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.breadcrumb-item:hover {
+  background-color: var(--bg-elevated);
+}
+
+.breadcrumb-item.last {
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: default;
+}
+
+.breadcrumb-item.last:hover {
+  background-color: transparent;
+}
+
+.separator {
+  opacity: 0.5;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .folder-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 600px) {
+  .folder-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.moving-overlay {
+  padding: 1rem;
+  background-color: var(--accent-primary);
+  color: white;
+  border-radius: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: slideInTop 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .moving-overlay {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+.moving-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.moving-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-place {
+  background-color: white;
+  color: var(--accent-primary);
+  padding: 0.5rem 1rem;
+}
+
+.btn-cancel {
+  background-color: rgba(255,255,255,0.2);
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
 }
 
 .folder-card {
   padding: 1.5rem;
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -28,72 +144,4 @@
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-}
-
-.folder-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
-  pointer-events: none;
-}
-
-.folder-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.folder-icon-wrapper {
-  padding: 1rem;
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-button {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
-}
-
-.icon-button:hover {
-  background-color: var(--bg-primary);
-  color: var(--accent-primary);
-}
-
-.delete-btn:hover {
-  color: var(--danger) !important;
-}
-
-.is-moving {
-  border: 2px dashed var(--accent-primary) !important;
-  opacity: 0.6;
-  pointer-events: none;
-  background: var(--bg-primary) !important;
-}
-
-@keyframes slideInTop {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.folder-info h3 {
-  font-size: 1.25rem;
-  margin-bottom: 0.25rem;
-}
-
-.folder-info p {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
 }
