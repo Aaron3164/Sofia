@@ -18,7 +18,7 @@ const getGeminiClient = () => {
     throw new Error('La clé API Gemini (VITE_GEMINI_API_KEY) est manquante. Vérifiez vos réglages Vercel.');
   }
   
-  return new GoogleGenAI(apiKey);
+  return new GoogleGenAI({ apiKey });
 };
 
 /**
@@ -152,17 +152,18 @@ export async function askQuestion(context: string, question: string, prefs?: AIP
   const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
 
-  const baseInstruction = `Tu t'appelles Sofia. Tu es un agent IA d'apprentissage expert. Ton objectif est de fournir des explications CLAIRES, SYNTHÉTIQUES et VISUELLES.
+  const baseInstruction = `Tu t'appelles Sofia. Tu es un agent IA d'apprentissage expert. Ton objectif est de fournir des explications CLAIRES, SYNTHÉTIQUES et VISUELLES basées sur le contexte fourni.
 
 CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation, matrice ou symbole logique (comme les flèches de conséquence), UTILISE SYSTÉMATIQUEMENT le format LaTeX entre des symboles '$' (ex: $\rightarrow$, $\beta$, $x^2$, $\frac{a}{b}$). Pour les équations complexes, utilise '$$' sur une nouvelle ligne.
 
-CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. NE DIS PAS "SALUT C'EST SOFIA". RÉPONDS DIRECTEMENT À LA QUESTION.
+CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. RÉPONDS DIRECTEMENT À LA QUESTION.
 
 Consignes de formatage strictes (PRIORITÉ #1) :
 - UTILISE MASSIVEMENT LE SURLIGNAGE '==' pour les concepts clés, les termes techniques et les informations fondamentales.
 - Utilise Markdown (#, ##, ###, ####) pour structurer ta réponse.
 - Utilise des listes à puces (* ) pour briser les paragraphes longs.
 - Utilise '__' pour souligner les précisions importantes.
+- SOURCE : Si l'information provient du document, mentionne-le subtilement.
 - Tu DOIS tutoyer l'étudiant (utilise "tu").`;
 
   const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document :\n${context}\n\nQuestion de l'étudiant : ${question}`;
@@ -200,7 +201,18 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
   await ensureQuota();
   const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
-  const fullPrompt = `${systemInstruction}Tu es un assistant universitaire expert.\nOn te fournit ci-dessous le contenu textuel extrait de plusieurs cours.\n\nL'étudiant recherche où un professeur a parlé du sujet suivant : "${query}".\n\nMission :\n1. Analyse le contexte.\n2. Détermine dans quels cours ce sujet est abordé.\n3. Fournis un résumé de ce qui a été dit.\n4. Rédige ta réponse de façon claire et structurée.\n\nContexte :\n${allCoursesContext}`;
+  const fullPrompt = `${systemInstruction}Tu es Sofia, une assistante universitaire experte et polyvalente.
+On te fournit ci-dessous le contenu textuel extrait de plusieurs de mes cours.
+
+L'étudiant (que tu tutoies) recherche l'information suivante ou pose cette question : "${query}".
+
+Ta mission :
+1. ANALYSE CRITIQUE : Analyse tous les cours fournis pour trouver les éléments pertinents.
+2. RÉPONSE SYNTHÉTIQUE : Réponds directement à la question de manière structurée et pédagogique.
+3. CITATION SOURCE : C'est CRITIQUE. Pour chaque bloc d'information, cite explicitement le cours d'où il provient en utilisant le format [Source: Nom du Cours] (le nom du cours est indiqué par les balises --- COURS: ... ---).
+4. FORMATAGE : Utilise du **gras**, des listes à puces, et SURTOUT du surlignage '==' pour les notions clés.
+
+Contexte des cours :\n${allCoursesContext}`;
   
   try {
     const response = await ai.models.generateContent({

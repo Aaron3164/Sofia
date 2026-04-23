@@ -78,29 +78,7 @@ export default function SubjectDetail() {
           .single();
 
         if (error && error.code === 'PGRST116') {
-          // 2. Migration Bridge: Check for local data to upload
-          const saved = localStorage.getItem(storageKey);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            console.log('Migrating local course data to Supabase...');
-            const { error: insertError } = await supabase.from('course_data').upsert({
-              user_id: profile.id,
-              course_id: id,
-              extracted_content: parsed.extractedContent,
-              generations: parsed.generations,
-              pdf_url: parsed.pdfUrl,
-              file_name: parsed.fileName,
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'course_id' });
-
-            if (!insertError) {
-              setExtractedContent(parsed.extractedContent);
-              setGenerations(parsed.generations);
-              setPdfUrl(parsed.pdfUrl);
-              setFileName(parsed.fileName);
-              localStorage.removeItem(storageKey);
-            }
-          }
+          // No record found in cloud, and we rely on GlobalMigration for the sync
           setSyncStatus('connected');
         } else if (data) {
           setExtractedContent(data.extracted_content || '');
