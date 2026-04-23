@@ -8,24 +8,17 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
-let genAIInstance: GoogleGenAI | null = null;
-
 const getGeminiClient = () => {
-  if (genAIInstance) return genAIInstance;
-
-  const rawKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const apiKey = rawKey?.trim();
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   
+  // Debug log pour vérifier la présence de la clé (sans l'afficher)
+  console.log('[DEBUG] Gemini API Key détectée:', apiKey ? 'OUI (longueur: ' + apiKey.length + ')' : 'NON (Vide)');
+
   if (!apiKey) {
-    console.error('[CRITICAL] Clé API Gemini manquante ou vide.');
-    throw new Error('La clé API Gemini (VITE_GEMINI_API_KEY) est manquante.');
+    throw new Error('La clé API Gemini (VITE_GEMINI_API_KEY) est manquante. Vérifiez vos réglages Vercel.');
   }
-
-  // Debug log conservé mais sécurisé
-  console.log('[DEBUG] Initialisation Gemini SDK (Clé OK)');
   
-  genAIInstance = new GoogleGenAI(apiKey);
-  return genAIInstance;
+  return new GoogleGenAI(apiKey);
 };
 
 /**
@@ -207,20 +200,7 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
   await ensureQuota();
   const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
-
-  const fullPrompt = `${systemInstruction}Tu es Sofia, une assistante universitaire experte en mode "Recherche Rapide".
-
-On te fournit ci-dessous le contenu textuel extrait de plusieurs cours. Chaque cours commence par "--- COURS: [Titre] ---".
-
-MISSION : 
-1. Analyse la question de l'étudiant : "${query}".
-2. Cherche l'information exacte dans les documents fournis.
-3. Réponds de manière PERTINENTE et directe en 2 ou 3 PHRASES maximum.
-4. Cite la source exacte en fin de réponse sous le format : **Source: [Titre du cours]**.
-5. Si l'information n'est pas présente, réponds : "Information non trouvée dans vos cours."
-
-CONTEXTE :
-${allCoursesContext}`;
+  const fullPrompt = `${systemInstruction}Tu es un assistant universitaire expert.\nOn te fournit ci-dessous le contenu textuel extrait de plusieurs cours.\n\nL'étudiant recherche où un professeur a parlé du sujet suivant : "${query}".\n\nMission :\n1. Analyse le contexte.\n2. Détermine dans quels cours ce sujet est abordé.\n3. Fournis un résumé de ce qui a été dit.\n4. Rédige ta réponse de façon claire et structurée.\n\nContexte :\n${allCoursesContext}`;
   
   try {
     const response = await ai.models.generateContent({
@@ -233,4 +213,3 @@ ${allCoursesContext}`;
     throw error;
   }
 }
-
