@@ -39,7 +39,7 @@ export function GlobalMigration() {
                   pdf_url: parsed.pdfUrl,
                   file_name: parsed.fileName,
                   updated_at: new Date().toISOString()
-                });
+                }, { onConflict: 'course_id' });
                 
                 if (!upsertError) {
                   console.log(`Migrated/Updated course data for: ${courseId}`);
@@ -72,7 +72,7 @@ export function GlobalMigration() {
                   course_id: courseId,
                   seconds: Math.max(localSeconds, cloudSeconds),
                   updated_at: new Date().toISOString()
-                });
+                }, { onConflict: 'course_id' });
                 migratedCount++;
               }
             }

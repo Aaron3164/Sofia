@@ -8,17 +8,24 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
-const getGeminiClient = () => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  // Debug log pour vérifier la présence de la clé (sans l'afficher)
-  console.log('[DEBUG] Gemini API Key détectée:', apiKey ? 'OUI (longueur: ' + apiKey.length + ')' : 'NON (Vide)');
+let genAIInstance: GoogleGenAI | null = null;
 
-  if (!apiKey) {
-    throw new Error('La clé API Gemini (VITE_GEMINI_API_KEY) est manquante. Vérifiez vos réglages Vercel.');
-  }
+const getGeminiClient = () => {
+  if (genAIInstance) return genAIInstance;
+
+  const rawKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const apiKey = rawKey?.trim();
   
-  return new GoogleGenAI(apiKey);
+  if (!apiKey) {
+    console.error('[CRITICAL] Clé API Gemini manquante ou vide.');
+    throw new Error('La clé API Gemini (VITE_GEMINI_API_KEY) est manquante.');
+  }
+
+  // Debug log conservé mais sécurisé
+  console.log('[DEBUG] Initialisation Gemini SDK (Clé OK)');
+  
+  genAIInstance = new GoogleGenAI(apiKey);
+  return genAIInstance;
 };
 
 /**
