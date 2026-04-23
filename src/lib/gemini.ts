@@ -8,51 +8,77 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
-const TARGET_MODEL = 'gemini-3.1-flash-lite-preview';
-
 const getGeminiClient = () => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('La clé API Gemini est manquante. Vérifiez vos réglages Vercel.');
-  return new GoogleGenAI({ apiKey });
+  
+  // Debug log pour vérifier la présence de la clé (sans l'afficher)
+  console.log('[DEBUG] Gemini API Key détectée:', apiKey ? 'OUI (longueur: ' + apiKey.length + ')' : 'NON (Vide)');
+
+  if (!apiKey) {
+    throw new Error('La clé API Gemini (VITE_GEMINI_API_KEY) est manquante. Vérifiez vos réglages Vercel.');
+  }
+  
+  return new GoogleGenAI(apiKey);
 };
 
+/**
+ * Fetches the current daily AI usage for the logged-in user.
+ */
 export async function getDailyUsage(): Promise<number> {
   const { data, error } = await supabase
     .from('ai_usage')
     .select('count')
     .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
     .single();
+    
   if (error || !data) return 0;
   return data.count;
 }
 
+/**
+ * Checks if the user has reached their daily AI generation limit (20 for free users).
+ */
 async function ensureQuota() {
   const { data, error } = await supabase.rpc('check_and_increment_ai_usage');
+  
   if (error) {
-    if (error.message.includes('does not exist')) return;
+    console.error('Error checking AI quota:', error);
+    // If the tool is missing, we allow the generation to avoid blocking the user
+    // but we log it.
+    if (error.message.includes('does not exist')) {
+      console.warn('RPC check_and_increment_ai_usage not found. Skipping quota check.');
+      return;
+    }
     throw new Error('Erreur technique lors de la vérification du quota.');
   }
+
   if (!data) {
-    throw new Error('Limite de 20 générations par jour atteinte. Passez au pack Premium !');
+    throw new Error('Limite de 20 générations par jour atteinte. Passez au pack Premium pour un accès illimité !');
   }
 }
 
 function getSystemInstruction(prefs?: AIPreferences) {
   const personality = prefs?.ai_personality || 'benevolent';
   const studyMode = prefs?.ai_study_mode || 'understanding';
+
   const personalities = {
     benevolent: "Tu es Sofia, une assistante bienveillante et encourageante. Utilise un ton chaleureux, motive l'élève avec des emojis et des encouragements. Tu DOIS tutoyer l'étudiant.",
     concise: "Tu es Sofia, une assistante ultra-concise et efficace. Va droit au but, évite les fioritures et les phrases inutiles. Tu DOIS tutoyer l'étudiant.",
     academic: "Tu es Sofia, une assistante académique rigoureuse et experte. Utilise un vocabulaire soutenu et précis, cite les sources si possible et adopte une structure très formelle. Tu DOIS tutoyer l'étudiant."
   };
+
   const modes = {
     understanding: "Ton objectif principal est la COMPRÉHENSION : explique les concepts en profondeur, fais des liens logiques et utilise des analogies pédagogiques.",
     memorization: "Ton objectif principal est la MÉMORISATION : focus sur les définitions clés, utilise des moyens mnémotechniques et structure l'information pour qu'elle soit facile à retenir.",
     critical: "Ton objectif principal est l'ESPRIT CRITIQUE : analyse les nuances, présente les débats doctrinaux (essentiel en Droit) et les contre-arguments potentiels."
   };
+
   return `${personalities[personality]} ${modes[studyMode]}\n\n`;
 }
 
+/**
+ * Uploads a file (or passes the URI) to Gemini and generates flashcards.
+ */
 export async function generateStudyMaterials(
   promptContext: string,
   mode: 'flashcards' | 'mcq' | 'resume',
@@ -73,7 +99,7 @@ Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets ave
     mcq: `Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). 
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objects avec "question", "options" (tableau de 4 ou 5 cordes), et "correctAnswers" (tableau contenant les réponses exactes).`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du texte fourni. 
-
+    
 CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le texte section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
 
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. COMMENCE IMMÉDIATEMENT PAR LE TITRE DU RÉSUMÉ OU LE PREMIER CHAPITRE. 
@@ -91,23 +117,32 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
 
   const fullPrompt = `${systemInstruction}${prompts[mode]}\n\nContent Context:\n${promptContext}`;
 
+  const isJSON = mode === 'flashcards' || mode === 'mcq';
+
   try {
     const response = await ai.models.generateContent({
-        model: TARGET_MODEL,
+        model: 'models/gemini-3.1-flash-lite-preview',
         contents: [fullPrompt]
     });
     
     let generatedText = response.text || '';
-    if (mode === 'flashcards' || mode === 'mcq') {
+    
+    if (isJSON) {
+      // Robust JSON extraction: look for the first [ and the last ]
       const startIdx = generatedText.indexOf('[');
       const endIdx = generatedText.lastIndexOf(']');
-      if (startIdx !== -1 && endIdx !== -1) {
+      
+      if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
         generatedText = generatedText.substring(startIdx, endIdx + 1);
+      } else {
+        // Fallback to markdown strip
+        generatedText = generatedText.replace(/```json\n?|```/g, '').trim();
       }
     }
+    
     return generatedText;
   } catch (error) {
-    console.error('Gemini Error:', error);
+    console.error('Error generating content with Gemini:', error);
     throw error;
   }
 }
@@ -119,7 +154,7 @@ export async function askQuestion(context: string, question: string, prefs?: AIP
 
   const baseInstruction = `Tu t'appelles Sofia. Tu es un agent IA d'apprentissage expert. Ton objectif est de fournir des explications CLAIRES, SYNTHÉTIQUES et VISUELLES.
 
-CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation, matrice ou symbole logique (comme les flèches de conséquence), UTILISE SYSTÉMATIQUEMENT le format LaTeX entre des symboles '$' (ex: $\\rightarrow$, $\\beta$, $x^2$, $\\frac{a}{b}$). Pour les équations complexes, utilise '$$' sur une nouvelle ligne.
+CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation, matrice ou symbole logique (comme les flèches de conséquence), UTILISE SYSTÉMATIQUEMENT le format LaTeX entre des symboles '$' (ex: $\rightarrow$, $\beta$, $x^2$, $\frac{a}{b}$). Pour les équations complexes, utilise '$$' sur une nouvelle ligne.
 
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. NE DIS PAS "SALUT C'EST SOFIA". RÉPONDS DIRECTEMENT À LA QUESTION.
 
@@ -134,25 +169,29 @@ Consignes de formatage strictes (PRIORITÉ #1) :
   
   try {
     const response = await ai.models.generateContent({
-        model: TARGET_MODEL,
+        model: 'models/gemini-3.1-flash-lite-preview',
         contents: [fullPrompt],
     });
     return response.text || '';
   } catch (error) {
+    console.error('Error asking question to Gemini:', error);
     throw error;
   }
 }
 
 export async function generateChatTitle(question: string): Promise<string> {
+  await ensureQuota();
   const ai = getGeminiClient();
   const fullPrompt = `Génère un titre très court (3 à 5 mots maximum) résumant cette question posée par un étudiant : "${question}".\nNe retourne QUE le titre, sans guillemets.`;
+  
   try {
     const response = await ai.models.generateContent({
-        model: TARGET_MODEL,
+        model: 'models/gemini-3.1-flash-lite-preview',
         contents: [fullPrompt],
     });
     return (response.text || 'Nouvelle discussion').trim();
   } catch (error) {
+    console.error('Error generating chat title:', error);
     return 'Nouvelle discussion';
   }
 }
@@ -161,15 +200,30 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
   await ensureQuota();
   const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
-  const fullPrompt = `${systemInstruction}Tu es un assistant universitaire expert.\nOn te fournit ci-dessous le contenu textuel extrait de plusieurs cours.\n\nL'étudiant recherche où un professeur a parlé du sujet suivant : "${query}".\n\nMission :\n1. Analyse le contexte.\n2. Détermine dans quels cours ce sujet est abordé.\n3. Fournis un résumé de ce qui a été dit.\n4. Rédige ta réponse de façon claire et structurée.\n\nContexte :\n${allCoursesContext}`;
+
+  const fullPrompt = `${systemInstruction}Tu es Sofia, une assistante universitaire experte en mode "Recherche Rapide".
+
+On te fournit ci-dessous le contenu textuel extrait de plusieurs cours. Chaque cours commence par "--- COURS: [Titre] ---".
+
+MISSION : 
+1. Analyse la question de l'étudiant : "${query}".
+2. Cherche l'information exacte dans les documents fournis.
+3. Réponds de manière PERTINENTE et directe en 2 ou 3 PHRASES maximum.
+4. Cite la source exacte en fin de réponse sous le format : **Source: [Titre du cours]**.
+5. Si l'information n'est pas présente, réponds : "Information non trouvée dans vos cours."
+
+CONTEXTE :
+${allCoursesContext}`;
   
   try {
     const response = await ai.models.generateContent({
-        model: TARGET_MODEL,
+        model: 'models/gemini-3.1-flash-lite-preview',
         contents: [fullPrompt],
     });
     return response.text || '';
   } catch (error) {
+    console.error('Error during global AI search:', error);
     throw error;
   }
 }
+

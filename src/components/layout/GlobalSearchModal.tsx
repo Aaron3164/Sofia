@@ -186,22 +186,43 @@ export const GlobalSearchModal: React.FC = () => {
 };
 
 // Simple Markdown parser
-const formatBold = (text: string) => {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
+const formatText = (text: string) => {
+  // Gère le gras **texte** et le surlignage ==texte==
+  const parts = text.split(/(\*\*.*?\*\*|==.*?==)/g);
   return parts.map((p, i) => {
     if (p.startsWith('**') && p.endsWith('**')) return <strong key={i}>{p.slice(2, -2)}</strong>;
+    if (p.startsWith('==') && p.endsWith('==')) return <mark key={i} style={{ backgroundColor: '#fef08a', color: '#1a1a1a', borderRadius: '2px', padding: '0 2px' }}>{p.slice(2, -2)}</mark>;
     return p;
   });
 };
 
 const renderMarkdown = (text: string) => {
   return text.split('\n').map((line, i) => {
+    if (!line.trim()) return <div key={i} style={{ height: '0.5rem' }} />;
+    
+    // Rendu spécifique pour les sources
+    if (line.includes('**Source:') || line.includes('Source:')) {
+      return (
+        <div key={i} style={{ 
+          marginTop: '0.5rem', 
+          padding: '0.5rem', 
+          backgroundColor: 'var(--bg-primary)', 
+          borderRadius: '0.5rem', 
+          border: '1px solid var(--border-color)',
+          fontSize: '0.9rem',
+          color: 'var(--accent-primary)'
+        }}>
+          {formatText(line)}
+        </div>
+      );
+    }
+
     if (line.startsWith('### ')) return <h3 key={i} style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>{line.replace('### ', '')}</h3>;
     if (line.startsWith('## ')) return <h2 key={i} style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>{line.replace('## ', '')}</h2>;
     if (line.startsWith('# ')) return <h1 key={i} style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>{line.replace('# ', '')}</h1>;
-    if (line.startsWith('- ')) return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.25rem' }}>{formatBold(line.replace('- ', ''))}</li>;
-    if (line.startsWith('* ')) return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.25rem' }}>{formatBold(line.replace('* ', ''))}</li>;
-    if (line.trim() === '') return <div key={i} style={{ height: '0.5rem' }} />;
-    return <p key={i} style={{ marginBottom: '0.5rem' }}>{formatBold(line)}</p>;
+    if (line.startsWith('- ')) return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.25rem' }}>{formatText(line.replace('- ', ''))}</li>;
+    if (line.startsWith('* ')) return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.25rem' }}>{formatText(line.replace('* ', ''))}</li>;
+    
+    return <p key={i} style={{ marginBottom: '0.5rem' }}>{formatText(line)}</p>;
   });
 };
