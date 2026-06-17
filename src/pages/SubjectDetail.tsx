@@ -13,9 +13,7 @@ import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
 import { useAuth } from '../context/AuthContext';
 import { Calendar } from 'lucide-react';
 import './SubjectDetail.css';
-
 type GenerationTab = 'flashcards' | 'mcq' | 'explications' | 'resume';
-
 export default function SubjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -31,6 +29,7 @@ export default function SubjectDetail() {
   const [isGenerating, setIsGenerating] = useState(false);
   const isScheduled = id ? hasScheduledCourse(id) : false;
   const [activeTab, setActiveTab] = useState<GenerationTab | 'source'>('flashcards');
+  const [flashcardCount, setFlashcardCount] = useState<number>(30);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [generations, setGenerations] = useState<Record<GenerationTab, string | null>>({
@@ -41,13 +40,11 @@ export default function SubjectDetail() {
   const [dataLoading, setDataLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing');
   const [syncError, setSyncError] = useState<string | null>(null);
-
   // Load data from Supabase or LocalStorage
   useEffect(() => {
     async function loadData() {
       if (!id) return;
       setDataLoading(true);
-
       try {
         setSyncStatus('syncing');
         if (!profile) {
@@ -69,14 +66,12 @@ export default function SubjectDetail() {
           setSyncStatus('connected');
           return;
         }
-
         // 1. Fetch from Supabase
         const { data, error } = await supabase
           .from('course_data')
           .select('*')
           .eq('course_id', id)
           .single();
-
         if (error && error.code === 'PGRST116') {
           // No record found in cloud, and we rely on GlobalMigration for the sync
           setSyncStatus('connected');
@@ -96,10 +91,8 @@ export default function SubjectDetail() {
         setDataLoading(false);
       }
     }
-
     loadData();
   }, [id, storageKey, profile]);
-
   // Save to Supabase (debounce or specific actions)
   const saveToCloud = async (updates: any) => {
     if (!profile || !id) return;
@@ -125,7 +118,6 @@ export default function SubjectDetail() {
       setSyncError(null);
     }
   };
-
   // Save to local fallback (Buffer for sync reliability)
   useEffect(() => {
     // We always save to local if we have content, acting as a buffer
@@ -133,7 +125,6 @@ export default function SubjectDetail() {
       localStorage.setItem(storageKey, JSON.stringify({ extractedContent, generations, pdfUrl, fileName, naiveAttachments }));
     }
   }, [extractedContent, generations, pdfUrl, fileName, storageKey]);
-
   // Sync time spent to database
   useEffect(() => {
     if (!id || !courseNode) return;
@@ -144,7 +135,6 @@ export default function SubjectDetail() {
     return () => {
       const timeSpent = Math.floor((Date.now() - startTime) / 1000);
       if (timeSpent <= 0) return;
-
       const syncTime = async () => {
         if (!profile) {
           // Local fallback
@@ -156,7 +146,6 @@ export default function SubjectDetail() {
           localStorage.setItem(storeKey, JSON.stringify(saved));
           return;
         }
-
         // Cloud sync (upsert)
         // 1. Get current
         const { data } = await supabase
@@ -166,7 +155,6 @@ export default function SubjectDetail() {
           .single();
         
         const currentSeconds = data?.seconds || 0;
-
         // 2. Add and update
         await supabase.from('course_stats').upsert({
           user_id: profile.id,
@@ -179,12 +167,10 @@ export default function SubjectDetail() {
       syncTime();
     };
   }, [id, courseNode, profile]);
-
   // Migration Bridge for Time Spent (only once per course)
   useEffect(() => {
     if (!profile || !id) return;
     const courseId = id;
-
     async function migrateTime() {
       if (!profile) return; // double check for TS
       const storeKey = 'aura_time_spent';
@@ -209,14 +195,11 @@ export default function SubjectDetail() {
     }
     migrateTime();
   }, [id, profile]);
-
   const [cloudStatus, setCloudStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
   const [extractionProgress, setExtractionProgress] = useState({ current: 0, total: 0 });
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
-
     setFileName(selected.name);
     setIsGenerating(false);
     setIsUploading(true);
@@ -243,7 +226,6 @@ export default function SubjectDetail() {
       
       if (url) setPdfUrl(url);
       setExtractedContent(text);
-
       // 3. Save to Local Buffer immediately (Backup)
       localStorage.setItem(storageKey, JSON.stringify({
         extractedContent: text,
@@ -251,7 +233,6 @@ export default function SubjectDetail() {
         pdfUrl: url,
         fileName: selected.name
       }));
-
       // 4. Atomic save to Cloud
       if (profile) {
         await saveToCloud({ 
@@ -269,11 +250,9 @@ export default function SubjectDetail() {
       setIsUploading(false);
     }
   };
-
   const handleNaiveUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-
     setIsUploadingNaive(true);
     try {
       const newAttachments = [...naiveAttachments];
@@ -299,14 +278,12 @@ export default function SubjectDetail() {
       setIsUploadingNaive(false);
     }
   };
-
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!confirm('Supprimer ce document ?')) return;
     const updated = naiveAttachments.filter(a => a.id !== attachmentId);
     setNaiveAttachments(updated);
     if (profile) await saveToCloud({ naive_attachments: updated });
   };
-
   const handleGenerate = async () => {
     if (!extractedContent) return alert('Veuillez uploader un PDF en premier.');
     if (activeTab === 'explications' || activeTab === 'source') return; // QA and Source have no generation
@@ -317,11 +294,11 @@ export default function SubjectDetail() {
         const result = await generateStudyMaterials(
           extractedContent.substring(0, 300000), 
           activeTab,
-          profile?.preferences
+          profile?.preferences,
+          activeTab === 'flashcards' ? flashcardCount : undefined
         );
         const newGenerations = { ...generations, [activeTab]: result };
         setGenerations(newGenerations);
-
         // Instant local buffer
         localStorage.setItem(storageKey, JSON.stringify({
           extractedContent,
@@ -329,7 +306,6 @@ export default function SubjectDetail() {
           pdfUrl,
           fileName
         }));
-
         if (profile) await saveToCloud({ generations: newGenerations });
       }
     } catch (error) {
@@ -338,14 +314,12 @@ export default function SubjectDetail() {
       setIsGenerating(false);
     }
   };
-
   const tabs = [
     { id: 'flashcards', label: '⚡ Flashcards (Anki)' },
     { id: 'mcq', label: '🎯 Examens Blancs (QCM)' },
     { id: 'explications', label: '🤖 Explications (IA)' },
     { id: 'resume', label: '✨ Résumé' },
   ];
-
   const updateData = (tab: GenerationTab, newData: any) => {
     const newGenerations = { ...generations, [tab]: newData };
     setGenerations(newGenerations);
@@ -355,21 +329,18 @@ export default function SubjectDetail() {
       saveToCloud({ generations: newGenerations });
     }
   };
-
   const handleSchedule = () => {
     if (id && courseNode) {
       scheduleCourse(id, courseNode.name);
       alert('Cours programmé avec la méthode des J (J+1, J+3, J+7, J+14, J+30) !');
     }
   };
-
   const handleUnschedule = () => {
     if (id) {
       removeCourseSchedules(id);
       alert('Cours retiré du calendrier de révisions.');
     }
   };
-
   if (dataLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: 'var(--text-secondary)' }}>
@@ -378,7 +349,6 @@ export default function SubjectDetail() {
       </div>
     );
   }
-
   return (
     <div className="fade-in subject-detail-container">
       <header className="subject-header">
@@ -430,7 +400,6 @@ export default function SubjectDetail() {
           </button>
         </div>
       </header>
-
       {/* Cloud Diagnostic Status (Only on error) */}
       {syncStatus === 'error' && (
         <div style={{ 
@@ -460,7 +429,6 @@ export default function SubjectDetail() {
           )}
         </div>
       )}
-
       <div className="subject-content-grid">
         
         {/* Left Column: Source Material */}
@@ -524,7 +492,6 @@ export default function SubjectDetail() {
               </label>
             </div>
           )}
-
           {/* Naive Attachments Section */}
           <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
             <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -534,7 +501,6 @@ export default function SubjectDetail() {
                 <input type="file" id="naive-upload" multiple accept=".pdf" onChange={handleNaiveUpload} style={{ display: 'none' }} />
               </label>
             </h4>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {isUploadingNaive && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.5rem', fontSize: '0.85rem' }}>
@@ -570,7 +536,6 @@ export default function SubjectDetail() {
             </div>
           </div>
         </div>
-
         {/* Right Column: AI Generations */}
         <div className="glass-panel generation-column">
           <div className="tabs-container">
@@ -590,24 +555,54 @@ export default function SubjectDetail() {
               </button>
             ))}
           </div>
-
           <div className="tab-content-area">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
                 <BrainCircuit size={20} className="text-accent" />
                 {tabs.find(t => t.id === activeTab)?.label.split('(')[0]}
               </h3>
-              {activeTab !== 'explications' && activeTab !== 'source' && (
-                <button 
-                  className="btn btn-primary" 
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !extractedContent}
-                >
-                  {isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <span>Générer</span>}
-                </button>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                {activeTab === 'flashcards' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <label htmlFor="flashcard-count" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>
+                      Cartes (1-50) :
+                    </label>
+                    <input
+                      type="number"
+                      id="flashcard-count"
+                      min={1}
+                      max={50}
+                      value={flashcardCount}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val)) {
+                          setFlashcardCount(Math.min(50, Math.max(1, val)));
+                        }
+                      }}
+                      style={{
+                        width: '60px',
+                        padding: '0.4rem',
+                        borderRadius: '0.5rem',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        textAlign: 'center',
+                        fontWeight: 600
+                      }}
+                    />
+                  </div>
+                )}
+                {activeTab !== 'explications' && activeTab !== 'source' && (
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={handleGenerate}
+                    disabled={isGenerating || !extractedContent}
+                  >
+                    {isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <span>Générer</span>}
+                  </button>
+                )}
+              </div>
             </div>
-
             <div className="content-viewer">
               {/* PDF Source Tab */}
               <div style={{ display: activeTab === 'source' ? 'block' : 'none', height: '100%' }}>
@@ -623,7 +618,6 @@ export default function SubjectDetail() {
                   />
                 )}
               </div>
-
               {/* Explications (IA) Tab */}
               <div style={{ display: activeTab === 'explications' ? 'block' : 'none', height: '100%' }}>
                 <InteractiveQA 
@@ -633,12 +627,10 @@ export default function SubjectDetail() {
                   preferences={profile?.preferences} 
                 />
               </div>
-
               {/* Generalized Generation Tabs (Flashcards, MCQ, Resume) */}
               {tabs.map(tab => {
                 const content = generations[tab.id as GenerationTab];
                 if (tab.id === 'explications') return null; // Handled above
-
                 return (
                   <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
                     {!content ? (
@@ -658,7 +650,6 @@ export default function SubjectDetail() {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );
