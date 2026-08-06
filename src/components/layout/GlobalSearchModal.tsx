@@ -48,50 +48,55 @@ export const GlobalSearchModal: React.FC = () => {
     }
   }, [isOpen]);
 
-// Helper function to rank courses by keyword match
-function rankCourses(courses: { name: string; content: string }[], query: string): { name: string; content: string }[] {
-  const cleanQuery = query
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // remove accents
+// Helper to extract snippets of text around matched keywords
+function extractSnippets(content: string, keywords: string[], contextWindow: number = 300): string {
+  if (!content) return '';
   
-  const tokens = cleanQuery.split(/[\s,.'";:!?()\-+/]+/);
+  const contentLower = content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const snippets: string[] = [];
   
-  const stopWords = new Set([
-    'dans', 'quels', 'cours', 'on', 'parle', 'de', 'la', 'le', 'les', 'des', 
-    'du', 'en', 'est', 'un', 'une', 'et', 'ou', 'je', 'tu', 'il', 'nous', 
-    'vous', 'ils', 'elle', 'elles', 'a', 'par', 'pour', 'sur', 'dans', 'avec',
-    'qui', 'que', 'quoi', 'dont', 'ou', 'où'
-  ]);
-  
-  const keywords = tokens.filter(t => t.length > 1 && !stopWords.has(t));
-  
-  if (keywords.length === 0) {
-    return courses;
-  }
-
-  return courses.map(course => {
-    let score = 0;
-    const fileNameLower = (course.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const contentLower = (course.content || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-    for (const keyword of keywords) {
-      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escapedKeyword, 'gi');
+  // Find matches for each keyword
+  for (const keyword of keywords) {
+    let index = 0;
+    while ((index = contentLower.indexOf(keyword, index)) !== -1) {
+      const start = Math.max(0, index - contextWindow);
+      const end = Math.min(content.length, index + keyword.length + contextWindow);
       
-      const nameMatches = fileNameLower.match(regex);
-      if (nameMatches) {
-        score += nameMatches.length * 100; // high weight for filename matches
+      let snippet = content.substring(start, end);
+      
+      // Try to align to sentence boundaries
+      if (start > 0) {
+        const firstPeriod = snippet.indexOf('.');
+        if (firstPeriod !== -1 && firstPeriod < contextWindow) {
+          snippet = snippet.substring(firstPeriod + 1);
+        }
+      }
+      if (end < content.length) {
+        const lastPeriod = snippet.lastIndexOf('.');
+        if (lastPeriod !== -1 && lastPeriod > contextWindow) {
+          snippet = snippet.substring(0, lastPeriod + 1);
+        }
       }
       
-      const contentMatches = contentLower.match(regex);
-      if (contentMatches) {
-        score += contentMatches.length;
+      const trimmedSnippet = snippet.trim();
+      if (trimmedSnippet && !snippets.includes(trimmedSnippet)) {
+        snippets.push(trimmedSnippet);
       }
+      
+      // Move index forward to avoid overlapping snippets
+      index += keyword.length + contextWindow * 2; 
+      
+      if (snippets.length >= 10) break;
     }
-
-    return { ...course, searchScore: score };
-  }).sort((a, b) => (b.searchScore || 0) - (a.searchScore || 0));
+    if (snippets.length >= 15) break;
+  }
+  
+  if (snippets.length === 0) {
+    // Fallback: if no keyword matches but it was returned, provide first few paragraphs
+    return content.substring(0, 4000) + "\n... [Contenu tronqué] ...";
+  }
+  
+  return snippets.join('\n\n[...] \n\n');
 }
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -101,73 +106,139 @@ function rankCourses(courses: { name: string; content: string }[], query: string
     setIsSearching(true);
     setResults(null);
 
+    // Extract keywords for search matching
+    const cleanQuery = query
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    
+    const tokens = cleanQuery.split(/[\s,.'";:!?()\-+/]+/);
+    
+    const stopWords = new Set([
+      'dans', 'quels', 'cours', 'on', 'parle', 'de', 'la', 'le', 'les', 'des', 
+      'du', 'en', 'est', 'un', 'une', 'et', 'ou', 'je', 'tu', 'il', 'nous', 
+      'vous', 'ils', 'elle', 'elles', 'a', 'par', 'pour', 'sur', 'dans', 'avec',
+      'qui', 'que', 'quoi', 'dont', 'ou', 'où', 'recherche', 'trouve', 'expliquer'
+    ]);
+    
+    const keywords = tokens.filter(t => t.length > 2 && !stopWords.has(t));
+
     try {
-      // 1. Fetch Cloud Progress - Get extracted content from Supabase
-      const { data: cloudData, error: cloudError } = await supabase
-        .from('course_data')
-        .select('course_id, file_name, extracted_content')
-        .not('extracted_content', 'is', null);
+      // 1. Fetch Cloud Matching Data
+      let cloudMatchingRows: any[] = [];
+      
+      if (keywords.length > 0) {
+        // First try textSearch
+        const { data: ftsData, error: ftsError } = await supabase
+          .from('course_data')
+          .select('course_id, file_name, extracted_content')
+          .textSearch('extracted_content', keywords.join(' '), { config: 'french', type: 'plain' });
+          
+        if (!ftsError && ftsData && ftsData.length > 0) {
+          cloudMatchingRows = ftsData;
+        } else {
+          // Fallback: search using OR ILIKE
+          const orFilter = keywords.map(t => `extracted_content.ilike.%${t}%`).join(',');
+          const { data: ilikeData } = await supabase
+            .from('course_data')
+            .select('course_id, file_name, extracted_content')
+            .or(orFilter);
+          if (ilikeData) cloudMatchingRows = ilikeData;
+        }
+      } else {
+        // Fallback for extremely short queries: retrieve first 5 items
+        const { data: topData } = await supabase
+          .from('course_data')
+          .select('course_id, file_name, extracted_content')
+          .limit(5);
+        if (topData) cloudMatchingRows = topData;
+      }
 
-      if (cloudError) console.warn("Erreur chargement Cloud Search:", cloudError);
+      // 2. Gather and extract snippets from all sources
+      const allMatchingSources: { name: string; snippets: string; score: number }[] = [];
 
-      // 2. Gather all sources
-      const allSources: { name: string; content: string }[] = [];
-
-      if (cloudData) {
-        for (const row of cloudData) {
-          allSources.push({
+      // Process Cloud matches
+      for (const row of cloudMatchingRows) {
+        const content = row.extracted_content || '';
+        const snippetsText = extractSnippets(content, keywords);
+        
+        if (snippetsText) {
+          // Calculate score based on matches
+          let score = 0;
+          const fileNameLower = (row.file_name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          for (const kw of keywords) {
+            if (fileNameLower.includes(kw)) score += 150; // high weight for matches in title
+            const regex = new RegExp(kw, 'gi');
+            const matches = snippetsText.match(regex);
+            if (matches) score += matches.length;
+          }
+          
+          allMatchingSources.push({
             name: row.file_name || 'Sans titre',
-            content: row.extracted_content || ''
+            snippets: snippetsText,
+            score
           });
         }
       }
 
-      // Supplement with Local Data for nodes not yet in cloud or for faster access
+      // Supplement with local matches
       const localCourseIds = nodes.filter((n: FileNode) => n.type === 'course').map(n => n.id);
       for (const courseId of localCourseIds) {
-        if (cloudData?.some((c: any) => c.course_id === courseId)) continue;
+        if (cloudMatchingRows.some((c: any) => c.course_id === courseId)) continue;
 
         const saved = localStorage.getItem(`aura_subject_${courseId}`);
         if (saved) {
            try {
              const parsed = JSON.parse(saved);
-             if (parsed.extractedContent) {
-                const courseName = nodes.find(n => n.id === courseId)?.name || 'Anonyme';
-                allSources.push({
-                  name: courseName,
-                  content: parsed.extractedContent
-                });
+             const content = parsed.extractedContent || '';
+             if (content) {
+                // Check if it matches at least one keyword
+                const contentLower = content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const hasMatch = keywords.length === 0 || keywords.some(kw => contentLower.includes(kw));
+                
+                if (hasMatch) {
+                  const snippetsText = extractSnippets(content, keywords);
+                  const courseName = nodes.find(n => n.id === courseId)?.name || 'Anonyme';
+                  
+                  let score = 0;
+                  const nameLower = courseName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  for (const kw of keywords) {
+                    if (nameLower.includes(kw)) score += 150;
+                    const regex = new RegExp(kw, 'gi');
+                    const matches = snippetsText.match(regex);
+                    if (matches) score += matches.length;
+                  }
+
+                  allMatchingSources.push({
+                    name: courseName,
+                    snippets: snippetsText,
+                    score
+                  });
+                }
              }
            } catch (e) {}
         }
       }
 
-      if (allSources.length === 0) {
-        setResults("Il semble que vous n'ayez aucun contenu de cours enregistré. Importez d'abord des fichiers dans votre bibliothèque.");
+      if (allMatchingSources.length === 0) {
+        setResults("Aucun cours ne semble correspondre à votre recherche. Essayez d'utiliser d'autres mots-clés (par exemple : 'cordes vocales').");
         setIsSearching(false);
         return;
       }
 
-      // 3. Rank by relevance
-      const rankedSources = rankCourses(allSources, query);
+      // 3. Sort by relevance score
+      allMatchingSources.sort((a, b) => b.score - a.score);
 
-      // 4. Build context under budget (800k characters)
-      const contextBudget = 800000;
+      // 4. Build prompt context using snippets (max 300k chars)
+      const contextBudget = 300000;
       let currentLength = 0;
       let fullContext = '';
 
-      for (const source of rankedSources) {
+      for (const source of allMatchingSources) {
         if (currentLength >= contextBudget) break;
-
-        // Truncate individual courses that are abnormally long (to 250k chars)
-        // so they don't consume the entire budget.
-        const contentSnippet = source.content.length > 250000
-          ? source.content.substring(0, 250000) + "\n[Contenu tronqué pour cause de longueur...]"
-          : source.content;
-
-        const snippet = `\n\n--- COURS: ${source.name} ---\n${contentSnippet}`;
-        fullContext += snippet;
-        currentLength += snippet.length;
+        const snippetBlock = `\n\n--- COURS: ${source.name} ---\n... [Extraits pertinents] ...\n${source.snippets}`;
+        fullContext += snippetBlock;
+        currentLength += snippetBlock.length;
       }
 
       const gResult = await globalSearch(query, fullContext, profile?.preferences);
