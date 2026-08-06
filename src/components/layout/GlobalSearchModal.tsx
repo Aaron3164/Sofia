@@ -48,6 +48,52 @@ export const GlobalSearchModal: React.FC = () => {
     }
   }, [isOpen]);
 
+// Helper function to rank courses by keyword match
+function rankCourses(courses: { name: string; content: string }[], query: string): { name: string; content: string }[] {
+  const cleanQuery = query
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // remove accents
+  
+  const tokens = cleanQuery.split(/[\s,.'";:!?()\-+/]+/);
+  
+  const stopWords = new Set([
+    'dans', 'quels', 'cours', 'on', 'parle', 'de', 'la', 'le', 'les', 'des', 
+    'du', 'en', 'est', 'un', 'une', 'et', 'ou', 'je', 'tu', 'il', 'nous', 
+    'vous', 'ils', 'elle', 'elles', 'a', 'par', 'pour', 'sur', 'dans', 'avec',
+    'qui', 'que', 'quoi', 'dont', 'ou', 'où'
+  ]);
+  
+  const keywords = tokens.filter(t => t.length > 1 && !stopWords.has(t));
+  
+  if (keywords.length === 0) {
+    return courses;
+  }
+
+  return courses.map(course => {
+    let score = 0;
+    const fileNameLower = (course.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const contentLower = (course.content || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    for (const keyword of keywords) {
+      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedKeyword, 'gi');
+      
+      const nameMatches = fileNameLower.match(regex);
+      if (nameMatches) {
+        score += nameMatches.length * 100; // high weight for filename matches
+      }
+      
+      const contentMatches = contentLower.match(regex);
+      if (contentMatches) {
+        score += contentMatches.length;
+      }
+    }
+
+    return { ...course, searchScore: score };
+  }).sort((a, b) => (b.searchScore || 0) - (a.searchScore || 0));
+}
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -64,27 +110,21 @@ export const GlobalSearchModal: React.FC = () => {
 
       if (cloudError) console.warn("Erreur chargement Cloud Search:", cloudError);
 
-      // 2. Build massive context but with a safety budget (approx 300k chars)
-      const contextBudget = 300000;
-      let currentLength = 0;
-      let fullContext = '';
-      
-      // Process Cloud Data first (most reliable)
+      // 2. Gather all sources
+      const allSources: { name: string; content: string }[] = [];
+
       if (cloudData) {
         for (const row of cloudData) {
-          if (currentLength >= contextBudget) break;
-          const content = row.extracted_content || '';
-          const snippet = `\n\n--- COURS: ${row.file_name || 'Sans titre'} ---\n${content}`;
-          fullContext += snippet;
-          currentLength += snippet.length;
+          allSources.push({
+            name: row.file_name || 'Sans titre',
+            content: row.extracted_content || ''
+          });
         }
       }
 
-      // 3. Supplement with Local Data for nodes not yet in cloud or for faster access
+      // Supplement with Local Data for nodes not yet in cloud or for faster access
       const localCourseIds = nodes.filter((n: FileNode) => n.type === 'course').map(n => n.id);
       for (const courseId of localCourseIds) {
-        if (currentLength >= contextBudget) break;
-        // Skip if already found in cloud to avoid duplicates
         if (cloudData?.some((c: any) => c.course_id === courseId)) continue;
 
         const saved = localStorage.getItem(`aura_subject_${courseId}`);
@@ -93,17 +133,41 @@ export const GlobalSearchModal: React.FC = () => {
              const parsed = JSON.parse(saved);
              if (parsed.extractedContent) {
                 const courseName = nodes.find(n => n.id === courseId)?.name || 'Anonyme';
-                const snippet = `\n\n--- COURS: ${courseName} ---\n${parsed.extractedContent}`;
-                fullContext += snippet;
-                currentLength += snippet.length;
+                allSources.push({
+                  name: courseName,
+                  content: parsed.extractedContent
+                });
              }
            } catch (e) {}
         }
       }
 
-      if (!fullContext.trim()) {
+      if (allSources.length === 0) {
         setResults("Il semble que vous n'ayez aucun contenu de cours enregistré. Importez d'abord des fichiers dans votre bibliothèque.");
+        setIsSearching(false);
         return;
+      }
+
+      // 3. Rank by relevance
+      const rankedSources = rankCourses(allSources, query);
+
+      // 4. Build context under budget (800k characters)
+      const contextBudget = 800000;
+      let currentLength = 0;
+      let fullContext = '';
+
+      for (const source of rankedSources) {
+        if (currentLength >= contextBudget) break;
+
+        // Truncate individual courses that are abnormally long (to 250k chars)
+        // so they don't consume the entire budget.
+        const contentSnippet = source.content.length > 250000
+          ? source.content.substring(0, 250000) + "\n[Contenu tronqué pour cause de longueur...]"
+          : source.content;
+
+        const snippet = `\n\n--- COURS: ${source.name} ---\n${contentSnippet}`;
+        fullContext += snippet;
+        currentLength += snippet.length;
       }
 
       const gResult = await globalSearch(query, fullContext, profile?.preferences);
@@ -150,7 +214,7 @@ export const GlobalSearchModal: React.FC = () => {
             onChange={(e) => setQuery(e.target.value)}
             style={{
               flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent',
-              fontSize: '1.2rem', color: '#ffffff'
+              fontSize: '1.2rem', color: 'var(--text-primary)'
             }}
           />
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
