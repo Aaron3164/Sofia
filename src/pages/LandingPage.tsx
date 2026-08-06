@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
-import { Sparkles, Zap, Brain, ArrowRight, Check, Upload, FileText } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { ArrowRight, Sparkles, Brain, Zap, CheckCircle, Clock, Search, BarChart3, Shield, Star, ChevronRight, BookOpen, Layers } from 'lucide-react';
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
 export default function LandingPage({ onGetStarted }: LandingPageProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -13,7 +15,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           entry.target.classList.add('active');
         }
       });
-    }, { threshold: 0.15 });
+    }, { threshold: 0.1 });
 
     const elements = document.querySelectorAll('.reveal');
     elements.forEach(el => observer.observe(el));
@@ -21,347 +23,526 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     return () => observer.disconnect();
   }, []);
 
+  const features = [
+    {
+      icon: <Zap size={22} />,
+      title: 'Flashcards intelligentes',
+      desc: 'Tes fiches de révision générées en 10 secondes depuis n\'importe quel PDF. Format Anki compatible.',
+      color: '#a78bfa',
+    },
+    {
+      icon: <Brain size={22} />,
+      title: 'QCM & Examens Blancs',
+      desc: 'Des questions adaptées au niveau de tes études — format ECNi, concours, partiels. Jamais les mêmes deux fois.',
+      color: '#34d399',
+    },
+    {
+      icon: <Search size={22} />,
+      title: 'Recherche dans tous tes cours',
+      desc: 'Retrouve une notion dans l\'ensemble de ta bibliothèque en une seule requête. L\'IA cherche à ta place.',
+      color: '#f59e0b',
+    },
+    {
+      icon: <Clock size={22} />,
+      title: 'Répétition espacée',
+      desc: 'Un calendrier de révision généré automatiquement, basé sur l\'algorithme de Leitner, pour ne plus rien oublier.',
+      color: '#f87171',
+    },
+    {
+      icon: <BarChart3 size={22} />,
+      title: 'Suivi de progression',
+      desc: 'Visualise ton temps de travail, tes scores aux QCM et l\'évolution de ta maîtrise cours par cours.',
+      color: '#60a5fa',
+    },
+    {
+      icon: <Layers size={22} />,
+      title: 'Bibliothèque organisée',
+      desc: 'Tes cours rangés en dossiers, synchronisés sur le cloud. Accède à tout, depuis n\'importe quel appareil.',
+      color: '#e879f9',
+    },
+  ];
+
+  const testimonials = [
+    { name: 'Léa M.', promo: 'D1 — Paris V', text: 'J\'ai passé mes partiels avec 40% de révisions en moins. La génération de QCM est bluffante.', rating: 5 },
+    { name: 'Thomas K.', promo: 'L3 Droit — Lyon', text: 'Plus jamais je ne lis un polycopié de 80 pages en entier. Sofia extrait ce qui compte vraiment.', rating: 5 },
+    { name: 'Camille R.', promo: 'P2 — Bordeaux', text: 'La recherche globale dans tous mes cours m\'a sauvé lors d\'une colle. Indispensable.', rating: 5 },
+  ];
+
   return (
-    <div className="landing-container" style={{ 
-      width: '100%', 
-      height: '100vh', 
-      overflowY: 'auto', 
-      scrollBehavior: 'smooth',
-      backgroundColor: 'var(--bg-primary)',
-      color: 'var(--text-primary)',
-      fontFamily: "'Inter', sans-serif"
-    }}>
-      {/* Section 1: Hero */}
-      <section style={{ 
-        minHeight: '80vh', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        padding: '2rem',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: '100vh',
+        overflowY: 'auto',
+        scrollBehavior: 'smooth',
+        backgroundColor: '#08090f',
+        color: '#f0f2ff',
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      {/* ── NAV ────────────────────────────────────────────── */}
+      <nav style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '1rem 2.5rem',
+        background: 'rgba(8, 9, 15, 0.85)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
         <div style={{
-          position: 'absolute',
-          top: '-10%',
-          right: '-5%',
-          width: '50vw',
-          height: '50vw',
-          background: 'radial-gradient(circle, var(--accent-primary)15 0%, transparent 70%)',
-          filter: 'blur(80px)',
-          zIndex: 0
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          fontSize: '1.5rem',
+          fontWeight: 800,
+          background: 'linear-gradient(135deg, #a78bfa 0%, #34d399 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          letterSpacing: '-0.04em',
+        }}>
+          Sof.IA
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <a href="#features" style={{ color: 'rgba(240,242,255,0.6)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500, padding: '0.4rem 0.75rem' }}>
+            Fonctionnalités
+          </a>
+          <a href="#pricing" style={{ color: 'rgba(240,242,255,0.6)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500, padding: '0.4rem 0.75rem' }}>
+            Tarifs
+          </a>
+          <button
+            onClick={onGetStarted}
+            style={{
+              padding: '0.55rem 1.25rem',
+              borderRadius: '2rem',
+              border: '1px solid rgba(167,139,250,0.4)',
+              background: 'rgba(167,139,250,0.1)',
+              color: '#c4b5fd',
+              fontSize: '0.88rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.2)'; e.currentTarget.style.borderColor = '#a78bfa'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.1)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'; }}
+          >
+            Connexion
+          </button>
+        </div>
+      </nav>
+
+      {/* ── HERO ───────────────────────────────────────────── */}
+      <section style={{
+        minHeight: '92vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4rem 2rem',
+        textAlign: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Animated blobs */}
+        <div style={{
+          position: 'absolute', top: '-15%', left: '-10%',
+          width: '55vw', height: '55vw', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(124,58,237,0.22) 0%, transparent 70%)',
+          filter: 'blur(60px)', animation: 'floatSlow 12s ease-in-out infinite',
+          pointerEvents: 'none',
         }} />
-        
-        <div className="reveal reveal-scale" style={{ zIndex: 1, maxWidth: '900px' }}>
-          <div style={{ 
-            padding: '0.6rem 1.2rem', 
-            backgroundColor: 'var(--accent-primary)15', 
+        <div style={{
+          position: 'absolute', bottom: '-20%', right: '-10%',
+          width: '45vw', height: '45vw', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(52,211,153,0.14) 0%, transparent 70%)',
+          filter: 'blur(80px)', animation: 'floatSlow 16s ease-in-out infinite reverse',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', top: '40%', right: '15%',
+          width: '25vw', height: '25vw', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(248,113,113,0.08) 0%, transparent 70%)',
+          filter: 'blur(50px)', animation: 'float 10s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+
+        <div className="reveal reveal-scale" style={{ zIndex: 1, maxWidth: '860px' }}>
+          {/* Label */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+            padding: '0.4rem 1rem',
             borderRadius: '2rem',
-            color: 'var(--accent-primary)',
-            fontSize: '0.9rem',
-            fontWeight: 600,
-            marginBottom: '1.5rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem'
+            border: '1px solid rgba(167,139,250,0.3)',
+            background: 'rgba(167,139,250,0.08)',
+            color: '#c4b5fd',
+            fontSize: '0.82rem', fontWeight: 600,
+            marginBottom: '2rem',
+            backdropFilter: 'blur(8px)',
           }}>
-            <Sparkles size={18} /> L'Intelligence Artificielle pour tes études
+            <Sparkles size={14} />
+            IA de révision pour les filières exigeantes
           </div>
-          
-          <h1 style={{ 
-            fontSize: 'clamp(2.8rem, 8vw, 4.5rem)', 
-            fontWeight: 900, 
-            lineHeight: 1.1, 
-            marginBottom: '1.25rem',
-            background: 'linear-gradient(135deg, var(--text-primary) 20%, var(--accent-primary) 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '-0.04em'
+
+          {/* Title */}
+          <h1 style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 'clamp(3rem, 8vw, 5.5rem)',
+            fontWeight: 900,
+            lineHeight: 1.05,
+            letterSpacing: '-0.04em',
+            marginBottom: '1.5rem',
           }}>
-            Domine tes cours avec Sof.IA
+            <span style={{
+              background: 'linear-gradient(135deg, #ffffff 30%, #a78bfa 70%, #34d399 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundSize: '200% auto',
+              animation: 'gradientShift 6s ease infinite',
+            }}>
+              Révise 3× plus vite.
+            </span>
+            <br />
+            <span style={{ color: 'rgba(240,242,255,0.55)', fontWeight: 800 }}>
+              Réussis vraiment.
+            </span>
           </h1>
-          
-          <p style={{ 
-            fontSize: 'clamp(1.1rem, 2.2vw, 1.3rem)', 
-            color: 'var(--text-secondary)', 
-            marginBottom: '2.5rem',
-            maxWidth: '700px',
+
+          {/* Subtitle */}
+          <p style={{
+            fontSize: 'clamp(1.05rem, 2vw, 1.25rem)',
+            color: 'rgba(240,242,255,0.55)',
+            maxWidth: '620px',
             marginInline: 'auto',
-            lineHeight: 1.5
+            lineHeight: 1.65,
+            marginBottom: '3rem',
           }}>
-            Sof.IA analyse tes PDF, crée tes fiches de révision et génère tes flashcards en un clic. Spécialement conçu pour les filières exigeantes comme le Droit.
+            Sof.IA transforme tes PDF en flashcards, QCM et fiches de révision en un clic.
+            Conçue pour la médecine, le droit et toutes les filières à volume massif de contenu.
           </p>
-          
-          <div style={{ display: 'flex', gap: '1.25rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button 
+
+          {/* CTAs */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '3rem' }}>
+            <button
               onClick={onGetStarted}
-              className="btn btn-primary" 
-              style={{ padding: '1.25rem 2.5rem', fontSize: '1.1rem', borderRadius: '1.1rem', boxShadow: '0 12px 32px var(--accent-primary)40' }}
+              style={{
+                padding: '1rem 2.25rem',
+                fontSize: '1rem',
+                fontWeight: 700,
+                fontFamily: "'Inter', sans-serif",
+                borderRadius: '0.875rem',
+                border: 'none',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '0.6rem',
+                boxShadow: '0 8px 32px rgba(124,58,237,0.4)',
+                transition: 'all 0.25s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(124,58,237,0.5)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.4)'; }}
             >
-              Essayer maintenant <ArrowRight size={22} style={{ marginLeft: '0.5rem' }} />
+              Commencer gratuitement <ArrowRight size={18} />
+            </button>
+            <button
+              onClick={onGetStarted}
+              style={{
+                padding: '1rem 1.75rem',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                fontFamily: "'Inter', sans-serif",
+                borderRadius: '0.875rem',
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.05)',
+                color: 'rgba(240,242,255,0.8)',
+                cursor: 'pointer',
+                backdropFilter: 'blur(8px)',
+                transition: 'all 0.25s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+            >
+              Voir une démo
             </button>
           </div>
-        </div>
-      </section>
 
-      {/* NEW Section: Magik Transform (Law Focused) */}
-      <section style={{ padding: '6rem 2rem', backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}>
-        <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '4rem' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '1rem' }}>Magik Transform : Du PDF à la Fiche</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Ne perds plus ton temps à lire 50 pages de doctrine. Sofia extrait l'essentiel.</p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
-            {/* Left: Dense PDF Mock */}
-            <div className="glass-panel reveal reveal-left delay-1" style={{ width: '320px', height: '420px', padding: '1.5rem', borderRadius: '1rem', position: 'relative', overflow: 'hidden', backgroundColor: 'white', border: '1px solid #e2e8f0' }}>
-               <div style={{ color: '#64748b', fontSize: '0.65rem', lineHeight: 1.4 }}>
-                  <h4 style={{ color: '#1e293b', fontSize: '0.9rem', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Code Civil - Art. 1101 et suiv.</h4>
-                  <p style={{ marginBottom: '0.8rem' }}>Le contrat est une convention par laquelle une ou plusieurs personnes s'obligent, envers une ou plusieurs autres, à donner, à faire ou à ne pas faire quelque chose...</p>
-                  <p style={{ marginBottom: '0.8rem' }}>Il est de l'essence de l'obligation de reposer sur une cause licite dans l'obligation. La validité du contrat est subordonnée au consentement de la partie qui s'oblige, à sa capacité de contracter, à un objet certain qui forme la matière de l'engagement...</p>
-                  <div style={{ width: '100%', height: '10px', background: '#f1f5f9', marginBottom: '0.5rem' }}></div>
-                  <div style={{ width: '90%', height: '10px', background: '#f1f5f9', marginBottom: '0.5rem' }}></div>
-                  <div style={{ width: '95%', height: '10px', background: '#f1f5f9', marginBottom: '0.5rem' }}></div>
-                  <div style={{ width: '85%', height: '10px', background: '#f1f5f9', marginBottom: '0.5rem' }}></div>
-                  <div style={{ width: '100%', height: '10px', background: '#f1f5f9', marginBottom: '2rem' }}></div>
-                  <p style={{ opacity: 0.5 }}>[... 48 pages restantes ...]</p>
-               </div>
-               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '80px', background: 'linear-gradient(transparent, white)', pointerEvents: 'none' }}></div>
+          {/* Social proof mini */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', color: 'rgba(240,242,255,0.4)' }}>
+              {[1,2,3,4,5].map(i => <Star key={i} size={13} fill="#f59e0b" color="#f59e0b" />)}
+              <span style={{ marginLeft: '0.3rem' }}>4.9 / 5 — 200+ étudiants</span>
             </div>
-
-            <div className="reveal reveal-scale delay-2" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-              <ArrowRight size={48} className="text-accent" style={{ filter: 'drop-shadow(0 0 10px var(--accent-primary)40)' }} />
-              <div style={{ color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.8rem' }}>Magik IA</div>
+            <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', color: 'rgba(240,242,255,0.4)' }}>
+              <Shield size={13} color="#34d399" />
+              Données 100% privées
             </div>
-
-            {/* Right: Clean Fiches Mock */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', width: '350px', justifyContent: 'center' }}>
-               <div className="glass-panel reveal reveal-right delay-1" style={{ width: '160px', padding: '1.25rem', borderRadius: '1rem', background: 'var(--bg-elevated)', border: '1px solid var(--accent-primary)30' }}>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--accent-primary)20', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem', color: 'var(--accent-primary)' }}><Check size={14}/></div>
-                  <h5 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem' }}>Les 4 piliers</h5>
-                  <p style={{ fontSize: '0.65rem', opacity: 0.7 }}>Consentement, Capacité, Objet, Cause.</p>
-               </div>
-               <div className="glass-panel reveal reveal-right delay-2" style={{ width: '160px', padding: '1.25rem', borderRadius: '1rem', background: 'var(--bg-elevated)', border: '1px solid #a855f730' }}>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#a855f720', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem', color: '#a855f7' }}><Brain size={14}/></div>
-                  <h5 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem' }}>Responsabilité</h5>
-                  <p style={{ fontSize: '0.65rem', opacity: 0.7 }}>Extra-contractuelle vs Contractuelle.</p>
-               </div>
-               <div className="glass-panel reveal reveal-right delay-3" style={{ width: '330px', padding: '1.25rem', borderRadius: '1rem', background: 'var(--bg-elevated)', border: '1px solid #10b98130' }}>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#10b98120', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem', color: '#10b981' }}><Zap size={14}/></div>
-                  <h5 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem' }}>Flashcards Prêts</h5>
-                  <p style={{ fontSize: '0.65rem', opacity: 0.7 }}>12 cartes générées sur l'article 1101.</p>
-               </div>
+            <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', color: 'rgba(240,242,255,0.4)' }}>
+              <CheckCircle size={13} color="#a78bfa" />
+              Sans engagement
             </div>
           </div>
         </div>
       </section>
 
-      {/* NEW Section: Predictive Calendar (Law Focused) */}
-      <section style={{ padding: '4rem 2rem' }}>
-        <div style={{ maxWidth: '1000px', width: '100%', margin: '0 auto' }}>
+      {/* ── HOW IT WORKS ────────────────────────────────────── */}
+      <section style={{ padding: '6rem 2rem', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '4rem' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '1rem' }}>Calendrier Prédictif</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Sofia sait quand tu vas oublier. Elle planifie tes révisions au moment parfait.</p>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.9rem', borderRadius: '2rem', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)', color: '#34d399', fontSize: '0.78rem', fontWeight: 700, marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Comment ça marche
+            </div>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.8rem,4vw,2.75rem)', fontWeight: 800, color: '#f0f2ff', marginBottom: '1rem' }}>
+              De ton PDF à ta révision,<br />en 3 étapes
+            </h2>
+            <p style={{ color: 'rgba(240,242,255,0.45)', fontSize: '1.05rem', maxWidth: '520px', marginInline: 'auto' }}>
+              Pas d'installation, pas de configuration. Juste l'essentiel.
+            </p>
           </div>
 
-          <div className="glass-panel reveal reveal-scale" style={{ padding: '2rem', borderRadius: '2rem', border: '1px solid var(--border-color)' }}>
-             <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
-                {[
-                  { day: 'Lundi', task: 'Droit Civil' , status: 'Critique', color: 'red' },
-                  { day: 'Mardi', task: 'Droit Admin', status: 'Optimal', color: 'green' },
-                  { day: 'Mercredi', task: 'Droit Privé', status: 'Planifié', color: 'blue' },
-                  { day: 'Jeudi', task: 'Droit Pénal', status: 'Critique', color: 'red' },
-                  { day: 'Vendredi', task: 'Histoire du Droit', status: 'Révisé', color: 'gray' }
-                ].map((item, i) => (
-                  <div key={i} className={`reveal reveal-up delay-${i+1}`} style={{ minWidth: '160px', padding: '1.5rem', borderRadius: '1.25rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', position: 'relative' }}>
-                    <div style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '0.5rem' }}>{item.day}</div>
-                    <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '1rem' }}>{item.task}</div>
-                    <div style={{ 
-                      fontSize: '0.65rem', 
-                      backgroundColor: item.color === 'red' ? '#fee2e2' : item.color === 'green' ? '#dcfce7' : item.color === 'blue' ? '#dbeafe' : '#f1f5f9',
-                      color: item.color === 'red' ? '#ef4444' : item.color === 'green' ? '#10b981' : item.color === 'blue' ? '#3b82f6' : '#64748b',
-                      padding: '0.25rem 0.6rem',
-                      borderRadius: '0.5rem',
-                      display: 'inline-block',
-                      fontWeight: 700
-                    }}>
-                      {item.status}
-                    </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+            {[
+              { step: '01', title: 'Upload ton cours', desc: 'Glisse ton PDF ou ton polycopié. Sof.IA extrait et indexe tout le contenu automatiquement.', icon: <BookOpen size={24} />, color: '#a78bfa' },
+              { step: '02', title: 'L\'IA génère', desc: 'Flashcards, QCM adaptatifs, résumé structuré et explications détaillées créés à la demande.', icon: <Brain size={24} />, color: '#34d399' },
+              { step: '03', title: 'Tu révises efficacement', desc: 'Suis ta progression, programme tes sessions, et arrive aux examens en confiance.', icon: <BarChart3 size={24} />, color: '#f59e0b' },
+            ].map((item, i) => (
+              <div key={i} className={`reveal reveal-up delay-${i + 1}`} style={{
+                padding: '2rem',
+                borderRadius: '1.25rem',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                <div style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '3rem', fontWeight: 900, color: 'rgba(255,255,255,0.04)', letterSpacing: '-0.05em' }}>{item.step}</div>
+                <div style={{ width: '48px', height: '48px', borderRadius: '0.875rem', background: `${item.color}18`, border: `1px solid ${item.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color, marginBottom: '1.25rem' }}>
+                  {item.icon}
+                </div>
+                <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.1rem', fontWeight: 700, color: '#f0f2ff', marginBottom: '0.6rem' }}>{item.title}</h3>
+                <p style={{ fontSize: '0.9rem', color: 'rgba(240,242,255,0.45)', lineHeight: 1.6 }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FEATURES ────────────────────────────────────────── */}
+      <section id="features" style={{ padding: '7rem 2rem' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '4rem' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.9rem', borderRadius: '2rem', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 700, marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Fonctionnalités
+            </div>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.8rem,4vw,2.75rem)', fontWeight: 800, color: '#f0f2ff', marginBottom: '1rem' }}>
+              Tout ce dont tu as besoin,<br />rien de superflu
+            </h2>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '1.25rem' }}>
+            {features.map((f, i) => (
+              <div key={i} className={`reveal reveal-up delay-${(i % 3) + 1}`} style={{
+                padding: '1.75rem',
+                borderRadius: '1.25rem',
+                background: 'rgba(255,255,255,0.025)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                transition: 'all 0.25s ease',
+                cursor: 'default',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = `${f.color}40`; e.currentTarget.style.transform = 'translateY(-3px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.025)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <div style={{ width: '44px', height: '44px', borderRadius: '0.75rem', background: `${f.color}15`, border: `1px solid ${f.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: f.color, marginBottom: '1rem' }}>
+                  {f.icon}
+                </div>
+                <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1rem', fontWeight: 700, color: '#f0f2ff', marginBottom: '0.5rem' }}>{f.title}</h3>
+                <p style={{ fontSize: '0.875rem', color: 'rgba(240,242,255,0.4)', lineHeight: 1.65 }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS ─────────────────────────────────────── */}
+      <section style={{ padding: '6rem 2rem', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.7rem,3.5vw,2.5rem)', fontWeight: 800, color: '#f0f2ff', marginBottom: '0.75rem' }}>
+              Ils ont changé leur façon de réviser
+            </h2>
+            <p style={{ color: 'rgba(240,242,255,0.4)', fontSize: '1rem' }}>
+              Des résultats concrets, vérifiables, mesurables.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+            {testimonials.map((t, i) => (
+              <div key={i} className={`reveal reveal-up delay-${i + 1}`} style={{
+                padding: '1.75rem',
+                borderRadius: '1.25rem',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+              }}>
+                <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '1rem' }}>
+                  {Array(t.rating).fill(0).map((_, j) => <Star key={j} size={14} fill="#f59e0b" color="#f59e0b" />)}
+                </div>
+                <p style={{ fontSize: '0.92rem', color: 'rgba(240,242,255,0.7)', lineHeight: 1.7, marginBottom: '1.25rem', fontStyle: 'italic' }}>"{t.text}"</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #34d399)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 700, color: 'white' }}>
+                    {t.name[0]}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#f0f2ff' }}>{t.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(240,242,255,0.35)' }}>{t.promo}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING ──────────────────────────────────────────── */}
+      <section id="pricing" style={{ padding: '7rem 2rem' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '4rem' }}>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.8rem,4vw,2.75rem)', fontWeight: 900, color: '#f0f2ff', marginBottom: '0.75rem' }}>
+              Transparent. Sans surprise.
+            </h2>
+            <p style={{ color: 'rgba(240,242,255,0.45)', fontSize: '1rem' }}>
+              Résiliable à tout moment. Pas de CB requise pour l'essai gratuit.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', alignItems: 'center' }}>
+            {/* Free */}
+            <div className="reveal reveal-left" style={{
+              padding: '2.5rem',
+              borderRadius: '1.5rem',
+              background: 'rgba(255,255,255,0.025)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(240,242,255,0.6)', marginBottom: '0.5rem' }}>Découverte</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '2.5rem', fontWeight: 900, color: '#f0f2ff', marginBottom: '1.5rem' }}>
+                0€ <span style={{ fontSize: '1rem', color: 'rgba(240,242,255,0.35)', fontWeight: 500 }}>/mois</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
+                {['Dossiers illimités', '5 générations IA par jour', 'Flashcards & QCM inclus', 'Synchronisation cloud'].map((item, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: 'rgba(240,242,255,0.55)' }}>
+                    <CheckCircle size={16} color="#34d399" /> {item}
                   </div>
                 ))}
-             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 4: App Preview */}
-      <section style={{ padding: '6rem 2rem', backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}>
-        <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-            <h2 style={{ fontSize: '2.8rem', fontWeight: 800, marginBottom: '1rem' }}>Une interface pensée pour toi</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Claire, intuitive et dénuée de distractions.</p>
-          </div>
-
-          <div className="reveal reveal-scale" style={{ 
-            width: '100%', 
-            maxWidth: '1000px', 
-            margin: '0 auto', 
-            borderRadius: '1.5rem', 
-            overflow: 'hidden', 
-            boxShadow: '0 30px 80px rgba(0,0,0,0.1)',
-            border: '1px solid var(--border-color)',
-            backgroundColor: 'var(--bg-primary)'
-          }}>
-            {/* Real Mock Header */}
-            <div style={{ height: '70px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', padding: '0 2rem', gap: '1rem', background: 'var(--bg-primary)' }}>
-               <ArrowRight size={20} style={{ transform: 'rotate(180deg)', opacity: 0.6 }} />
-               <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Droit Civil (Les Contrats)</h3>
-               <div style={{ backgroundColor: '#10b981', color: 'white', padding: '0.3rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.7rem', fontWeight: 600 }}>Programmée</div>
-               <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.75rem' }}>
-                  <div style={{ width: '110px', height: '34px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px' }}></div>
-                  <div style={{ width: '80px', height: '34px', background: '#fee2e2', color: '#ef4444', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 500 }}>Supprimer</div>
-               </div>
-            </div>
-            
-            {/* Real Mock Body */}
-            <div style={{ display: 'flex', gap: '1.5rem', height: '540px', padding: '1.5rem', backgroundColor: 'var(--bg-primary)80' }}>
-              {/* Left Column: Documents */}
-              <div className="reveal reveal-left" style={{ width: '300px', background: 'var(--bg-secondary)', borderRadius: '1.25rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', border: '1px solid var(--border-color)' }}>
-                 <h4 style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 700 }}><FileText size={18} style={{ opacity: 0.7 }}/> Documents Sources</h4>
-                 <div style={{ flex: 1, border: '2px dashed var(--border-color)', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1.5rem', backgroundColor: 'var(--bg-primary)40' }}>
-                    <Upload size={36} style={{ opacity: 0.2, marginBottom: '1.25rem' }} />
-                    <p style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '1.5rem', lineHeight: 1.4 }}>Glissez-déposez le PDF ici (Code Civil, Doctrine...)</p>
-                    <button className="btn btn-primary" style={{ fontSize: '0.75rem', padding: '0.7rem 1.2rem', width: '100%', borderRadius: '0.75rem' }}>Uploader un PDF</button>
-                 </div>
-                 <div style={{ backgroundColor: '#10b98115', color: '#10b981', padding: '1rem', borderRadius: '0.6rem', fontSize: '0.7rem', fontWeight: 600, border: '1px solid #10b98120' }}>
-                    Mémorisé localement. Prêt pour l'IA.
-                 </div>
+                {['Générations illimitées', 'Recherche globale multi-cours', 'Répétition espacée avancée'].map((item, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: 'rgba(240,242,255,0.2)', textDecoration: 'line-through' }}>
+                    <div style={{ width: 16, height: 16 }} /> {item}
+                  </div>
+                ))}
               </div>
-              
-              {/* Right Column: Flashcards Interface */}
-              <div className="reveal reveal-right" style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: '1.25rem', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-                 {/* Tabs Bar */}
-                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', padding: '0 1.5rem', gap: '2rem', background: 'var(--bg-primary)30' }}>
-                    {['Source (PDF)', 'Flashcards (Anki)', 'Examens Blancs', 'Explications', 'Résumé'].map((tab, i) => (
-                      <div key={tab} style={{ 
-                        padding: '1.25rem 0', 
-                        fontSize: '0.7rem', 
-                        fontWeight: 700, 
-                        borderBottom: i === 1 ? '3px solid var(--accent-primary)' : 'none', 
-                        color: i === 1 ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                        whiteSpace: 'nowrap'
-                      }}>{tab}</div>
-                    ))}
-                 </div>
-                 
-                 {/* Training View */}
-                 <div style={{ flex: 1, padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
-                          <Zap size={18} className="text-secondary" /> Flashcards (Anki)
-                       </div>
-                       <button className="btn btn-primary" style={{ fontSize: '0.75rem', padding: '0.6rem 1rem', borderRadius: '0.6rem' }}>Générer Maintenant</button>
-                    </div>
-
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
-                       <p style={{ fontSize: '0.8rem', opacity: 0.6, fontWeight: 500 }}>Carte 1 sur 34</p>
-                       <div style={{ 
-                         width: '100%', 
-                         maxWidth: '480px', 
-                         height: '240px', 
-                         background: 'white', 
-                         borderRadius: '1.5rem', 
-                         boxShadow: '0 10px 40px rgba(0,0,0,0.04)', 
-                         display: 'flex', 
-                         alignItems: 'center', 
-                         justifyContent: 'center', 
-                         textAlign: 'center', 
-                         padding: '2.5rem', 
-                         fontSize: '1.25rem', 
-                         fontWeight: 800,
-                         color: '#1e293b',
-                         border: '1px solid var(--border-color)'
-                       }}>
-                         Quelle est la sanction d'un contrat en cas de défaut d'objet certain ?
-                       </div>
-                       <div style={{ display: 'flex', gap: '0.75rem' }}>
-                          <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.6rem 1.2rem' }}>Précédente</button>
-                          <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.6rem 1.2rem' }}>Voir Réponse</button>
-                          <button className="btn btn-primary" style={{ fontSize: '0.75rem', padding: '0.6rem 2rem' }}>Suivante</button>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section id="pricing" style={{ padding: '6rem 2rem' }}>
-        <div style={{ maxWidth: '1000px', width: '100%', margin: '0 auto' }}>
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-             <h2 style={{ fontSize: '2.8rem', fontWeight: 900, marginBottom: '0.75rem' }}>Un tarif dérisoire.</h2>
-             <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Choisis la simplicité. **Sans engagement (résiliable à tout moment)**.</p>
-          </div>
-
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-            gap: '2rem',
-            alignItems: 'stretch'
-          }}>
-            <div className="glass-panel reveal reveal-left" style={{ padding: '2.5rem', borderRadius: '1.75rem', opacity: 0.8, display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>Découverte</h3>
-              <div style={{ fontSize: '2.4rem', fontWeight: 800, marginBottom: '1.5rem' }}>0€ <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>/mois</span></div>
-              <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2.5rem', flex: 1 }}>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem' }}><Check size={16} className="text-secondary" /> 1 Dossier de cours</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem' }}><Check size={16} className="text-secondary" /> Sofia IA standard</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', opacity: 0.4 }}><Check size={16} /> Flashcards Magiques</li>
-              </ul>
-              <button onClick={onGetStarted} className="btn btn-outline" style={{ width: '100%' }}>Tester gratuitement</button>
+              <button onClick={onGetStarted} style={{ width: '100%', padding: '0.9rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'rgba(240,242,255,0.7)', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', fontFamily: "'Inter', sans-serif" }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                Commencer gratuitement
+              </button>
             </div>
 
-            <div className="glass-panel reveal reveal-right" style={{ 
-              padding: '3rem 2.5rem', 
-              borderRadius: '1.75rem', 
-              border: '2px solid var(--accent-primary)',
-              backgroundColor: 'var(--bg-elevated)',
-              boxShadow: '0 20px 50px var(--accent-primary)15',
-              display: 'flex',
-              flexDirection: 'column'
+            {/* Premium */}
+            <div className="reveal reveal-right" style={{
+              padding: '2.75rem',
+              borderRadius: '1.5rem',
+              background: 'linear-gradient(145deg, rgba(124,58,237,0.15) 0%, rgba(52,211,153,0.06) 100%)',
+              border: '1px solid rgba(167,139,250,0.3)',
+              boxShadow: '0 0 60px rgba(124,58,237,0.15)',
+              position: 'relative',
+              overflow: 'hidden',
             }}>
-              <div style={{ alignSelf: 'flex-start', backgroundColor: 'var(--accent-primary)', color: 'white', padding: '0.3rem 0.8rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: 700, marginBottom: '1rem' }}>POPULAIRE</div>
-              <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 800 }}>Premium</h3>
-              <div style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '0.75rem', color: 'var(--accent-primary)' }}>9,99€ <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Le prix de deux cafés pour réussir ton année.</p>
-              <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.9rem', marginBottom: '1.5rem', flex: 1 }}>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.70rem', fontSize: '0.95rem', fontWeight: 600 }}><Check size={18} className="text-accent" /> Dossiers Illimités</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.70rem', fontSize: '0.95rem', fontWeight: 600 }}><Check size={18} className="text-accent" /> Sofia Prioritaire & Illimitée</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.70rem', fontSize: '0.95rem', fontWeight: 600 }}><Check size={18} className="text-accent" /> Flashcards Magiques Auto</li>
-                <li style={{ display: 'flex', alignItems: 'center', gap: '0.70rem', fontSize: '0.95rem', fontWeight: 600 }}><Check size={18} className="text-accent" /> Expérience Zéro Pub</li>
-              </ul>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', justifyContent: 'center', opacity: 0.7 }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Apple Pay • Revolut • Cartes Bancaires</span>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #7c3aed, #a78bfa, #34d399)' }} />
+              <div style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', padding: '0.25rem 0.75rem', borderRadius: '2rem', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: 'white', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                Populaire
               </div>
-              <button onClick={onGetStarted} className="btn btn-primary" style={{ width: '100%', padding: '1rem' }}>Passer au Premium</button>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#c4b5fd', marginBottom: '0.5rem' }}>Premium</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '3rem', fontWeight: 900, marginBottom: '0.5rem' }}>
+                <span style={{ background: 'linear-gradient(135deg, #a78bfa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>9,99€</span>
+                <span style={{ fontSize: '1rem', color: 'rgba(240,242,255,0.35)', fontWeight: 500 }}> /mois</span>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'rgba(240,242,255,0.35)', marginBottom: '1.75rem' }}>
+                Moins qu'un café par semaine pour réussir ton année.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '2rem' }}>
+                {[
+                  'Dossiers illimités',
+                  'Génération IA illimitée & prioritaire',
+                  'Flashcards & QCM avancés (jamais identiques)',
+                  'Recherche globale dans tous les cours',
+                  'Répétition espacée (algorithme Leitner)',
+                  'Statistiques de progression détaillées',
+                  'Synchronisation cloud multi-appareils',
+                ].map((item, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: 'rgba(240,242,255,0.8)', fontWeight: 500 }}>
+                    <CheckCircle size={16} color="#34d399" fill="rgba(52,211,153,0.15)" /> {item}
+                  </div>
+                ))}
+              </div>
+              <button onClick={onGetStarted} style={{
+                width: '100%', padding: '1rem',
+                borderRadius: '0.875rem', border: 'none',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)',
+                color: 'white', fontSize: '1rem', fontWeight: 700,
+                cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                boxShadow: '0 8px 32px rgba(124,58,237,0.4)',
+                transition: 'all 0.25s ease',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(124,58,237,0.5)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.4)'; }}
+              >
+                Passer au Premium <ChevronRight size={18} />
+              </button>
+              <p style={{ textAlign: 'center', fontSize: '0.78rem', color: 'rgba(240,242,255,0.25)', marginTop: '1rem' }}>
+                Apple Pay · Carte bancaire · Résiliable en 1 clic
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FAQ/CTA Section */}
-      <section style={{ padding: '6rem 2rem 6rem', textAlign: 'center' }}>
-        <div className="reveal reveal-scale" style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '2.6rem', fontWeight: 900, marginBottom: '1.25rem' }}>Prêt à transformer tes révisions ?</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', marginBottom: '3rem' }}>Rejoins les étudiants qui visent l'excellence avec Sofia.</p>
-          <button onClick={onGetStarted} className="btn btn-primary" style={{ padding: '1.35rem 3.5rem', fontSize: '1.2rem', borderRadius: '1.2rem' }}>
-            Commencer l'aventure Sof.IA
+      {/* ── CTA FINAL ─────────────────────────────────────────── */}
+      <section style={{ padding: '7rem 2rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(124,58,237,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div className="reveal reveal-scale" style={{ maxWidth: '700px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(2rem,5vw,3.5rem)', fontWeight: 900, color: '#f0f2ff', lineHeight: 1.1, marginBottom: '1.25rem', letterSpacing: '-0.03em' }}>
+            Tes examens arrivent.<br />
+            <span style={{ background: 'linear-gradient(135deg, #a78bfa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Sof.IA est prête.
+            </span>
+          </h2>
+          <p style={{ color: 'rgba(240,242,255,0.45)', fontSize: '1.1rem', marginBottom: '2.5rem', lineHeight: 1.6 }}>
+            Rejoins les étudiants qui ont arrêté de subir les révisions et ont commencé à les maîtriser.
+          </p>
+          <button onClick={onGetStarted} style={{
+            padding: '1.1rem 2.75rem',
+            fontSize: '1.05rem', fontWeight: 700,
+            fontFamily: "'Inter', sans-serif",
+            borderRadius: '0.875rem', border: 'none',
+            background: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)',
+            color: 'white', cursor: 'pointer',
+            boxShadow: '0 8px 32px rgba(124,58,237,0.4)',
+            transition: 'all 0.25s ease',
+            display: 'inline-flex', alignItems: 'center', gap: '0.6rem',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(124,58,237,0.5)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.4)'; }}
+          >
+            Commencer gratuitement <ArrowRight size={20} />
           </button>
         </div>
       </section>
+
+      {/* ── FOOTER ───────────────────────────────────────────── */}
+      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '2rem', textAlign: 'center', color: 'rgba(240,242,255,0.2)', fontSize: '0.82rem' }}>
+        © 2025 Sof.IA — Fait avec passion pour les étudiants exigeants
+      </footer>
     </div>
   );
 }
