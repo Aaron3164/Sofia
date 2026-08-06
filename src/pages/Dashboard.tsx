@@ -139,7 +139,7 @@ export default function Dashboard() {
                         className={`btn ${theme === t ? 'btn-primary' : 'btn-outline'}`}
                         style={{ flex: '1 1 100px', textTransform: 'capitalize' }}
                       >
-                        {t === 'glass' ? '✨ Verre' : t === 'light' ? '☀️ Clair' : '🌙 Sombre'}
+                        {t === 'glass' ? '✨ Aurore' : t === 'light' ? '☀️ Clair' : '🌙 Sombre'}
                       </button>
                     ))}
                   </div>
