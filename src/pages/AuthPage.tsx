@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Crown, ShieldCheck, Mail, GraduationCap, Lock, ArrowRight, Brain, Zap, Calendar, Sparkles } from 'lucide-react';
+import { Crown, ShieldCheck, Mail, Lock, ArrowRight, Brain, Zap, Calendar, Sparkles, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LandingPage from './LandingPage';
 
@@ -30,230 +30,252 @@ export default function AuthPage() {
     }
   };
 
+  const features = [
+    { icon: <Brain size={18} />, title: 'Fiches IA Instantanées', desc: 'Synthétise 100 pages de cours en quelques secondes.', color: '#a78bfa' },
+    { icon: <Zap size={18} />, title: 'Flashcards & QCM Auto', desc: 'Jamais les mêmes questions deux fois. Format ECNi.', color: '#34d399' },
+    { icon: <Calendar size={18} />, title: 'Répétition Espacée', desc: 'Ton planning de révision optimal, calculé par l\'IA.', color: '#f59e0b' },
+  ];
+
   return (
-    <div className="fade-in" style={{ 
-      display: 'flex', 
-      width: '100vw', 
+    <div style={{
+      display: 'flex',
+      width: '100vw',
       height: '100vh',
       overflow: 'hidden',
-      backgroundColor: 'var(--bg-primary)',
-      position: 'relative'
+      backgroundColor: '#08090f',
+      position: 'relative',
+      fontFamily: "'Inter', sans-serif",
     }}>
-      {/* Back Button */}
-      <button 
-        onClick={() => setShowAuth(false)}
-        style={{
-          position: 'absolute',
-          top: '2rem',
-          left: '2rem',
-          zIndex: 10,
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border-color)',
-          padding: '0.6rem 1.2rem',
-          borderRadius: '2rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          color: 'var(--text-primary)',
-          cursor: 'pointer',
-          fontWeight: 600,
-          fontSize: '0.9rem',
-          transition: 'all 0.2s ease',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateX(-4px)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateX(0)'}
-      >
-        <ArrowRight size={18} style={{ transform: 'rotate(180deg)' }} /> Retour
-      </button>
 
-      {/* Left: Login Form */}
-      <div style={{ 
-        flex: 1, 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
+      {/* ── LEFT PANEL: Form ───────────────────────────────── */}
+      <div style={{
+        flex: '0 0 480px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: '2rem',
-        zIndex: 2
+        position: 'relative',
+        zIndex: 10,
+        backgroundColor: '#0c0e1a',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
       }}>
-        <div className="glass-panel" style={{ 
-          maxWidth: '430px', 
-          width: '100%', 
-          padding: '3rem', 
-          borderRadius: '1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', textAlign: 'center' }}>
-            <div style={{ 
-              width: '56px', 
-              height: '56px', 
-              backgroundColor: 'var(--accent-primary)', 
-              borderRadius: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 32px var(--accent-primary)40'
+        {/* Back */}
+        <button
+          onClick={() => setShowAuth(false)}
+          style={{
+            position: 'absolute', top: '1.5rem', left: '1.5rem',
+            display: 'flex', alignItems: 'center', gap: '0.4rem',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            padding: '0.45rem 0.9rem',
+            borderRadius: '2rem',
+            color: 'rgba(240,242,255,0.5)',
+            cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'rgba(240,242,255,0.9)'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(240,242,255,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+        >
+          <ArrowLeft size={14} /> Retour
+        </button>
+
+        <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+          {/* Logo */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.05em',
+              background: 'linear-gradient(135deg, #a78bfa 0%, #34d399 100%)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              marginBottom: '0.5rem',
             }}>
-              <GraduationCap size={28} color="white" />
+              Sof.IA
             </div>
-            <h1 style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}>Sof.IA</h1>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Votre assistant d'apprentissage intelligent</p>
+            <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.3rem', fontWeight: 700, color: '#f0f2ff', marginBottom: '0.35rem' }}>
+              {isSignUp ? 'Créer un compte' : 'Bon retour parmi nous'}
+            </h1>
+            <p style={{ fontSize: '0.85rem', color: 'rgba(240,242,255,0.4)' }}>
+              {isSignUp ? 'Commence à réviser intelligemment' : 'Connecte-toi à ton espace Sof.IA'}
+            </p>
           </div>
 
+          {/* Error */}
           {error && (
-            <div style={{ backgroundColor: 'var(--danger)20', color: 'var(--danger)', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.85rem' }}>
+            <div style={{
+              background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)',
+              color: '#f87171', padding: '0.75rem 1rem', borderRadius: '0.75rem', fontSize: '0.85rem',
+            }}>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>E-mail</label>
+              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem', fontWeight: 600, color: 'rgba(240,242,255,0.5)' }}>
+                Adresse e-mail
+              </label>
               <div style={{ position: 'relative' }}>
-                <Mail style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} size={16} />
-                <input 
-                  type="email" 
-                  required
-                  value={email}
+                <Mail style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(240,242,255,0.25)' }} size={15} />
+                <input
+                  type="email" required value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="nom@exemple.com"
-                  className="input"
-                  style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-                />
-              </div>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Mot de passe</label>
-              <div style={{ position: 'relative' }}>
-                <Lock style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} size={16} />
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="input"
-                  style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                  style={{
+                    width: '100%', padding: '0.8rem 0.875rem 0.8rem 2.5rem',
+                    borderRadius: '0.75rem',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#f0f2ff', fontSize: '0.9rem',
+                    outline: 'none', fontFamily: "'Inter', sans-serif",
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(167,139,250,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              className="btn btn-primary" 
-              style={{ padding: '0.9rem', fontSize: '1rem', width: '100%', marginTop: '0.5rem', borderRadius: '0.75rem' }}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem', fontWeight: 600, color: 'rgba(240,242,255,0.5)' }}>
+                Mot de passe
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(240,242,255,0.25)' }} size={15} />
+                <input
+                  type="password" required value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{
+                    width: '100%', padding: '0.8rem 0.875rem 0.8rem 2.5rem',
+                    borderRadius: '0.75rem',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#f0f2ff', fontSize: '0.9rem',
+                    outline: 'none', fontFamily: "'Inter', sans-serif",
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(167,139,250,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
               disabled={loading}
+              style={{
+                padding: '0.9rem',
+                borderRadius: '0.75rem',
+                border: 'none',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)',
+                color: 'white',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: "'Inter', sans-serif",
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                boxShadow: '0 4px 20px rgba(124,58,237,0.4)',
+                transition: 'all 0.2s ease',
+                marginTop: '0.25rem',
+                opacity: loading ? 0.7 : 1,
+              }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.5)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.4)'; }}
             >
-              {isSignUp ? "Créer mon compte" : "Se connecter"}
-              <ArrowRight size={18} style={{ marginLeft: '0.5rem' }} />
+              {loading ? 'Chargement...' : isSignUp ? 'Créer mon compte' : 'Se connecter'}
+              {!loading && <ArrowRight size={16} />}
             </button>
           </form>
 
-          <button 
-            onClick={() => setIsSignUp(!isSignUp)}
-            style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, marginTop: '0.5rem' }}
-          >
-            {isSignUp ? "Déjà un compte ? Se connecter" : "Pas encore de compte ? S'inscrire"}
-          </button>
-        </div>
+          {/* Toggle */}
+          <div style={{ textAlign: 'center' }}>
+            <button
+              onClick={() => setIsSignUp(!isSignUp)}
+              style={{ background: 'none', border: 'none', color: 'rgba(240,242,255,0.4)', cursor: 'pointer', fontSize: '0.85rem', fontFamily: "'Inter', sans-serif', transition: '0.2s" }}
+              onMouseEnter={e => e.currentTarget.style.color = '#a78bfa'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(240,242,255,0.4)'}
+            >
+              {isSignUp ? 'Déjà un compte ? Se connecter →' : "Pas encore de compte ? S'inscrire →"}
+            </button>
+          </div>
 
-        <div style={{ marginTop: '3rem', display: 'flex', gap: '2rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <Crown size={14} className="text-secondary" />
-              Plans Premium disponibles
+          {/* Trust badges */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'rgba(240,242,255,0.25)' }}>
+              <ShieldCheck size={12} /> Sécurisé par Supabase
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <ShieldCheck size={14} className="text-success" />
-              Sécurisé par Supabase
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'rgba(240,242,255,0.25)' }}>
+              <Crown size={12} /> Plans Premium dispo
             </div>
+          </div>
         </div>
       </div>
 
-      {/* Right: Marketing Panel (Desktop Only Hide on small screens via CSS/Inline) */}
-      <div style={{ 
-        flex: 1.2, 
-        position: 'relative', 
-        backgroundColor: '#1e293b',
+      {/* ── RIGHT PANEL: Marketing ─────────────────────────── */}
+      <div style={{
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '3rem',
+        position: 'relative',
         overflow: 'hidden',
-        color: 'white'
+        background: '#08090f',
       }}>
-        {/* Background Gradient & Pattern */}
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          background: 'linear-gradient(135deg, var(--accent-primary) 0%, #4338ca 100%)',
-          opacity: 0.9
-        }}></div>
-        
-        {/* Abstract shapes for depth */}
-        <div style={{ position: 'absolute', top: '-10%', right: '-10%', width: '400px', height: '400px', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', filter: 'blur(60px)' }}></div>
-        <div style={{ position: 'absolute', bottom: '-10%', left: '-10%', width: '300px', height: '300px', background: 'rgba(255,255,255,0.03)', borderRadius: '50%', filter: 'blur(40px)' }}></div>
+        {/* Blobs */}
+        <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: '60vw', height: '60vw', borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%)', filter: 'blur(60px)', animation: 'floatSlow 14s ease-in-out infinite', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '-20%', left: '-5%', width: '40vw', height: '40vw', borderRadius: '50%', background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)', filter: 'blur(80px)', animation: 'floatSlow 18s ease-in-out infinite reverse', pointerEvents: 'none' }} />
 
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: '440px', textAlign: 'center' }}>
-           <div style={{ 
-             display: 'inline-flex', 
-             alignItems: 'center', 
-             gap: '0.5rem', 
-             padding: '0.5rem 1rem', 
-             backgroundColor: 'rgba(255,255,255,0.1)', 
-             borderRadius: '2rem',
-             fontSize: '0.85rem',
-             fontWeight: 600,
-             marginBottom: '2rem',
-             backdropFilter: 'blur(8px)'
-           }}>
-             <Sparkles size={16} className="text-secondary" style={{ color: '#fbbf24' }} /> L'IA au service de ta réussite
-           </div>
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: '480px', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.9rem', borderRadius: '2rem', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 700, marginBottom: '2rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <Sparkles size={12} /> Pour les filières exigeantes
+          </div>
 
-           <h2 style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '1.5rem', letterSpacing: '-0.02em' }}>
-             L'intelligence artificielle au service de ta réussite.
-           </h2>
-           
-           <p style={{ fontSize: '1.1rem', opacity: 0.9, marginBottom: '3rem', lineHeight: 1.5 }}>
-             Transforme tes cours en fiches et flashcards en un instant. Sofia t'accompagne jusqu'aux examens.
-           </p>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)', fontWeight: 900, color: '#f0f2ff', lineHeight: 1.1, marginBottom: '1rem', letterSpacing: '-0.03em' }}>
+            L'IA qui comprend tes études.
+            <br />
+            <span style={{ background: 'linear-gradient(135deg, #a78bfa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Pas les autres.
+            </span>
+          </h2>
 
-           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', textAlign: 'left', width: '100%' }}>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: '1.25rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                 <div style={{ width: '40px', height: '40px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Brain size={20} />
-                 </div>
-                 <div>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 700 }}>Fiches IA Instantanées</h4>
-                    <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>Synthétise 100 pages de cours en 5 minutes.</p>
-                 </div>
+          <p style={{ fontSize: '0.95rem', color: 'rgba(240,242,255,0.4)', marginBottom: '2.5rem', lineHeight: 1.65 }}>
+            Conçue pour la médecine, le droit et toutes les formations à volume de contenu massif.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
+            {features.map((f, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: '1rem',
+                padding: '1.1rem 1.25rem',
+                borderRadius: '1rem',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '0.75rem', background: `${f.color}15`, border: `1px solid ${f.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: f.color, flexShrink: 0 }}>
+                  {f.icon}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f0f2ff', marginBottom: '0.2rem' }}>{f.title}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'rgba(240,242,255,0.35)' }}>{f.desc}</div>
+                </div>
+                <CheckCircle size={16} color={f.color} style={{ marginLeft: 'auto', flexShrink: 0 }} />
               </div>
-
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: '1.25rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                 <div style={{ width: '40px', height: '40px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Zap size={20} />
-                 </div>
-                 <div>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 700 }}>Flashcards Automatiques</h4>
-                    <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>Révise comme un pro avec la répétition espacée.</p>
-                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: '1.25rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                 <div style={{ width: '40px', height: '40px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Calendar size={20} />
-                 </div>
-                 <div>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 700 }}>Planning Intelligent</h4>
-                    <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>Laisse l'IA gérer ton emploi du temps de révision.</p>
-                 </div>
-              </div>
-           </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Hide right panel on mobile */}
+      <style>{`
+        @media (max-width: 768px) {
+          .auth-right-panel { display: none !important; }
+          .auth-left-panel { flex: 1 !important; border-right: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
