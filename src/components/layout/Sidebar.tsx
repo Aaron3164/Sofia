@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { Sun, Moon, Sparkles, User as UserIcon, Crown, X } from 'lucide-react';
+import { Sun, Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getDailyUsage } from '../../lib/gemini';
 import './Layout.css';
@@ -12,16 +12,16 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { theme, toggleTheme } = useTheme();
-  const { user, profile } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const { user, profile, updatePreferences } = useAuth();
   const [usage, setUsage] = React.useState<number | null>(null);
 
   const navItems = [
-    { to: '/', label: '📚 Bibliothèque' },
-    { to: '/planning', label: '📅 Planification' },
-    { to: '/flashcards', label: '⚡ Flashcards' },
-    { to: '/statistics', label: '📊 Statistiques' },
-    { to: '/dashboard', label: '🚀 Tableau de bord' },
+    { to: '/', label: 'Bibliothèque', icon: <Library size={17} />, exact: true },
+    { to: '/planning', label: 'Planification', icon: <Calendar size={17} /> },
+    { to: '/flashcards', label: 'Flashcards', icon: <Zap size={17} /> },
+    { to: '/statistics', label: 'Statistiques', icon: <BarChart3 size={17} /> },
+    { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={17} /> },
   ];
 
   React.useEffect(() => {
@@ -30,122 +30,110 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   }, [user]);
 
+  const handleToggleTheme = async () => {
+    const nextTheme = theme === 'light' ? 'dark' : theme === 'dark' ? 'glass' : 'light';
+    setTheme(nextTheme);
+    if (user && updatePreferences) {
+      try {
+        await updatePreferences({ theme: nextTheme });
+      } catch (err) {
+        console.error('Failed to update theme preference:', err);
+      }
+    }
+  };
+
+  const themeLabel = theme === 'light' ? 'Mode Sombre' : theme === 'dark' ? 'Mode Aurora' : 'Mode Clair';
+  const themeIcon = theme === 'light' ? <Moon size={15} /> : theme === 'dark' ? <Sparkles size={15} /> : <Sun size={15} />;
+
   return (
     <aside className={`sidebar glass-panel ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <div className="logo-placeholder">Sof.IA</div>
-        <button className="mobile-only close-sidebar-btn" onClick={onClose} aria-label="Close Menu">
-          <X size={24} />
+        <button className="mobile-only close-sidebar-btn" onClick={onClose} aria-label="Fermer le menu">
+          <X size={20} />
         </button>
       </div>
-      
+
       <nav className="sidebar-nav">
+        <div className="nav-section-label">Navigation</div>
+
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
+            end={item.exact}
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             onClick={() => {
               if (window.innerWidth <= 768 && onClose) onClose();
             }}
           >
-            <span style={{ fontSize: '1.2rem', marginLeft: '0.2rem' }}>{item.label}</span>
+            <span className="nav-item-icon">{item.icon}</span>
+            {item.label}
           </NavLink>
         ))}
-        
-        <button 
+
+        <div className="nav-section-label" style={{ marginTop: '0.75rem' }}>Outils</div>
+
+        <button
           className="nav-item"
           onClick={() => {
             window.dispatchEvent(new CustomEvent('open-global-search'));
             if (window.innerWidth <= 768 && onClose) onClose();
           }}
-          style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginTop: '1rem', color: 'var(--text-secondary)' }}
+          style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
         >
-          <span style={{ fontSize: '1.1rem', marginLeft: '0.2rem' }}>🔍 Recherche Globale</span>
+          <span className="nav-item-icon"><Search size={17} /></span>
+          Recherche Globale
         </button>
       </nav>
 
       <div className="sidebar-footer">
         {user && (
           <>
-            <NavLink to="/dashboard" className="user-profile-nav hover-lift" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.75rem', 
-              padding: '1rem', 
-              marginBottom: '0.5rem',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRadius: '1rem',
-              textDecoration: 'none',
-              color: 'inherit',
-              border: '1px solid var(--border-color)'
-            }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <NavLink to="/dashboard" className="user-profile-card">
+              <div className="user-avatar">
                 {user.user_metadata?.avatar_url ? (
-                  <img src={user.user_metadata.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%' }} />
+                  <img src={user.user_metadata.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <UserIcon size={16} color="white" />
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {profile?.full_name || 'Utilisateur'}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  {profile?.plan === 'premium' && <Crown size={10} className="text-accent" />}
-                  <p style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                    Plan {profile?.plan || 'gratuit'}
-                  </p>
+                <div className="user-name">{profile?.full_name || 'Utilisateur'}</div>
+                <div className="user-plan">
+                  {profile?.plan === 'premium' && <Crown size={9} />}
+                  Plan {profile?.plan || 'gratuit'}
                 </div>
               </div>
             </NavLink>
 
-            {/* Quota Indicator */}
             {profile?.plan !== 'premium' && usage !== null && (
-              <div style={{ 
-                padding: '0.75rem 1rem', 
-                backgroundColor: 'var(--bg-elevated)', 
-                borderRadius: '0.75rem', 
-                marginBottom: '1rem',
-                fontSize: '0.75rem',
-                border: '1px solid var(--border-color)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontWeight: 500 }}>
+              <div className="usage-bar-container">
+                <div className="usage-bar-header">
                   <span>Générations IA</span>
-                  <span>{usage} / 20</span>
+                  <span style={{ color: usage >= 4 ? 'var(--danger)' : 'var(--text-muted)' }}>{usage} / 5</span>
                 </div>
-                <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-secondary)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{ 
-                    width: `${Math.min((usage / 20) * 100, 100)}%`, 
-                    height: '100%', 
-                    backgroundColor: usage >= 18 ? 'var(--danger)' : 'var(--accent-primary)',
-                    transition: 'width 0.3s ease'
-                  }}></div>
+                <div className="usage-bar-track">
+                  <div
+                    className="usage-bar-fill"
+                    style={{
+                      width: `${Math.min((usage / 5) * 100, 100)}%`,
+                      background: usage >= 18 ? 'var(--danger)' : undefined,
+                    }}
+                  />
                 </div>
               </div>
             )}
-            
+
             {profile?.plan === 'premium' && (
-              <div style={{ 
-                padding: '0.5rem 1rem', 
-                backgroundColor: 'var(--bg-elevated)', 
-                borderRadius: '0.75rem', 
-                marginBottom: '1rem',
-                fontSize: '0.75rem',
-                color: 'var(--accent-primary)',
-                fontWeight: 600,
-                textAlign: 'center',
-                border: '1px solid var(--accent-primary)',
-                opacity: 0.8
-              }}>
-                ✨ Accès Illimité
-              </div>
+              <div className="premium-badge">✦ Accès Illimité</div>
             )}
           </>
         )}
-        <button className="theme-toggle hover-lift" onClick={toggleTheme} aria-label="Toggle Theme">
-          {theme === 'light' ? <Moon size={20} /> : theme === 'dark' ? <Sparkles size={20} /> : <Sun size={20} />}
-          <span>{theme === 'light' ? 'Mode Sombre' : theme === 'dark' ? 'Mode Verre' : 'Mode Clair'}</span>
+
+        <button className="theme-toggle" onClick={handleToggleTheme} aria-label="Changer de thème">
+          {themeIcon}
+          <span>{themeLabel}</span>
         </button>
       </div>
     </aside>
