@@ -95,6 +95,12 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid transparent;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .btn:active {
   transform: scale(0.97);
 }
@@ -227,4 +233,16 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 768px) {
   .mobile-only { display: flex !important; }
   .desktop-only { display: none !important; }
+}
+
+.global-search-input {
+  color: var(--text-primary);
+}
+
+.glass .global-search-input {
+  color: #ffffff !important;
+}
+
+.glass .global-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
 }
