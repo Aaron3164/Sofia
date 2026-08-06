@@ -294,3 +294,4 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
     </div>
   );
 };
+ 
