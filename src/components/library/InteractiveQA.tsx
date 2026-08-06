@@ -108,7 +108,7 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
       if (isNewChat) {
         // Run both API calls concurrently
         const [answerText, title] = await Promise.all([
-          askQuestion(documentContext.substring(0, 300000), newQuestion.text, preferences),
+          askQuestion(documentContext.substring(0, 300000), newQuestion.text, [], preferences),
           generateChatTitle(newQuestion.text)
         ]);
         const newAnswer: QAMessage = { role: 'ai', text: answerText };
@@ -117,7 +117,7 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
           c.id === currentChatId ? { ...c, title, messages: [...c.messages, newAnswer] } : c
         );
       } else {
-        const answerText = await askQuestion(documentContext.substring(0, 300000), newQuestion.text, preferences);
+        const answerText = await askQuestion(documentContext.substring(0, 300000), newQuestion.text, messages, preferences);
         const newAnswer: QAMessage = { role: 'ai', text: answerText };
         
         updatedConversations = updatedConversations.map(c => 
