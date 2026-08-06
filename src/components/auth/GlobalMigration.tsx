@@ -39,11 +39,13 @@ export function GlobalMigration() {
                   pdf_url: parsed.pdfUrl,
                   file_name: parsed.fileName,
                   updated_at: new Date().toISOString()
-                });
+                }, { onConflict: 'course_id' });
                 
                 if (!upsertError) {
                   console.log(`Migrated/Updated course data for: ${courseId}`);
                   localStorage.removeItem(key);
+                } else {
+                  console.error(`Failed to migrate Course data for ${courseId}:`, upsertError);
                 }
               } catch (e) {
                 console.error(`Failed to parse/migrate Subject data for ${courseId}`, e);
@@ -67,13 +69,18 @@ export function GlobalMigration() {
               const cloudSeconds = existingStatsMap.get(courseId) || 0;
 
               if (localSeconds > cloudSeconds) {
-                await supabase.from('course_stats').upsert({
+                const { error: statsError } = await supabase.from('course_stats').upsert({
                   user_id: user.id,
                   course_id: courseId,
                   seconds: Math.max(localSeconds, cloudSeconds),
                   updated_at: new Date().toISOString()
-                });
-                migratedCount++;
+                }, { onConflict: 'course_id' });
+                
+                if (!statsError) {
+                  migratedCount++;
+                } else {
+                  console.error(`Failed to migrate course stats for ${courseId}:`, statsError);
+                }
               }
             }
             if (migratedCount > 0 || Object.keys(localTimeData).length === 0) {
@@ -92,19 +99,28 @@ export function GlobalMigration() {
             const grades = JSON.parse(rawMcq);
             if (Array.isArray(grades) && grades.length > 0) {
               const toInsert = grades.map(g => ({
+                id: g.id || undefined,
                 user_id: user.id,
                 course_id: g.courseId,
                 course_name: g.courseName,
                 score: g.score,
                 total: g.total,
-                date: g.date || new Date().toISOString()
+                date: g.date || new Date().toISOString(),
+                mcqs: g.mcqs || [],
+                selected_answers: g.selectedAnswers || {}
               }));
               const { error } = await supabase.from('mcq_grades').upsert(toInsert);
-              if (!error) localStorage.removeItem(mcqKey);
+              if (!error) {
+                localStorage.removeItem(mcqKey);
+              } else {
+                console.error('Failed to migrate MCQ grades:', error);
+              }
             } else {
               localStorage.removeItem(mcqKey);
             }
-          } catch (e) {}
+          } catch (e) {
+            console.error('Failed to migrate MCQ grades:', e);
+          }
         }
 
         const annalesKey = 'aura_annales_grades';
@@ -114,19 +130,26 @@ export function GlobalMigration() {
             const grades = JSON.parse(rawAnnales);
             if (Array.isArray(grades) && grades.length > 0) {
               const toInsert = grades.map(g => ({
+                id: g.id || undefined,
                 user_id: user.id,
-                course_id: g.courseId,
-                course_name: g.courseName,
-                grade: g.grade,
-                max_grade: g.maxGrade,
+                folder_id: g.folderId || null,
+                subject: g.subject,
+                score: g.score,
+                attachments: g.attachments || [],
                 date: g.date || new Date().toISOString()
               }));
               const { error } = await supabase.from('annales_grades').upsert(toInsert);
-              if (!error) localStorage.removeItem(annalesKey);
+              if (!error) {
+                localStorage.removeItem(annalesKey);
+              } else {
+                console.error('Failed to migrate annales grades:', error);
+              }
             } else {
               localStorage.removeItem(annalesKey);
             }
-          } catch (e) {}
+          } catch (e) {
+            console.error('Failed to migrate annales grades:', e);
+          }
         }
 
         console.log('Global migration completed successfully.');
