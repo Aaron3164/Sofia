@@ -281,11 +281,12 @@ function extractSnippets(content: string, keywords: string[], contextWindow: num
             ref={inputRef}
             type="text"
             placeholder="Que cherchez-vous dans vos cours ?..."
+            className="global-search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{
               flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent',
-              fontSize: '1.2rem', color: 'var(--text-primary)'
+              fontSize: '1.2rem'
             }}
           />
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
