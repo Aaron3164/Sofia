@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { User, LogOut, Mail, Palette, UserCircle, Check, Crown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useDialog } from '../context/DialogContext';
 
 export default function Dashboard() {
   const { user, profile, signOut, updateProfile, updatePreferences } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { alert } = useDialog();
   const [isUpdating, setIsUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'billing'>('profile');
   const [name, setName] = useState('');
@@ -19,7 +21,7 @@ export default function Dashboard() {
         setTheme(newPrefs.theme);
       }
     } catch (error) {
-      alert('Erreur lors de la mise à jour des préférences.');
+      await alert('Erreur lors de la mise à jour des préférences.');
     }
   };
 
@@ -32,10 +34,10 @@ export default function Dashboard() {
     setIsUpdating(true);
     try {
       await updateProfile({ full_name: name });
-      alert('Profil mis à jour !');
+      await alert('Profil mis à jour !');
     } catch (error: any) {
       console.error('Update error:', error);
-      alert('Erreur lors de la mise à jour : ' + (error.message || 'Problème de connexion au serveur-vérifiez la table profiles.'));
+      await alert('Erreur lors de la mise à jour : ' + (error.message || 'Problème de connexion au serveur-vérifiez la table profiles.'));
     } finally {
       setIsUpdating(false);
     }
