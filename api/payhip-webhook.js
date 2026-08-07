@@ -56,18 +56,17 @@ export default async function handler(req, res) {
 
   try {
     const body = await parseBody(req);
-    const { email, product_id, type } = body;
+    const { email, product_id, pricing_plan_id, type } = body;
 
     console.log('Incoming Payhip Payload:', JSON.stringify(body, null, 2));
 
-    if (!email || !product_id) {
-      return res.status(400).json({ error: 'Missing email or product_id' });
+    if (!email) {
+      return res.status(400).json({ error: 'Missing email in payload' });
     }
 
-    // Log mismatch if it doesn't match the slug, but proceed for testing
-    if (product_id !== 'ZQPy4') {
-      console.warn(`[Payhip Info] Product ID is "${product_id}" (not the link slug ZQPy4). Proceeding with upgrade.`);
-    }
+    // Log the product/plan details for record keeping
+    const activeProductId = product_id || pricing_plan_id || 'unknown';
+    console.log(`[Payhip Webhook] Processing purchase of product/plan: ${activeProductId} for user ${email}`);
 
     // 1. Fetch users from Supabase Auth using the admin API
     const { data: { users }, error: fetchError } = await supabase.auth.admin.listUsers();
