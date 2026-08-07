@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
+import { useDialog } from '../context/DialogContext';
 import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft } from 'lucide-react';
 import './Library.css';
 
 export default function Library() {
   const { folderId } = useParams();
   const navigate = useNavigate();
+  const { alert, confirm, prompt } = useDialog();
   const { deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes } = useFileSystem();
   
   const currentFolderId = folderId || null;
@@ -31,25 +33,25 @@ export default function Library() {
   };
 
   const handleCreateFolder = async () => {
-    const name = prompt('Nom du nouveau dossier :');
+    const name = await prompt('Nom du nouveau dossier :');
     if (name) await addNode(name, 'folder', currentFolderId);
   };
 
   const handleCreateCourse = async () => {
-    const name = prompt('Nom du nouveau cours :');
+    const name = await prompt('Nom du nouveau cours :');
     if (name) {
       try {
         const newNode = await addNode(name, 'course', currentFolderId);
         navigate(`/subject/${newNode.id}`);
       } catch (e) {
-        alert('Erreur lors de la création du cours sur le serveur. Réssayez.');
+        await alert('Erreur lors de la création du cours sur le serveur. Réssayez.');
       }
     }
   };
 
-  const handleRename = (e: React.MouseEvent, item: FileNode) => {
+  const handleRename = async (e: React.MouseEvent, item: FileNode) => {
     e.stopPropagation();
-    const newName = prompt('Nouveau nom :', item.name);
+    const newName = await prompt('Nouveau nom :', item.name);
     if (newName && newName !== item.name) {
       renameNode(item.id, newName);
     }
@@ -81,9 +83,9 @@ export default function Library() {
     }
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm('Voulez-vous vraiment supprimer cet élément et tout son contenu ?')) {
+    if (await confirm('Voulez-vous vraiment supprimer cet élément et tout son contenu ?')) {
       deleteNode(id);
     }
   };
