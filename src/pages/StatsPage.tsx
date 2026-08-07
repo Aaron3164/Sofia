@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
+import { useDialog } from '../context/DialogContext';
 import { uploadPDF, supabase } from '../lib/supabase';
 
 type StatTab = 'annales' | 'qcm' | 'time';
@@ -44,6 +45,7 @@ interface TimeSpent {
 export default function Statistics() {
   const { nodes } = useFileSystem();
   const { profile } = useAuth();
+  const { alert, confirm } = useDialog();
   const [activeTab, setActiveTab] = useState<StatTab>('annales');
   
   // State for Annales
@@ -172,13 +174,13 @@ export default function Statistics() {
   const handleAddAnnale = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAnnale.subject || !newAnnale.score) {
-      alert('Veuillez entrer une session et une note.');
+      await alert('Veuillez entrer une session et une note.');
       return;
     }
     
     const scoreNum = parseFloat(newAnnale.score);
     if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 20) {
-      alert('La note doit être comprise entre 0 et 20.');
+      await alert('La note doit être comprise entre 0 et 20.');
       return;
     }
 
@@ -221,7 +223,7 @@ export default function Statistics() {
       setAnnaleFiles([]);
     } catch (error) {
       console.error('Error adding annale:', error);
-      alert('Erreur lors du téléchargement des fichiers.');
+      await alert('Erreur lors du téléchargement des fichiers.');
     } finally {
       setIsUploading(false);
     }
@@ -253,7 +255,7 @@ export default function Statistics() {
   };
 
   const handleDeleteFolder = async (folderId: string) => {
-    if (!confirm('Toutes les annales dans ce dossier deviendront orphelines. Continuer ?')) return;
+    if (!await confirm('Toutes les annales dans ce dossier deviendront orphelines. Continuer ?')) return;
 
     const updatedFolders = annaleFolders.filter(f => f.id !== folderId);
     setAnnaleFolders(updatedFolders);
@@ -277,7 +279,7 @@ export default function Statistics() {
 
   const handleDeleteQcm = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Voulez-vous vraiment supprimer cet examen blanc de votre historique ?')) {
+    if (await confirm('Voulez-vous vraiment supprimer cet examen blanc de votre historique ?')) {
       const updated = mcqGrades.filter(g => g.id !== id);
       setMcqGrades(updated);
       if (profile) {
