@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Crown, ShieldCheck, Mail, Lock, ArrowRight, Brain, Zap, Calendar, Sparkles, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useDialog } from '../context/DialogContext';
 import LandingPage from './LandingPage';
 
 export default function AuthPage() {
   const { signIn, signUp, loading } = useAuth();
+  const { alert } = useDialog();
   const [showAuth, setShowAuth] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -21,7 +23,7 @@ export default function AuthPage() {
     try {
       if (isSignUp) {
         await signUp(email, password);
-        alert('Compte créé ! Veuillez vérifier votre e-mail (si activé) ou vous connecter.');
+        await alert('Compte créé ! Veuillez vérifier votre e-mail (si activé) ou vous connecter.');
       } else {
         await signIn(email, password);
       }
