@@ -12,6 +12,7 @@ const SubjectDetail = lazy(() => import('./pages/SubjectDetail'));
 const Statistics = lazy(() => import('./pages/StatsPage'));
 const FlashcardsExplorer = lazy(() => import('./pages/FlashcardsExplorer'));
 
+import { DialogProvider } from './context/DialogContext';
 import { useTheme } from './context/ThemeContext';
 
 function AppContent() {
@@ -61,7 +62,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <DialogProvider>
+        <AppContent />
+      </DialogProvider>
     </AuthProvider>
   );
 }
