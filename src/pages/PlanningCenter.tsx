@@ -3,6 +3,7 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, Circl
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
+import { useDialog } from '../context/DialogContext';
 import { useNavigate } from 'react-router-dom';
 import { PomodoroTimer } from '../components/planning/PomodoroTimer';
 
@@ -11,6 +12,7 @@ type PlanMode = 'spaced' | 'pomodoro';
 export default function PlanningCenter() {
   const [mode, setMode] = useState<PlanMode>('spaced');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const { alert, prompt } = useDialog();
   const { items, markCompleted, updateItemDate } = useSpacedRepetition();
   const navigate = useNavigate();
 
@@ -29,14 +31,14 @@ export default function PlanningCenter() {
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
-  const handleReschedule = (e: React.MouseEvent, item: any) => {
+  const handleReschedule = async (e: React.MouseEvent, item: any) => {
     e.stopPropagation();
-    const newDate = prompt(`À quelle date voulez-vous reporter "${item.courseName}" ? (Format: AAAA-MM-JJ)`, item.date);
+    const newDate = await prompt(`À quelle date voulez-vous reporter "${item.courseName}" ? (Format: AAAA-MM-JJ)`, item.date);
     if (newDate && newDate !== item.date) {
       if (/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
         updateItemDate(item.id, newDate);
       } else {
-        alert("Format de date invalide. Utilisez AAAA-MM-JJ.");
+        await alert("Format de date invalide. Utilisez AAAA-MM-JJ.");
       }
     }
   };
