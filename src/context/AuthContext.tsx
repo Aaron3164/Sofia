@@ -14,6 +14,7 @@ type Profile = {
   full_name: string | null;
   avatar_url: string | null;
   plan: 'free' | 'premium';
+  premium_until?: string | null;
   preferences: Preferences;
 };
 
@@ -75,6 +76,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (!createError) setProfile(newProfile);
       } else if (!error) {
+        // Automatically check and handle subscription expiration
+        if (data.plan === 'premium' && data.premium_until) {
+          const isExpired = new Date(data.premium_until) < new Date();
+          if (isExpired) {
+            console.log('Subscription expired. Downgrading to free plan.');
+            // Downgrade in database
+            await supabase
+              .from('profiles')
+              .update({ plan: 'free' })
+              .eq('id', userId);
+            
+            data.plan = 'free';
+          }
+        }
         setProfile(data);
       }
     } catch (err) {
