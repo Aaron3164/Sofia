@@ -13,15 +13,52 @@ console.log('Supabase Connection Diagnostics:', {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Helper to manually parse request body from stream if Vercel's body-parser is bypassed
+async function parseBody(req) {
+  if (req.body && Object.keys(req.body).length > 0) {
+    return req.body;
+  }
+  
+  return new Promise((resolve) => {
+    let rawData = '';
+    req.on('data', (chunk) => {
+      rawData += chunk.toString();
+    });
+    req.on('end', () => {
+      if (!rawData) {
+        resolve({});
+        return;
+      }
+      try {
+        // Attempt JSON parse
+        resolve(JSON.parse(rawData));
+      } catch (err) {
+        // Attempt URL-encoded parse
+        try {
+          const params = new URLSearchParams(rawData);
+          const parsed = {};
+          for (const [key, value] of params.entries()) {
+            parsed[key] = value;
+          }
+          resolve(parsed);
+        } catch (e) {
+          resolve({});
+        }
+      }
+    });
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { email, product_id, type } = req.body;
+    const body = await parseBody(req);
+    const { email, product_id, type } = body;
 
-    console.log('Incoming Payhip Payload:', JSON.stringify(req.body, null, 2));
+    console.log('Incoming Payhip Payload:', JSON.stringify(body, null, 2));
 
     if (!email || !product_id) {
       return res.status(400).json({ error: 'Missing email or product_id' });
