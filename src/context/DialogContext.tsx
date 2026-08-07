@@ -39,7 +39,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setDialog(null);
     if (type === 'prompt') resolve(inputValue);
     else if (type === 'confirm') resolve(true);
-    else resolve();
+    else resolve(undefined);
   };
 
   const handleCancel = () => {
@@ -48,7 +48,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setDialog(null);
     if (type === 'prompt') resolve(null);
     else if (type === 'confirm') resolve(false);
-    else resolve();
+    else resolve(undefined);
   };
 
   const handleCloseOverlay = () => {
