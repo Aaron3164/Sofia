@@ -4,6 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
+console.log('Supabase Connection Diagnostics:', {
+  hasUrl: !!supabaseUrl,
+  urlLength: supabaseUrl ? supabaseUrl.length : 0,
+  hasKey: !!supabaseServiceKey,
+  keyLength: supabaseServiceKey ? supabaseServiceKey.length : 0
+});
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
