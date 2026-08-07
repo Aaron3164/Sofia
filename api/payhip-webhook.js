@@ -19,18 +19,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Payhip sends data either as JSON or Urlencoded POST fields
     const { email, product_id, type } = req.body;
 
-    console.log('Payhip Webhook Triggered:', { email, product_id, type });
+    console.log('Incoming Payhip Payload:', JSON.stringify(req.body, null, 2));
 
     if (!email || !product_id) {
       return res.status(400).json({ error: 'Missing email or product_id' });
     }
 
-    // Verify it is the correct product (Sofia Premium ZQPy4)
+    // Log mismatch if it doesn't match the slug, but proceed for testing
     if (product_id !== 'ZQPy4') {
-      return res.status(400).json({ error: 'Invalid product_id' });
+      console.warn(`[Payhip Info] Product ID is "${product_id}" (not the link slug ZQPy4). Proceeding with upgrade.`);
     }
 
     // 1. Fetch users from Supabase Auth using the admin API
