@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useDialog } from '../context/DialogContext';
+import { useAuth } from '../context/AuthContext';
 import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft } from 'lucide-react';
 import './Library.css';
 
@@ -9,7 +10,8 @@ export default function Library() {
   const { folderId } = useParams();
   const navigate = useNavigate();
   const { alert, confirm, prompt } = useDialog();
-  const { deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes } = useFileSystem();
+  const { profile } = useAuth();
+  const { nodes, deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes } = useFileSystem();
   
   const currentFolderId = folderId || null;
   const [isMovingId, setIsMovingId] = useState<string | null>(null);
@@ -38,13 +40,19 @@ export default function Library() {
   };
 
   const handleCreateCourse = async () => {
+    const totalCourses = nodes.filter(n => n.type === 'course').length;
+    if (profile?.plan !== 'premium' && totalCourses >= 10) {
+      await alert('Limite du plan Gratuit atteinte (10 cours maximum). Passez au plan Premium pour créer des cours illimités !');
+      return;
+    }
+
     const name = await prompt('Nom du nouveau cours :');
     if (name) {
       try {
         const newNode = await addNode(name, 'course', currentFolderId);
         navigate(`/subject/${newNode.id}`);
       } catch (e) {
-        await alert('Erreur lors de la création du cours sur le serveur. Réssayez.');
+        await alert('Erreur lors de la création du cours sur le serveur. Réessayez.');
       }
     }
   };
