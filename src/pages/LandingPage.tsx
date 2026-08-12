@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ArrowRight, Sparkles, Brain, Zap, CheckCircle, Clock, Search, BarChart3, Shield, Star, ChevronRight, BookOpen, Layers } from 'lucide-react';
+import { ArrowRight, Sparkles, Brain, Zap, CheckCircle, XCircle, Clock, Search, BarChart3, Shield, Star, ChevronRight, BookOpen, Layers } from 'lucide-react';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -418,21 +418,23 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
                 {[
-                  'Jusqu\'à 10 cours au total',
                   'Dossiers illimités',
-                  '5 générations IA par jour',
                   'Flashcards & QCM inclus',
                   'Recherche globale dans tous les cours',
                   'Répétition espacée (Méthode Leitner)',
+                  'Statistiques de progression',
                   'Synchronisation cloud'
                 ].map((item, j) => (
                   <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: 'rgba(112, 26, 117, 0.8)' }}>
                     <CheckCircle size={16} color="#059669" /> {item}
                   </div>
                 ))}
-                {['Générations IA illimitées & prioritaires'].map((item, j) => (
-                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: 'rgba(112, 26, 117, 0.3)', textDecoration: 'line-through' }}>
-                    <div style={{ width: 16, height: 16 }} /> {item}
+                {[
+                  'Jusqu\'à 10 cours au total',
+                  '5 générations IA par jour'
+                ].map((item, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: '#ef4444' }}>
+                    <XCircle size={16} color="#ef4444" /> {item}
                   </div>
                 ))}
               </div>
@@ -468,13 +470,9 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '2rem' }}>
                 {[
+                  'Mêmes avantages que le plan gratuit',
                   'Cours & Dossiers illimités',
-                  'Génération IA illimitée & prioritaire',
-                  'Flashcards & QCM avancés',
-                  'Recherche globale dans tous les cours',
-                  'Répétition espacée (algorithme Leitner)',
-                  'Statistiques de progression détaillées',
-                  'Synchronisation cloud multi-appareils',
+                  'Sofia IA Prioritaire & Illimitée'
                 ].map((item, j) => (
                   <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: '#3b0764', fontWeight: 600 }}>
                     <CheckCircle size={16} color="#059669" fill="rgba(5, 150, 105, 0.1)" /> {item}
