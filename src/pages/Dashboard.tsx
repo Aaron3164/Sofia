@@ -3,7 +3,6 @@ import { User, LogOut, Mail, Palette, UserCircle, Check, Crown, RefreshCw } from
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDialog } from '../context/DialogContext';
-import { supabase } from '../lib/supabase';
 
 export default function Dashboard() {
   const { user, profile, signOut, updateProfile, updatePreferences, refreshProfile } = useAuth();
@@ -31,89 +30,30 @@ export default function Dashboard() {
     if (profile?.full_name) setName(profile.full_name);
   }, [profile]);
 
-  // Handle instant activation when returning from Payhip with single-use checkout token or sale_id
+  // Handle return from Payhip checkout (with polling check for webhook arrival)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const checkoutToken = urlParams.get('checkout_id') || urlParams.get('checkout_token') || sessionStorage.getItem('active_checkout_token');
-    const saleId = urlParams.get('sale_id') || urlParams.get('order_id') || urlParams.get('transaction_id');
-    const licenseKey = urlParams.get('license_key') || urlParams.get('key');
-    const hasPaymentReturn = urlParams.get('payment') === 'success' || urlParams.get('checkout') === 'success' || !!checkoutToken || !!saleId || !!licenseKey;
+    const hasPaymentReturn = urlParams.get('payment') === 'success' || urlParams.get('checkout') === 'success';
 
     if (hasPaymentReturn && user) {
-      // Clean up URL parameters & sessionStorage cleanly
       window.history.replaceState({}, document.title, window.location.pathname);
-      sessionStorage.removeItem('active_checkout_token');
 
-      (async () => {
-        setIsRefreshing(true);
-        let isActivated = false;
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const res = await fetch('/api/verify-purchase', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
-            },
-            body: JSON.stringify({ 
-              user_id: user.id, 
-              checkout_token: checkoutToken, 
-              sale_id: saleId, 
-              license_key: licenseKey 
-            })
-          });
-          if (res.ok) {
-            isActivated = true;
-          }
-        } catch (err) {
-          console.warn('Direct verification error:', err);
-        } finally {
-          const updated = await refreshProfile();
-          setIsRefreshing(false);
-          if (updated?.plan === 'premium' || isActivated) {
-            await alert('🎉 Félicitations ! Votre abonnement Premium est désormais actif !');
-          }
-        }
-      })();
-    }
-  }, [user]);
-
-  // Listen for Payhip embed modal in-app completion events
-  useEffect(() => {
-    const handlePayhipMessage = async (event: MessageEvent) => {
-      const isPayhipSuccess = typeof event.data === 'string' && (
-        event.data.includes('payhip') || event.data.includes('success') || event.data.includes('complete')
-      );
-
-      if (isPayhipSuccess && user) {
-        const activeToken = sessionStorage.getItem('active_checkout_token');
-        sessionStorage.removeItem('active_checkout_token');
-
-        setIsRefreshing(true);
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          await fetch('/api/verify-purchase', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
-            },
-            body: JSON.stringify({ user_id: user.id, checkout_token: activeToken })
-          });
-        } catch (err) {
-          console.warn('Verify purchase error on Payhip message:', err);
-        } finally {
-          const updated = await refreshProfile();
+      setIsRefreshing(true);
+      let attempts = 0;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const updated = await refreshProfile();
+        if (updated?.plan === 'premium' || attempts >= 8) {
+          clearInterval(pollInterval);
           setIsRefreshing(false);
           if (updated?.plan === 'premium') {
             await alert('🎉 Félicitations ! Votre abonnement Premium est désormais actif !');
           }
         }
-      }
-    };
+      }, 2000);
 
-    window.addEventListener('message', handlePayhipMessage);
-    return () => window.removeEventListener('message', handlePayhipMessage);
+      return () => clearInterval(pollInterval);
+    }
   }, [user]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -377,50 +317,12 @@ export default function Dashboard() {
                     backgroundColor: 'var(--accent-primary)',
                     boxShadow: '0 8px 24px var(--accent-primary)40'
                   }}
-                  onClick={async () => {
+                  onClick={() => {
                     if (profile?.plan === 'premium') {
                       alert('Votre abonnement Premium est actif ! Un mois d\'accès a été ajouté à votre compte.');
                     } else {
-                      let checkoutToken = '';
-                      try {
-                        const { data: { session } } = await supabase.auth.getSession();
-                        const tokenRes = await fetch('/api/create-checkout-token', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
-                          }
-                        });
-                        if (tokenRes.ok) {
-                          const data = await tokenRes.json();
-                          checkoutToken = data.checkout_token || '';
-                          if (checkoutToken) {
-                            sessionStorage.setItem('active_checkout_token', checkoutToken);
-                          }
-                        }
-                      } catch (err) {
-                        console.warn('Create checkout token error:', err);
-                      }
-
-                      const payhipUrl = `https://payhip.com/b/ZQPy4?email=${encodeURIComponent(user.email || '')}&checkout_id=${encodeURIComponent(checkoutToken)}`;
-
-                      // Try Payhip JS SDK in-app embed modal if available
-                      const PayhipSDK = (window as any).Payhip;
-                      if (PayhipSDK && typeof PayhipSDK.Checkout?.open === 'function') {
-                        try {
-                          PayhipSDK.Checkout.open({
-                            productKey: 'ZQPy4',
-                            email: user.email,
-                            checkoutId: checkoutToken
-                          });
-                          return;
-                        } catch (e) {
-                          console.warn('Payhip embed modal error, falling back to redirect:', e);
-                        }
-                      }
-
-                      // Fail-safe Fallback Redirect
-                      window.location.href = payhipUrl;
+                      const checkoutUrl = `https://payhip.com/b/ZQPy4?email=${encodeURIComponent(user.email || '')}`;
+                      window.location.href = checkoutUrl;
                     }
                   }}
                 >
@@ -431,29 +333,12 @@ export default function Dashboard() {
                   <button
                     onClick={async () => {
                       setIsRefreshing(true);
-                      let verifiedSuccess = false;
-                      try {
-                        const { data: { session } } = await supabase.auth.getSession();
-                        const res = await fetch('/api/verify-purchase', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
-                          },
-                          body: JSON.stringify({ user_id: user?.id })
-                        });
-                        if (res.ok) {
-                          verifiedSuccess = true;
-                        }
-                      } catch (e) {
-                        console.warn('Manual verify error:', e);
-                      }
                       const updated = await refreshProfile();
                       setIsRefreshing(false);
-                      if (updated?.plan === 'premium' || verifiedSuccess) {
+                      if (updated?.plan === 'premium') {
                         await alert('🎉 Félicitations ! Votre abonnement Premium est désormais actif !');
                       } else {
-                        await alert('Vérification effectuée : Aucun paiement récent trouvé. Si vous venez d\'acheter le forfait, veuillez patienter quelques instants ou contacter le support.');
+                        await alert('Vérification effectuée : Aucun paiement récent validé sur ce compte. Si vous venez d\'effectuer le paiement, attendez quelques secondes puis réessayez.');
                       }
                     }}
                     disabled={isRefreshing}
