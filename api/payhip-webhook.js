@@ -56,54 +56,67 @@ export default async function handler(req, res) {
 
   try {
     const body = await parseBody(req);
-    const { email, product_id, pricing_plan_id, type } = body;
+    const buyerEmail = (body.email || body.buyer_email || body.customer_email || body.payer_email || '').trim().toLowerCase();
 
     console.log('Incoming Payhip Payload:', JSON.stringify(body, null, 2));
 
-    if (!email) {
+    if (!buyerEmail) {
       return res.status(400).json({ error: 'Missing email in payload' });
     }
 
     // Log the product/plan details for record keeping
-    const activeProductId = product_id || pricing_plan_id || 'unknown';
-    console.log(`[Payhip Webhook] Processing purchase of product/plan: ${activeProductId} for user ${email}`);
+    const activeProductId = body.product_id || body.pricing_plan_id || 'unknown';
+    console.log(`[Payhip Webhook] Processing purchase of product/plan: ${activeProductId} for user ${buyerEmail}`);
 
-    // 1. Fetch users from Supabase Auth using the admin API
-    const { data: { users }, error: fetchError } = await supabase.auth.admin.listUsers();
-    
-    if (fetchError) {
-      console.error('Error listing users from Supabase:', fetchError);
-      return res.status(500).json({ error: 'Database fetch error' });
+    // 1. Fetch users from Supabase Auth using the admin API with pagination
+    let user = null;
+    let page = 1;
+    let hasMore = true;
+
+    while (!user && hasMore) {
+      const { data, error: fetchError } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+      
+      if (fetchError) {
+        console.error('Error listing users from Supabase:', fetchError);
+        return res.status(500).json({ error: 'Database fetch error' });
+      }
+
+      const users = data?.users || [];
+      user = users.find(u => u.email?.trim().toLowerCase() === buyerEmail);
+
+      if (users.length < 1000) {
+        hasMore = false;
+      } else {
+        page++;
+      }
     }
 
-    // 2. Find the user ID matching the buyer's email
-    const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-
     if (!user) {
-      console.warn(`User with email ${email} not found in Supabase Auth. Upgrading aborted until they register.`);
+      console.warn(`User with email ${buyerEmail} not found in Supabase Auth. Upgrading aborted until they register.`);
       // Return 200 so Payhip doesn't keep retrying, but log the issue
       return res.status(200).json({ status: 'user_not_found', message: 'User must register first' });
     }
 
-    // 3. Set premium expiration date to 30 days from now
+    // 2. Set premium expiration date to 30 days from now
     const premiumUntil = new Date();
     premiumUntil.setDate(premiumUntil.getDate() + 30);
 
-    // 4. Update the user's plan and expiration date in public.profiles
+    // 3. Upsert the user's plan and expiration date in public.profiles
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({
+      .upsert({
+        id: user.id,
         plan: 'premium',
-        premium_until: premiumUntil.toISOString()
-      })
-      .eq('id', user.id);
+        premium_until: premiumUntil.toISOString(),
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
 
     if (updateError) {
       console.error('Error updating user profile to premium:', updateError);
       return res.status(500).json({ error: 'Profile update failed' });
     }
 
-    console.log(`Success: User ${email} upgraded to premium until ${premiumUntil.toISOString()}`);
+    console.log(`Success: User ${buyerEmail} upgraded to premium until ${premiumUntil.toISOString()}`);
     return res.status(200).json({ status: 'success', message: 'User upgraded to premium successfully' });
 
   } catch (err) {
