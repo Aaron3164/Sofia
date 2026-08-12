@@ -94,13 +94,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // 4. Calculate 30-day premium expiration date (stackable if already active)
-    let baseDate = new Date();
-    if (currentProfile?.premium_until && new Date(currentProfile.premium_until) > new Date()) {
-      baseDate = new Date(currentProfile.premium_until);
-    }
-
-    const premiumUntil = new Date(baseDate);
+    // 4. Calculate 30-day premium expiration date from purchase date
+    const premiumUntil = new Date();
     premiumUntil.setDate(premiumUntil.getDate() + 30);
 
     // 5. Mark token as CONSUMED and Upgrade user profile to Premium in Supabase
