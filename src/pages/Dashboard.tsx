@@ -294,7 +294,7 @@ export default function Dashboard() {
                     if (profile?.plan === 'premium') {
                       alert('Votre abonnement Premium est actif ! Un mois d\'accès a été ajouté à votre compte.');
                     } else {
-                      window.open('https://payhip.com/b/ZQPy4', '_blank');
+                      window.location.href = 'https://payhip.com/b/ZQPy4';
                     }
                   }}
                 >
