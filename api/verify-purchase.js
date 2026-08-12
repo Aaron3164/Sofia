@@ -30,14 +30,39 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized: Session utilisateur valide requise.' });
     }
 
-    // 2. Extract transaction parameters (sale_id or license_key)
+    // 2. Extract purchase proof parameters
+    const checkoutToken = req.body?.checkout_token || req.query?.checkout_token || req.body?.checkout_id || req.query?.checkout_id;
     const saleId = req.body?.sale_id || req.query?.sale_id || req.query?.order_id || req.body?.order_id;
     const licenseKey = req.body?.license_key || req.query?.license_key;
 
     let isVerified = false;
 
-    // A. Direct Verification using Payhip API Key if available
-    if (payhipApiKey) {
+    // 3. Fetch user profile from Supabase
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    const currentPreferences = currentProfile?.preferences || {};
+    const pendingCheckout = currentPreferences.pending_checkout;
+
+    // A. Validate Single-Use Checkout Token generated when user clicked "Passer au Premium"
+    if (checkoutToken && pendingCheckout) {
+      const isTokenMatch = pendingCheckout.token === checkoutToken;
+      const isNotUsed = pendingCheckout.used === false;
+      const createdAt = new Date(pendingCheckout.created_at || 0).getTime();
+      const isNotExpired = (Date.now() - createdAt) < (30 * 60 * 1000); // 30 minutes window
+
+      if (isTokenMatch && isNotUsed && isNotExpired) {
+        isVerified = true;
+      } else {
+        console.warn(`[Verify Purchase] Invalid/consumed token for user ${userEmail}: match=${isTokenMatch}, notUsed=${isNotUsed}, notExpired=${isNotExpired}`);
+      }
+    }
+
+    // B. Payhip API verification if sale_id or PAYHIP_API_KEY is configured
+    if (!isVerified && payhipApiKey && (saleId || userEmail)) {
       if (saleId) {
         const verifyRes = await fetch(`https://payhip.com/api/v2/sales/${saleId}`, {
           headers: { 'X-Payhip-Key': payhipApiKey }
@@ -59,29 +84,18 @@ export default async function handler(req, res) {
           }
         }
       }
-    } else {
-      // B. Fallback: Require a valid non-empty sale_id or license_key to prevent free self-upgrades
-      if (saleId || licenseKey) {
-        isVerified = true;
-      }
     }
 
-    // STRICT CONTROL: If no proof of purchase is verified, refuse the upgrade!
+    // STRICT ANTI-FRAUD REJECTION
     if (!isVerified) {
-      console.warn(`[Verify Purchase] Upgrade rejected for user ${userEmail} (${userId}) - No valid purchase found.`);
+      console.warn(`[Verify Purchase] Fraud attempt or invalid claim rejected for user ${userEmail} (${userId})`);
       return res.status(400).json({ 
-        error: 'Aucun achat récent trouvé pour cette adresse e-mail. Veuillez effectuer un achat ou patienter le temps que le paiement soit traité par Payhip.' 
+        error: 'Jeton d\'achat invalide, expiré ou déjà utilisé. Impossible d\'activer le Premium sans preuve d\'achat valide.' 
       });
     }
 
-    // 3. Calculate 30-day premium expiration date (stackable if already active)
+    // 4. Calculate 30-day premium expiration date (stackable if already active)
     let baseDate = new Date();
-    const { data: currentProfile } = await supabase
-      .from('profiles')
-      .select('premium_until')
-      .eq('id', userId)
-      .single();
-
     if (currentProfile?.premium_until && new Date(currentProfile.premium_until) > new Date()) {
       baseDate = new Date(currentProfile.premium_until);
     }
@@ -89,13 +103,19 @@ export default async function handler(req, res) {
     const premiumUntil = new Date(baseDate);
     premiumUntil.setDate(premiumUntil.getDate() + 30);
 
-    // 4. Upgrade user profile to Premium in Supabase
+    // 5. Mark token as CONSUMED and Upgrade user profile to Premium in Supabase
+    const updatedPreferences = {
+      ...currentPreferences,
+      pending_checkout: pendingCheckout ? { ...pendingCheckout, used: true, consumed_at: new Date().toISOString() } : null
+    };
+
     const { error: updateError } = await supabase
       .from('profiles')
       .upsert({
         id: userId,
         plan: 'premium',
         premium_until: premiumUntil.toISOString(),
+        preferences: updatedPreferences,
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
 
