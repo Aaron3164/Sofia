@@ -31,37 +31,46 @@ export default function Dashboard() {
     if (profile?.full_name) setName(profile.full_name);
   }, [profile]);
 
-  // Handle instant activation when returning from Payhip with proof (?sale_id=... or ?license_key=...)
+  // Handle instant activation when returning from Payhip with single-use checkout token or sale_id
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const checkoutToken = urlParams.get('checkout_id') || urlParams.get('checkout_token') || sessionStorage.getItem('active_checkout_token');
     const saleId = urlParams.get('sale_id') || urlParams.get('order_id') || urlParams.get('transaction_id');
     const licenseKey = urlParams.get('license_key') || urlParams.get('key');
-    const hasPaymentSuccess = urlParams.get('payment') === 'success' || urlParams.get('checkout') === 'success' || !!saleId || !!licenseKey;
+    const hasPaymentReturn = urlParams.get('payment') === 'success' || urlParams.get('checkout') === 'success' || !!checkoutToken || !!saleId || !!licenseKey;
 
-    if (hasPaymentSuccess && user) {
-      // Clean up URL parameters cleanly
+    if (hasPaymentReturn && user) {
+      // Clean up URL parameters & sessionStorage cleanly
       window.history.replaceState({}, document.title, window.location.pathname);
+      sessionStorage.removeItem('active_checkout_token');
 
       (async () => {
         setIsRefreshing(true);
+        let isActivated = false;
         try {
-          if (saleId || licenseKey) {
-            const { data: { session } } = await supabase.auth.getSession();
-            await fetch('/api/verify-purchase', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
-              },
-              body: JSON.stringify({ user_id: user.id, sale_id: saleId, license_key: licenseKey })
-            });
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch('/api/verify-purchase', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+            },
+            body: JSON.stringify({ 
+              user_id: user.id, 
+              checkout_token: checkoutToken, 
+              sale_id: saleId, 
+              license_key: licenseKey 
+            })
+          });
+          if (res.ok) {
+            isActivated = true;
           }
         } catch (err) {
           console.warn('Direct verification error:', err);
         } finally {
           const updated = await refreshProfile();
           setIsRefreshing(false);
-          if (updated?.plan === 'premium') {
+          if (updated?.plan === 'premium' || isActivated) {
             await alert('🎉 Félicitations ! Votre abonnement Premium est désormais actif !');
           }
         }
@@ -330,10 +339,32 @@ export default function Dashboard() {
                     backgroundColor: 'var(--accent-primary)',
                     boxShadow: '0 8px 24px var(--accent-primary)40'
                   }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (profile?.plan === 'premium') {
                       alert('Votre abonnement Premium est actif ! Un mois d\'accès a été ajouté à votre compte.');
                     } else {
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        const tokenRes = await fetch('/api/create-checkout-token', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+                          }
+                        });
+                        if (tokenRes.ok) {
+                          const { checkout_token } = await tokenRes.json();
+                          if (checkout_token) {
+                            sessionStorage.setItem('active_checkout_token', checkout_token);
+                            const checkoutUrl = `https://payhip.com/b/ZQPy4?email=${encodeURIComponent(user.email || '')}&checkout_id=${encodeURIComponent(checkout_token)}`;
+                            window.location.href = checkoutUrl;
+                            return;
+                          }
+                        }
+                      } catch (err) {
+                        console.warn('Create checkout token error:', err);
+                      }
+                      // Fallback redirect if token generation fails
                       const checkoutUrl = `https://payhip.com/b/ZQPy4?email=${encodeURIComponent(user.email || '')}`;
                       window.location.href = checkoutUrl;
                     }
