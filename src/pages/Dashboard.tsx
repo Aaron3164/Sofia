@@ -346,9 +346,10 @@ export default function Dashboard() {
                   <button
                     onClick={async () => {
                       setIsRefreshing(true);
+                      let verifiedSuccess = false;
                       try {
                         const { data: { session } } = await supabase.auth.getSession();
-                        await fetch('/api/verify-purchase', {
+                        const res = await fetch('/api/verify-purchase', {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
@@ -356,15 +357,18 @@ export default function Dashboard() {
                           },
                           body: JSON.stringify({ user_id: user?.id })
                         });
+                        if (res.ok) {
+                          verifiedSuccess = true;
+                        }
                       } catch (e) {
                         console.warn('Manual verify error:', e);
                       }
                       const updated = await refreshProfile();
                       setIsRefreshing(false);
-                      if (updated?.plan === 'premium') {
+                      if (updated?.plan === 'premium' || verifiedSuccess) {
                         await alert('🎉 Félicitations ! Votre abonnement Premium est désormais actif !');
                       } else {
-                        await alert('Vérification effectuée : Votre statut a été actualisé.');
+                        await alert('Vérification effectuée : Aucun paiement récent trouvé. Si vous venez d\'acheter le forfait, veuillez patienter quelques instants ou contacter le support.');
                       }
                     }}
                     disabled={isRefreshing}
