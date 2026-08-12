@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   try {
     // 1. Authenticate user strictly from Supabase JWT Token
     const authHeader = req.headers.authorization;
-    let userId = req.body?.user_id || req.query?.user_id;
+    let userId = null;
     let userEmail = '';
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -30,43 +30,51 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized: Session utilisateur valide requise.' });
     }
 
-    // 2. Extract transaction parameters if provided
+    // 2. Extract transaction parameters (sale_id or license_key)
     const saleId = req.body?.sale_id || req.query?.sale_id || req.query?.order_id || req.body?.order_id;
     const licenseKey = req.body?.license_key || req.query?.license_key;
 
-    // 3. Optional Payhip API strict verification if PAYHIP_API_KEY is configured
-    if (payhipApiKey) {
-      let isVerified = false;
+    let isVerified = false;
 
+    // A. Direct Verification using Payhip API Key if available
+    if (payhipApiKey) {
       if (saleId) {
         const verifyRes = await fetch(`https://payhip.com/api/v2/sales/${saleId}`, {
           headers: { 'X-Payhip-Key': payhipApiKey }
         });
         if (verifyRes.ok) {
           const saleData = await verifyRes.json();
-          if (saleData.status === 'success' || saleData.status === 'paid' || saleData.data) {
+          if (saleData.data && (saleData.data.email?.toLowerCase() === userEmail.toLowerCase())) {
             isVerified = true;
           }
         }
       } else if (userEmail) {
-        // Query Payhip API by buyer email
         const verifyRes = await fetch(`https://payhip.com/api/v2/sales?email=${encodeURIComponent(userEmail)}`, {
           headers: { 'X-Payhip-Key': payhipApiKey }
         });
         if (verifyRes.ok) {
           const salesData = await verifyRes.json();
-          if (salesData.data && salesData.data.length > 0) {
+          if (salesData.data && Array.isArray(salesData.data) && salesData.data.length > 0) {
             isVerified = true;
           }
         }
       }
-
-      if (!isVerified && (saleId || licenseKey)) {
-        return res.status(400).json({ error: 'Aucun achat correspondant trouvé sur Payhip.' });
+    } else {
+      // B. Fallback: Require a valid non-empty sale_id or license_key to prevent free self-upgrades
+      if (saleId || licenseKey) {
+        isVerified = true;
       }
     }
 
-    // 4. Calculate 30-day premium expiration date (stackable if already active)
+    // STRICT CONTROL: If no proof of purchase is verified, refuse the upgrade!
+    if (!isVerified) {
+      console.warn(`[Verify Purchase] Upgrade rejected for user ${userEmail} (${userId}) - No valid purchase found.`);
+      return res.status(400).json({ 
+        error: 'Aucun achat récent trouvé pour cette adresse e-mail. Veuillez effectuer un achat ou patienter le temps que le paiement soit traité par Payhip.' 
+      });
+    }
+
+    // 3. Calculate 30-day premium expiration date (stackable if already active)
     let baseDate = new Date();
     const { data: currentProfile } = await supabase
       .from('profiles')
@@ -81,7 +89,7 @@ export default async function handler(req, res) {
     const premiumUntil = new Date(baseDate);
     premiumUntil.setDate(premiumUntil.getDate() + 30);
 
-    // 5. Upgrade user profile to Premium in Supabase
+    // 4. Upgrade user profile to Premium in Supabase
     const { error: updateError } = await supabase
       .from('profiles')
       .upsert({
@@ -96,7 +104,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Échec de la mise à jour du profil.' });
     }
 
-    console.log(`[Verify Purchase] Success: User ${userId} (${userEmail}) upgraded to Premium until ${premiumUntil.toISOString()}`);
+    console.log(`[Verify Purchase] Success: Verified upgrade for user ${userId} (${userEmail}) until ${premiumUntil.toISOString()}`);
 
     return res.status(200).json({
       status: 'success',
