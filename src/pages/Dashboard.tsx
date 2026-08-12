@@ -3,6 +3,7 @@ import { User, LogOut, Mail, Palette, UserCircle, Check, Crown, RefreshCw } from
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDialog } from '../context/DialogContext';
+import { supabase } from '../lib/supabase';
 
 export default function Dashboard() {
   const { user, profile, signOut, updateProfile, updatePreferences, refreshProfile } = useAuth();
@@ -29,6 +30,44 @@ export default function Dashboard() {
   useEffect(() => {
     if (profile?.full_name) setName(profile.full_name);
   }, [profile]);
+
+  // Handle instant activation when returning from Payhip with proof (?sale_id=... or ?license_key=...)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const saleId = urlParams.get('sale_id') || urlParams.get('order_id') || urlParams.get('transaction_id');
+    const licenseKey = urlParams.get('license_key') || urlParams.get('key');
+    const hasPaymentSuccess = urlParams.get('payment') === 'success' || urlParams.get('checkout') === 'success' || !!saleId || !!licenseKey;
+
+    if (hasPaymentSuccess && user) {
+      // Clean up URL parameters cleanly
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      (async () => {
+        setIsRefreshing(true);
+        try {
+          if (saleId || licenseKey) {
+            const { data: { session } } = await supabase.auth.getSession();
+            await fetch('/api/verify-purchase', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+              },
+              body: JSON.stringify({ user_id: user.id, sale_id: saleId, license_key: licenseKey })
+            });
+          }
+        } catch (err) {
+          console.warn('Direct verification error:', err);
+        } finally {
+          const updated = await refreshProfile();
+          setIsRefreshing(false);
+          if (updated?.plan === 'premium') {
+            await alert('🎉 Félicitations ! Votre abonnement Premium est désormais actif !');
+          }
+        }
+      })();
+    }
+  }, [user]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,12 +346,25 @@ export default function Dashboard() {
                   <button
                     onClick={async () => {
                       setIsRefreshing(true);
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        await fetch('/api/verify-purchase', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+                          },
+                          body: JSON.stringify({ user_id: user?.id })
+                        });
+                      } catch (e) {
+                        console.warn('Manual verify error:', e);
+                      }
                       const updated = await refreshProfile();
                       setIsRefreshing(false);
                       if (updated?.plan === 'premium') {
                         await alert('🎉 Félicitations ! Votre abonnement Premium est désormais actif !');
                       } else {
-                        await alert('Vérification effectuée : Votre compte est toujours en gratuit. Si vous venez d\'effectuer le paiement, attendez quelques secondes puis réessayez.');
+                        await alert('Vérification effectuée : Votre statut a été actualisé.');
                       }
                     }}
                     disabled={isRefreshing}
