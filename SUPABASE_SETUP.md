@@ -97,6 +97,9 @@ create table if not exists public.mcq_grades (
   selected_answers jsonb default '{}'::jsonb
 );
 
+-- Activer Supabase Realtime pour la mise à jour instantanée des abonnements Premium
+alter publication supabase_realtime add table public.profiles;
+
 -- Activer la sécurité (RLS) sur toutes les tables
 alter table public.profiles enable row level security;
 alter table public.nodes enable row level security;
