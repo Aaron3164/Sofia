@@ -55,8 +55,19 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Preuve d\'achat (sale_id ou licence) requise.' });
     }
 
-    // 3. Set 30-day premium expiration date
-    const premiumUntil = new Date();
+    // 3. Calculate 30-day premium expiration date (stackable if already premium)
+    let baseDate = new Date();
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('premium_until')
+      .eq('id', userId)
+      .single();
+
+    if (currentProfile?.premium_until && new Date(currentProfile.premium_until) > new Date()) {
+      baseDate = new Date(currentProfile.premium_until);
+    }
+
+    const premiumUntil = new Date(baseDate);
     premiumUntil.setDate(premiumUntil.getDate() + 30);
 
     // 4. Update profile to Premium in Supabase
