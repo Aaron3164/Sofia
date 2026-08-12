@@ -417,12 +417,20 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 0€ <span style={{ fontSize: '1rem', color: 'rgba(112, 26, 117, 0.5)', fontWeight: 500 }}>/mois</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
-                {['Dossiers illimités', '5 générations IA par jour', 'Flashcards & QCM inclus', 'Synchronisation cloud'].map((item, j) => (
+                {[
+                  'Jusqu\'à 10 cours au total',
+                  'Dossiers illimités',
+                  '5 générations IA par jour',
+                  'Flashcards & QCM inclus',
+                  'Recherche globale dans tous les cours',
+                  'Répétition espacée (Méthode Leitner)',
+                  'Synchronisation cloud'
+                ].map((item, j) => (
                   <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: 'rgba(112, 26, 117, 0.8)' }}>
                     <CheckCircle size={16} color="#059669" /> {item}
                   </div>
                 ))}
-                {['Générations illimitées', 'Recherche globale multi-cours', 'Répétition espacée avancée'].map((item, j) => (
+                {['Générations IA illimitées & prioritaires'].map((item, j) => (
                   <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem', color: 'rgba(112, 26, 117, 0.3)', textDecoration: 'line-through' }}>
                     <div style={{ width: 16, height: 16 }} /> {item}
                   </div>
@@ -460,9 +468,9 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '2rem' }}>
                 {[
-                  'Dossiers illimités',
+                  'Cours & Dossiers illimités',
                   'Génération IA illimitée & prioritaire',
-                  'Flashcards & QCM avancés (jamais identiques)',
+                  'Flashcards & QCM avancés',
                   'Recherche globale dans tous les cours',
                   'Répétition espacée (algorithme Leitner)',
                   'Statistiques de progression détaillées',
