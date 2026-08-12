@@ -261,9 +261,12 @@ export default function Dashboard() {
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>0€ <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
                 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Jusqu'à 10 cours au total</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Dossiers illimités</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> 5 générations IA par jour</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Flashcards & QCM inclus</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Recherche globale dans tous les cours</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Répétition espacée (Méthode Leitner)</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Synchronisation cloud</div>
                 </div>
 
@@ -298,12 +301,12 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>Premium</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>L\'expérience Aura ultime</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>L'expérience Aura ultime</p>
                 </div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>9,99€ <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
                 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Dossiers illimités</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Cours & Dossiers illimités</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Sofia IA Prioritaire & Illimitée</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Recherche globale dans tous les cours</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Répétition espacée avancée</div>
