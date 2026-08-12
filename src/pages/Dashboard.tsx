@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogOut, Mail, Palette, UserCircle, Check, Crown } from 'lucide-react';
+import { User, LogOut, Mail, Palette, UserCircle, Check, Crown, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDialog } from '../context/DialogContext';
 
 export default function Dashboard() {
-  const { user, profile, signOut, updateProfile, updatePreferences } = useAuth();
+  const { user, profile, signOut, updateProfile, updatePreferences, refreshProfile } = useAuth();
   const { theme, setTheme } = useTheme();
   const { alert } = useDialog();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'billing'>('profile');
   const [name, setName] = useState('');
 
@@ -301,6 +302,35 @@ export default function Dashboard() {
                 >
                   {profile?.plan === 'premium' ? '🚀 Mon statut Premium' : 'Passer au Premium'}
                 </button>
+
+                {profile?.plan !== 'premium' && (
+                  <button
+                    onClick={async () => {
+                      setIsRefreshing(true);
+                      const updated = await refreshProfile();
+                      setIsRefreshing(false);
+                      if (updated?.plan === 'premium') {
+                        await alert('🎉 Félicitations ! Votre abonnement Premium est désormais actif !');
+                      } else {
+                        await alert('Vérification effectuée : Votre compte est toujours en gratuit. Si vous venez d\'effectuer le paiement, attendez quelques secondes puis réessayez.');
+                      }
+                    }}
+                    disabled={isRefreshing}
+                    className="btn btn-outline"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <RefreshCw size={15} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+                    {isRefreshing ? 'Vérification en cours...' : 'Déjà payé ? Actualiser mon statut'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
