@@ -97,8 +97,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'user_not_found', message: 'User must register first' });
     }
 
-    // 2. Set premium expiration date to 30 days from now
-    const premiumUntil = new Date();
+    // 2. Set premium expiration date (+30 days stackable)
+    let baseDate = new Date();
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('premium_until')
+      .eq('id', user.id)
+      .single();
+
+    if (currentProfile?.premium_until && new Date(currentProfile.premium_until) > new Date()) {
+      baseDate = new Date(currentProfile.premium_until);
+    }
+
+    const premiumUntil = new Date(baseDate);
     premiumUntil.setDate(premiumUntil.getDate() + 30);
 
     // 3. Upsert the user's plan and expiration date in public.profiles
