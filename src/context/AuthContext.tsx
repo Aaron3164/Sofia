@@ -28,6 +28,7 @@ type AuthContextType = {
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   updatePreferences: (prefs: Partial<Preferences>) => Promise<void>;
+  refreshProfile: () => Promise<Profile | null>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,7 +59,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function fetchProfile(userId: string) {
+  // Set up Supabase Realtime subscription & window focus listener for profile updates
+  useEffect(() => {
+    if (!user) return;
+
+    // 1. Initial fetch
+    fetchProfile(user.id);
+
+    // 2. Realtime listener on public.profiles table
+    const profileChannel = supabase
+      .channel(`public:profiles:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        },
+        (payload) => {
+          if (payload.new) {
+            setProfile(payload.new as Profile);
+          }
+        }
+      )
+      .subscribe();
+
+    // 3. Re-fetch when user returns focus to browser window (e.g. returning from Payhip tab)
+    const handleFocus = () => {
+      fetchProfile(user.id);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      supabase.removeChannel(profileChannel);
+    };
+  }, [user?.id]);
+
+  async function fetchProfile(userId: string): Promise<Profile | null> {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -74,14 +113,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select()
           .single();
         
-        if (!createError) setProfile(newProfile);
-      } else if (!error) {
+        if (!createError) {
+          setProfile(newProfile);
+          return newProfile;
+        }
+      } else if (!error && data) {
         // Automatically check and handle subscription expiration
         if (data.plan === 'premium' && data.premium_until) {
           const isExpired = new Date(data.premium_until) < new Date();
           if (isExpired) {
             console.log('Subscription expired. Downgrading to free plan.');
-            // Downgrade in database
             await supabase
               .from('profiles')
               .update({ plan: 'free' })
@@ -91,12 +132,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         setProfile(data);
+        return data;
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
     } finally {
       setLoading(false);
     }
+    return null;
+  }
+
+  async function refreshProfile(): Promise<Profile | null> {
+    if (!user) return null;
+    return await fetchProfile(user.id);
   }
 
   async function signInWithGoogle() {
@@ -163,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signIn, signUp, signOut, updateProfile, updatePreferences }}>
+    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signIn, signUp, signOut, updateProfile, updatePreferences, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
