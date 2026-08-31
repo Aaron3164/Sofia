@@ -220,51 +220,70 @@ export default function SubjectDetail() {
     const selected = e.target.files?.[0];
     if (!selected) return;
 
+    // Reset input value so selecting the same file again triggers onChange
+    e.target.value = '';
+
     setFileName(selected.name);
     setIsGenerating(false);
     setIsUploading(true);
     setCloudStatus('uploading');
     setExtractionProgress({ current: 0, total: 0 });
     
+    // Create local Object URL as immediate reliable fallback for PDF viewer
+    const localUrl = URL.createObjectURL(selected);
+    
     try {
-      // 1. Parallel execution with separate tracking
+      // Execute upload to cloud and text extraction safely
       const [url, text] = await Promise.all([
         (async () => {
           try {
             const res = await uploadPDF(selected, id || 'general');
-            setCloudStatus('done');
+            if (res) {
+              setCloudStatus('done');
+            } else {
+              setCloudStatus('error');
+            }
             return res;
           } catch (err) {
+            console.warn('Cloud storage upload warning:', err);
             setCloudStatus('error');
-            throw err;
+            return null;
           }
         })(),
         extractTextFromPDF(selected, (current, total) => {
           setExtractionProgress({ current, total });
+        }).catch(err => {
+          console.error('Extraction error:', err);
+          return 'Erreur d\'extraction du texte du PDF.';
         })
       ]);
       
-      if (url) setPdfUrl(url);
+      const finalPdfUrl = url || localUrl;
+      setPdfUrl(finalPdfUrl);
       setExtractedContent(text);
 
-      // 3. Save to Local Buffer immediately (Backup)
+      // Save to Local Storage Buffer immediately (Backup)
       localStorage.setItem(storageKey, JSON.stringify({
         extractedContent: text,
         generations,
-        pdfUrl: url,
+        pdfUrl: finalPdfUrl,
         fileName: selected.name
       }));
 
-      // 4. Atomic save to Cloud
+      // Atomic save to Cloud Database if user profile exists
       if (profile) {
         await saveToCloud({ 
-          pdf_url: url, 
+          pdf_url: url || undefined, 
           extracted_content: text, 
           file_name: selected.name 
         });
       }
       
-      await alert('Document traité et sauvegardé avec succès !');
+      if (url) {
+        await alert('Document traité et sauvegardé dans le Cloud avec succès !');
+      } else {
+        await alert('Document chargé et analysé avec succès ! (Note: Sauvegarde locale utilisée car le stockage Cloud est non disponible)');
+      }
     } catch (error) {
       console.error('Error in handleFileUpload:', error);
       await alert('Erreur lors du traitement du document.');
@@ -277,24 +296,26 @@ export default function SubjectDetail() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    // Reset input value so selecting the same file again triggers onChange
+    e.target.value = '';
+
     setIsUploadingNaive(true);
     try {
       const newAttachments = [...naiveAttachments];
       
       for (const file of files) {
         const url = await uploadPDF(file, `courses/${id}/attachments`);
-        if (url) {
-          newAttachments.push({
-            id: crypto.randomUUID(),
-            name: file.name,
-            url: url
-          });
-        }
+        const fallbackUrl = url || URL.createObjectURL(file);
+        newAttachments.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          url: fallbackUrl
+        });
       }
       
       setNaiveAttachments(newAttachments);
       if (profile) await saveToCloud({ naive_attachments: newAttachments });
-      await alert(`${files.length} document(s) ajouté(s) à la bibliothèque !`);
+      await alert(`${files.length} document(s) ajouté(s) avec succès !`);
     } catch (error) {
       console.error('Error uploading naive PDFs:', error);
       await alert('Erreur lors du téléchargement des documents.');
