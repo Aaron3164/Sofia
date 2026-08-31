@@ -432,7 +432,10 @@ export default function Statistics() {
                       type="file" 
                       multiple 
                       accept=".pdf"
-                      onChange={e => setAnnaleFiles(Array.from(e.target.files || []))}
+                      onChange={e => {
+                        setAnnaleFiles(Array.from(e.target.files || []));
+                        e.target.value = '';
+                      }}
                       style={{ display: 'none' }}
                       id="annale-upload"
                     />
