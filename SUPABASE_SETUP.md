@@ -144,6 +144,17 @@ create policy "Users can manage own annales grades" on annales_grades for all us
 -- Politiques pour MCQ_GRADES
 drop policy if exists "Users can manage own mcq grades" on mcq_grades;
 create policy "Users can manage own mcq grades" on mcq_grades for all using (auth.uid() = user_id);
+
+-- 8. Bucket de Stockage Storage pour les PDF ('pdfs')
+insert into storage.buckets (id, name, public) 
+values ('pdfs', 'pdfs', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Public Access to PDFs" on storage.objects;
+create policy "Public Access to PDFs" on storage.objects for select using (bucket_id = 'pdfs');
+
+drop policy if exists "Users can upload PDFs" on storage.objects;
+create policy "Users can upload PDFs" on storage.objects for insert with check (bucket_id = 'pdfs');
 ```
 
 ### 3. Pourquoi c'est nécessaire ?
