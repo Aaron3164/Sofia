@@ -11,17 +11,22 @@ export async function uploadPDF(file: File, subjectId: string): Promise<string |
     return null;
   }
 
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Math.random()}.${fileExt}`;
-  const filePath = `${subjectId}/${fileName}`;
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${subjectId}/${fileName}`;
 
-  const { error } = await supabase.storage.from('pdfs').upload(filePath, file);
-  
-  if (error) {
-    console.error('Error uploading to Supabase:', error.message);
-    throw error;
+    const { error } = await supabase.storage.from('pdfs').upload(filePath, file);
+    
+    if (error) {
+      console.error('Error uploading to Supabase storage bucket "pdfs":', error.message);
+      return null;
+    }
+
+    const { data } = supabase.storage.from('pdfs').getPublicUrl(filePath);
+    return data.publicUrl;
+  } catch (err) {
+    console.error('Unexpected error in uploadPDF:', err);
+    return null;
   }
-
-  const { data } = supabase.storage.from('pdfs').getPublicUrl(filePath);
-  return data.publicUrl;
 }
