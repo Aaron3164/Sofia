@@ -131,7 +131,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             data.plan = 'free';
           }
         }
-        setProfile(data);
+        setProfile(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(data)) {
+            return prev;
+          }
+          return data;
+        });
         return data;
       }
     } catch (err) {
