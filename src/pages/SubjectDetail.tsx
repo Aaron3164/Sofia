@@ -48,7 +48,7 @@ export default function SubjectDetail() {
   // Load data from Supabase or LocalStorage
   useEffect(() => {
     async function loadData() {
-      if (!id) return;
+      if (!id || isUploading) return;
       setDataLoading(true);
 
       try {
@@ -101,7 +101,7 @@ export default function SubjectDetail() {
     }
 
     loadData();
-  }, [id, storageKey, profile]);
+  }, [id, storageKey, profile?.id]);
 
   // Save to Supabase (debounce or specific actions)
   const saveToCloud = async (updates: any) => {
@@ -215,6 +215,21 @@ export default function SubjectDetail() {
 
   const [cloudStatus, setCloudStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
   const [extractionProgress, setExtractionProgress] = useState({ current: 0, total: 0 });
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      const mockEvent = {
+        target: {
+          files: [droppedFile],
+          value: ''
+        }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      handleFileUpload(mockEvent);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -532,7 +547,11 @@ export default function SubjectDetail() {
               </div>
             </div>
           ) : (
-            <div style={{ border: '2px dashed var(--border-color)', borderRadius: '0.75rem', padding: '2rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', marginBottom: '1rem' }}>
+            <div 
+              onDragOver={e => e.preventDefault()}
+              onDrop={handleDrop}
+              style={{ border: '2px dashed var(--border-color)', borderRadius: '0.75rem', padding: '2rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', marginBottom: '1rem' }}
+            >
               <UploadCloud size={40} color="var(--text-secondary)" style={{ margin: '0 auto 1rem' }} />
               <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>Glissez-déposez le PDF ici</p>
               <input type="file" id="pdf-upload" accept=".pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
