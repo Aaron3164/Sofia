@@ -186,7 +186,7 @@ CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation,
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. RÉPONDS DIRECTEMENT À LA QUESTION.
 
 Consignes de formatage strictes (PRIORITÉ #1) :
-- UTILISE MASSIVEMENT LE SURLIGNAGE '==' pour les concepts clés, les termes techniques et les informations fondamentales.
+- UTILISE MASSIVEMENT LE SURLIGNAGE AVEC DEUX SIGNES ÉGAL '==' DE CHAQUE CÔTÉ (ex: ==mot surligné==, N'UTILISE JAMAIS UN SEUL '=' COMME =mot=) pour les concepts clés, les termes techniques et les informations fondamentales.
 - Utilise Markdown (#, ##, ###, ####) pour structurer ta réponse.
 - Utilise des listes à puces (* ) pour briser les paragraphes longs.
 - Utilise '__' pour souligner les précisions importantes.
