@@ -71,12 +71,7 @@ export const mdToHtml = (md: string) => {
   html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
   html = html.replace(/__(.*?)__/gim, '<u style="text-decoration: underline;">$1</u>');
   html = html.replace(/([^\*]|^)\*([^\*]+)\*(?!\*)/gim, '$1<em>$2</em>'); 
-  html = html.replace(/={1,2}([^=\n]+?)={1,2}/gim, (match, p1) => {
-    const trimmed = p1.trim();
-    if (!trimmed) return match;
-    if (match.startsWith(' = ') && match.endsWith(' = ')) return match;
-    return `<mark>${trimmed}</mark>`;
-  });
+  html = html.replace(/==(.*?)==/gim, '<mark>$1</mark>');
   
   // Paragraphs
   html = html.split('\n').map(line => {
