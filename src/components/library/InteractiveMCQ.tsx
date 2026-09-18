@@ -46,24 +46,49 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
     }
   }, [data]);
 
+  let scenarioText: string | null = null;
   let mcqs: MCQ[] = [];
   try {
     if (typeof data === 'string') {
-      let jsonStr = data;
-      // Robust JSON extraction
-      const startIdx = jsonStr.indexOf('[');
-      const endIdx = jsonStr.lastIndexOf(']');
-      
-      if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-        jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+      let jsonStr = data.trim();
+      const firstBrace = jsonStr.indexOf('{');
+      const firstBracket = jsonStr.indexOf('[');
+
+      if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+        const lastBrace = jsonStr.lastIndexOf('}');
+        if (lastBrace > firstBrace) {
+          jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+          const parsedObj = JSON.parse(jsonStr);
+          if (parsedObj.scenario || parsedObj.context || parsedObj.statement) {
+            scenarioText = parsedObj.scenario || parsedObj.context || parsedObj.statement;
+          }
+          if (Array.isArray(parsedObj.questions)) {
+            mcqs = parsedObj.questions;
+          } else if (Array.isArray(parsedObj.mcqs)) {
+            mcqs = parsedObj.mcqs;
+          }
+        }
       } else {
-        jsonStr = jsonStr.replace(/```json\n?|```/g, '').trim();
+        const startIdx = jsonStr.indexOf('[');
+        const endIdx = jsonStr.lastIndexOf(']');
+        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+          jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+        } else {
+          jsonStr = jsonStr.replace(/```json\n?|```/g, '').trim();
+        }
+        const parsedData = JSON.parse(jsonStr);
+        if (Array.isArray(parsedData)) {
+          mcqs = parsedData;
+        } else if (parsedData && typeof parsedData === 'object') {
+          scenarioText = parsedData.scenario || parsedData.context || null;
+          mcqs = parsedData.questions || parsedData.mcqs || [];
+        }
       }
-      
-      const parsedData = JSON.parse(jsonStr);
-      mcqs = Array.isArray(parsedData) ? parsedData : [];
-    } else {
+    } else if (Array.isArray(data)) {
       mcqs = data;
+    } else if (data && typeof data === 'object') {
+      scenarioText = (data as any).scenario || (data as any).context || null;
+      mcqs = (data as any).questions || (data as any).mcqs || [];
     }
   } catch (e) {
     return <div className="text-danger">Échec de l'analyse des QCM. Les données brutes ne sont pas au format attendu.</div>;
@@ -182,6 +207,25 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {scenarioText && (
+        <div className="glass-panel fade-in" style={{
+          padding: '1.5rem',
+          borderRadius: '1rem',
+          backgroundColor: 'var(--bg-elevated)',
+          borderLeft: '4px solid var(--accent-primary)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem'
+        }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-primary)', margin: 0, fontSize: '1.1rem' }}>
+            <span>📋</span> Énoncé / Cas Clinique
+          </h3>
+          <p style={{ lineHeight: '1.7', whiteSpace: 'pre-line', fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>
+            {scenarioText}
+          </p>
+        </div>
+      )}
+
       {showResults && (
         <div className="glass-panel fade-in" style={{ padding: '1.5rem', borderRadius: '1rem', backgroundColor: 'var(--bg-elevated)', textAlign: 'center' }}>
           <h2>Votre Score : {score} / {mcqs.length}</h2>
