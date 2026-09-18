@@ -185,10 +185,12 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
 
     try {
       const annaleText = activeAnnale?.extractedText;
+      const options = { preferences, annaleContext: annaleText };
+
       if (isNewChat) {
         // Run both API calls concurrently
         const [answerText, title] = await Promise.all([
-          askQuestion(documentContext.substring(0, 300000), newQuestion.text, [], preferences, annaleText),
+          askQuestion(documentContext.substring(0, 300000), newQuestion.text, [], options),
           generateChatTitle(newQuestion.text)
         ]);
         const newAnswer: QAMessage = { role: 'ai', text: answerText };
@@ -197,7 +199,7 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
           c.id === currentChatId ? { ...c, title, messages: [...c.messages, newAnswer] } : c
         );
       } else {
-        const answerText = await askQuestion(documentContext.substring(0, 300000), newQuestion.text, messages, preferences, annaleText);
+        const answerText = await askQuestion(documentContext.substring(0, 300000), newQuestion.text, messages, options);
         const newAnswer: QAMessage = { role: 'ai', text: answerText };
         
         updatedConversations = updatedConversations.map(c => 
