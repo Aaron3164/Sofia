@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, Loader2 } from 'lucide-react';
+import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, Loader2, Pencil, Check } from 'lucide-react';
 import { askQuestion, generateChatTitle } from '../../lib/gemini';
 import { mdToHtml } from '../../lib/markdown';
 import { extractTextFromPDF } from '../../lib/pdf-extractor';
@@ -41,6 +41,23 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // AI Message Editing state
+  const [editingMsgIndex, setEditingMsgIndex] = useState<number | null>(null);
+  const [editedMsgText, setEditedMsgText] = useState<string>('');
+
+  const handleSaveMessageEdit = (idx: number) => {
+    if (!activeChatId || !activeConversation) return;
+    const updatedMessages = activeConversation.messages.map((msg, i) => 
+      i === idx ? { ...msg, text: editedMsgText } : msg
+    );
+    const updatedConversations = conversations.map(c => 
+      c.id === activeChatId ? { ...c, messages: updatedMessages } : c
+    );
+    setConversations(updatedConversations);
+    onUpdate(JSON.stringify(updatedConversations));
+    setEditingMsgIndex(null);
+  };
 
   // Parse data on mount or when data changes externally
   useEffect(() => {
@@ -353,8 +370,72 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
               }}>
                 {m.role === 'ai' ? (
                   <div className="study-resume-container" style={{ padding: '0', height: 'auto', overflow: 'visible' }}>
-                    <div className="resume-glass-wrapper" style={{ padding: '2rem', margin: '0', maxWidth: '100%', fontSize: '1rem' }}>
-                      <div className="resume-content-rendered" dangerouslySetInnerHTML={{ __html: mdToHtml(m.text) }} />
+                    <div className="resume-glass-wrapper" style={{ padding: '2rem', margin: '0', maxWidth: '100%', fontSize: '1rem', position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+                        {editingMsgIndex !== idx ? (
+                          <button 
+                            onClick={() => {
+                              setEditingMsgIndex(idx);
+                              setEditedMsgText(m.text);
+                            }}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '0.3rem',
+                              padding: '0.3rem 0.6rem', borderRadius: '0.4rem',
+                              backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)',
+                              color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem'
+                            }}
+                            title="Modifier cette explication"
+                          >
+                            <Pencil size={13} /> <span>Modifier</span>
+                          </button>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <button 
+                              onClick={() => handleSaveMessageEdit(idx)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                padding: '0.3rem 0.6rem', borderRadius: '0.4rem',
+                                backgroundColor: 'var(--accent-primary)', color: 'white',
+                                border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500
+                              }}
+                            >
+                              <Check size={13} /> <span>Enregistrer</span>
+                            </button>
+                            <button 
+                              onClick={() => setEditingMsgIndex(null)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                padding: '0.3rem 0.6rem', borderRadius: '0.4rem',
+                                backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)',
+                                color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem'
+                              }}
+                            >
+                              <X size={13} /> <span>Annuler</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {editingMsgIndex === idx ? (
+                        <textarea 
+                          value={editedMsgText}
+                          onChange={(e) => setEditedMsgText(e.target.value)}
+                          style={{
+                            width: '100%',
+                            minHeight: '200px',
+                            padding: '0.75rem',
+                            borderRadius: '0.5rem',
+                            border: '1px solid var(--accent-primary)',
+                            backgroundColor: 'var(--bg-primary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.9rem',
+                            lineHeight: '1.6',
+                            fontFamily: 'monospace'
+                          }}
+                        />
+                      ) : (
+                        <div className="resume-content-rendered" dangerouslySetInnerHTML={{ __html: mdToHtml(m.text) }} />
+                      )}
                     </div>
                   </div>
                 ) : (
