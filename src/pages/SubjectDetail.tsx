@@ -130,10 +130,14 @@ export default function SubjectDetail() {
   const saveToCloud = async (updates: any) => {
     if (!profile || !id) return;
     setSyncStatus('syncing');
+
+    // Strip top-level custom_instructions to prevent Supabase schema cache column errors
+    const { custom_instructions, ...cleanUpdates } = updates;
+
     const { error } = await supabase.from('course_data').upsert({
       user_id: profile.id,
       course_id: id,
-      ...updates,
+      ...cleanUpdates,
       updated_at: new Date().toISOString()
     }, { onConflict: 'course_id' });
     
@@ -386,8 +390,12 @@ export default function SubjectDetail() {
           activeTab === 'flashcards' ? flashcardCount : undefined,
           customInstructions
         );
-        const newGenerations = { ...generations, [activeTab]: result };
-        setGenerations(newGenerations);
+        const newGenerations = { 
+          ...generations, 
+          [activeTab]: result,
+          custom_instructions: customInstructions 
+        };
+        setGenerations(newGenerations as any);
 
         // Instant local buffer
         localStorage.setItem(storageKey, JSON.stringify({
@@ -398,7 +406,7 @@ export default function SubjectDetail() {
           customInstructions
         }));
 
-        if (profile) await saveToCloud({ generations: newGenerations, custom_instructions: customInstructions });
+        if (profile) await saveToCloud({ generations: newGenerations });
       }
     } catch (error) {
       console.error('Error generating materials:', error);
