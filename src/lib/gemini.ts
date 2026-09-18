@@ -109,8 +109,31 @@ CONSIGNE RECTO (front) : Sois explicite dans la question pour que l'étudiant sa
 CONSIGNE VERSO (back) : Les réponses doivent rester CONCISES (entre 2 et 15 mots maximum). On veut une information percutante, pas de longs paragraphes.
 
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "front" (question) et "back" (réponse).`,
-    mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y me avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
-Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objects avec "question", "options" (tableau de 4 ou 5 cordes), et "correctAnswers" (tableau contenant les réponses exactes).`,
+    mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
+
+IMPORTANT (CAS CLINIQUE / ÉNONCÉ) : Si la consigne de l'étudiant demande un cas clinique, une mise en situation, une histoire ou un énoncé global (ex: "cas clinique fictif", "cas de M. Martin"), tu DOIS impérativement rédiger l'énoncé complet du cas clinique (profil du patient, âge, symptômes, antécédents, examens biologiques) dans une propriété "scenario" au niveau racine de ton JSON, puis baser tes 10 questions sur cet énoncé !
+
+Réponds STRICTEMENT en français.
+Format attendu si cas clinique / énoncé :
+{
+  "scenario": "Énoncé complet et détaillé du cas clinique...",
+  "questions": [
+    {
+      "question": "Question...",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+      "correctAnswers": ["Option 1"]
+    }
+  ]
+}
+
+Format attendu si QCM classiques sans cas clinique :
+[
+  {
+    "question": "Question...",
+    "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+    "correctAnswers": ["Option 1"]
+  }
+]`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du texte fourni. 
     
 CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le texte section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
@@ -122,7 +145,7 @@ Consignes de formatage strictes :
 - Fais des listes à puces avec '* ' pour chaque détail important.
 - Mets en **gras** les termes techniques.
 - UTILISE MASSIVEMENT ET SYSTÉMATIQUEMENT '==' POUR SURLIGNER TOUTES LES INFORMATIONS LES PLUS FONDAMENTALES. 
-- Utilise '__' pour souligner les nuances.
+- Utilise '__' pour souligner les précisions importantes.
 - Ne fais pas de conclusion ou de transition, reste sur le contenu pur.
 
 Rédige tout en français de manière extrêmement précise, complète et académique.`
@@ -148,15 +171,23 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
     let generatedText = response.text || '';
     
     if (isJSON) {
-      // Robust JSON extraction: look for the first [ and the last ]
-      const startIdx = generatedText.indexOf('[');
-      const endIdx = generatedText.lastIndexOf(']');
-      
-      if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-        generatedText = generatedText.substring(startIdx, endIdx + 1);
+      // Robust JSON extraction: look for either { or [
+      const firstBrace = generatedText.indexOf('{');
+      const firstBracket = generatedText.indexOf('[');
+
+      if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+        const lastBrace = generatedText.lastIndexOf('}');
+        if (lastBrace > firstBrace) {
+          generatedText = generatedText.substring(firstBrace, lastBrace + 1);
+        }
       } else {
-        // Fallback to markdown strip
-        generatedText = generatedText.replace(/```json\n?|```/g, '').trim();
+        const startIdx = generatedText.indexOf('[');
+        const endIdx = generatedText.lastIndexOf(']');
+        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+          generatedText = generatedText.substring(startIdx, endIdx + 1);
+        } else {
+          generatedText = generatedText.replace(/```json\n?|```/g, '').trim();
+        }
       }
     }
     
