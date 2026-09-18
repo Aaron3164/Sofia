@@ -136,6 +136,44 @@ export const InteractiveFlashcard: React.FC<{
     }, 50);
   };
 
+  // Global Keyboard Navigation (Space for Flip, ArrowLeft / ArrowRight for Next/Prev)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger keyboard shortcuts if user is typing in an input or textarea
+      const activeElement = document.activeElement;
+      if (
+        activeElement &&
+        (activeElement.tagName === 'INPUT' ||
+         activeElement.tagName === 'TEXTAREA' ||
+         (activeElement as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+
+      if (isEditing) return; // Don't trigger while editing card
+
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        setIsFlipped(prev => !prev);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setIsFlipped(false);
+        setIsEditing(false);
+        setTimeout(() => setCurrentIndex((prev) => (prev + 1) % cards.length), 100);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setIsFlipped(false);
+        setIsEditing(false);
+        setTimeout(() => setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length), 100);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isEditing, cards.length]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       
@@ -239,12 +277,17 @@ export const InteractiveFlashcard: React.FC<{
       )}
 
       {!isEditing && (
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-          <button className="btn btn-outline" onClick={handlePrev}>Précédente</button>
-          <button className="btn btn-outline" onClick={() => setIsFlipped(!isFlipped)}>
-            {isFlipped ? 'Voir Question' : 'Voir Réponse'}
-          </button>
-          <button className="btn btn-primary" onClick={handleNext}>Suivante</button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button className="btn btn-outline" onClick={handlePrev}>Précédente</button>
+            <button className="btn btn-outline" onClick={() => setIsFlipped(!isFlipped)}>
+              {isFlipped ? 'Voir Question' : 'Voir Réponse'}
+            </button>
+            <button className="btn btn-primary" onClick={handleNext}>Suivante</button>
+          </div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.75 }}>
+            💡 <kbd style={{ padding: '0.15rem 0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-elevated)', fontSize: '0.7rem', fontFamily: 'inherit' }}>Espace</kbd> pour retourner &bull; <kbd style={{ padding: '0.15rem 0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-elevated)', fontSize: '0.7rem', fontFamily: 'inherit' }}>←</kbd> <kbd style={{ padding: '0.15rem 0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-elevated)', fontSize: '0.7rem', fontFamily: 'inherit' }}>→</kbd> pour naviguer
+          </span>
         </div>
       )}
     </div>
