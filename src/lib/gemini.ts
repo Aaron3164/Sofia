@@ -92,7 +92,8 @@ export async function generateStudyMaterials(
   promptContext: string,
   mode: 'flashcards' | 'mcq' | 'resume',
   prefs?: AIPreferences,
-  cardCount?: number
+  cardCount?: number,
+  customInstructions?: string
 ): Promise<string> {
   await ensureQuota();
   const ai = getGeminiClient();
@@ -108,7 +109,7 @@ CONSIGNE RECTO (front) : Sois explicite dans la question pour que l'étudiant sa
 CONSIGNE VERSO (back) : Les réponses doivent rester CONCISES (entre 2 et 15 mots maximum). On veut une information percutante, pas de longs paragraphes.
 
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "front" (question) et "back" (réponse).`,
-    mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
+    mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y me avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objects avec "question", "options" (tableau de 4 ou 5 cordes), et "correctAnswers" (tableau contenant les réponses exactes).`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du texte fourni. 
     
@@ -127,7 +128,11 @@ Consignes de formatage strictes :
 Rédige tout en français de manière extrêmement précise, complète et académique.`
   };
 
-  const fullPrompt = `${systemInstruction}${prompts[mode]}\n\nContent Context:\n${promptContext}`;
+  let fullPrompt = `${systemInstruction}${prompts[mode]}\n\nContent Context:\n${promptContext}`;
+  
+  if (customInstructions && customInstructions.trim().length > 0) {
+    fullPrompt += `\n\nCONSIGNE COMPLÉMENTAIRE DE L'ÉTUDIANT : Tout en respectant à 100% le prompt principal ci-dessus et en balayant l'ensemble du cours, accorde un soin, une profondeur et une densité légèrement supérieures aux notions, consignes ou mots-clés suivants : ${customInstructions.trim()}.`;
+  }
 
   const isJSON = mode === 'flashcards' || mode === 'mcq';
 
@@ -186,7 +191,7 @@ CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation,
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. RÉPONDS DIRECTEMENT À LA QUESTION.
 
 Consignes de formatage strictes (PRIORITÉ #1) :
-- UTILISE MASSIVEMENT LE SURLIGNAGE AVEC DEUX SIGNES ÉGAL '==' DE CHAQUE CÔTÉ (ex: ==mot surligné==, N'UTILISE JAMAIS UN SEUL '=' COMME =mot=) pour les concepts clés, les termes techniques et les informations fondamentales.
+- UTILISE MASSIVEMENT LE SURLIGNAGE AVEC DEUX SIGNES ÉGAL '==' DE CHAQUE CÔTÉ (ex: ==mot surligné==, N'UTILISE JAMAIS UN SEUL '=' COMME =mot=, ni ==mot__ ou autre symbôle) pour les concepts clés, les termes techniques et les informations fondamentales.
 - Utilise Markdown (#, ##, ###, ####) pour structurer ta réponse.
 - Utilise des listes à puces (* ) pour briser les paragraphes longs.
 - Utilise '__' pour souligner les précisions importantes.
