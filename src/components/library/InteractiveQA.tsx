@@ -1,17 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Send, User, Bot, Plus, Trash2, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, Loader2 } from 'lucide-react';
 import { askQuestion, generateChatTitle } from '../../lib/gemini';
 import { mdToHtml } from '../../lib/markdown';
+import { extractTextFromPDF } from '../../lib/pdf-extractor';
 
 export interface QAMessage {
   role: 'user' | 'ai';
   text: string;
 }
 
+export interface QAAnnaleAttachment {
+  name: string;
+  extractedText: string;
+}
+
 export interface QAConversation {
   id: string;
   title: string;
   messages: QAMessage[];
+  attachedAnnale?: QAAnnaleAttachment;
 }
 
 import type { AIPreferences } from '../../lib/gemini';
@@ -28,6 +35,12 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
   const [isAsking, setIsAsking] = useState(false);
   const [conversations, setConversations] = useState<QAConversation[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+
+  // Annale attachment state
+  const [draftAnnale, setDraftAnnale] = useState<QAAnnaleAttachment | null>(null);
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Parse data on mount or when data changes externally
   useEffect(() => {
@@ -60,9 +73,11 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
 
   const activeConversation = conversations.find(c => c.id === activeChatId) || null;
   const messages = activeConversation?.messages || [];
+  const activeAnnale = activeConversation ? activeConversation.attachedAnnale : draftAnnale;
 
   const handleCreateNewChat = () => {
     setActiveChatId(null);
+    setDraftAnnale(null);
   };
 
   const handleDeleteChat = (id: string, e: React.MouseEvent) => {
@@ -73,6 +88,68 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
     }
     setConversations(updated);
     onUpdate(JSON.stringify(updated));
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Veuillez sélectionner un fichier au format PDF.');
+      return;
+    }
+
+    setIsExtractingPdf(true);
+    setPdfProgress('Extraction du texte du PDF...');
+
+    try {
+      const extractedText = await extractTextFromPDF(file, (current, total) => {
+        setPdfProgress(`Extraction : page ${current} / ${total}...`);
+      });
+
+      if (!extractedText.trim()) {
+        alert('Le fichier PDF semble ne contenir aucun texte exploitable.');
+        return;
+      }
+
+      const newAnnale: QAAnnaleAttachment = {
+        name: file.name,
+        extractedText
+      };
+
+      if (activeChatId && activeConversation) {
+        const updated = conversations.map(c => 
+          c.id === activeChatId ? { ...c, attachedAnnale: newAnnale } : c
+        );
+        setConversations(updated);
+        onUpdate(JSON.stringify(updated));
+      } else {
+        setDraftAnnale(newAnnale);
+      }
+    } catch (err) {
+      console.error('Erreur lors de la lecture du PDF d\'annale', err);
+      alert('Erreur lors de l\'extraction du PDF. Vérifiez le fichier.');
+    } finally {
+      setIsExtractingPdf(false);
+      setPdfProgress('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAnnale = () => {
+    if (activeChatId && activeConversation) {
+      const updated = conversations.map(c => {
+        if (c.id === activeChatId) {
+          const { attachedAnnale, ...rest } = c;
+          return rest;
+        }
+        return c;
+      });
+      setConversations(updated);
+      onUpdate(JSON.stringify(updated));
+    } else {
+      setDraftAnnale(null);
+    }
   };
 
   const handleSend = async () => {
@@ -88,10 +165,12 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
       const newConv: QAConversation = {
         id: currentChatId,
         title: 'Génération en cours...',
-        messages: [newQuestion]
+        messages: [newQuestion],
+        ...(draftAnnale ? { attachedAnnale: draftAnnale } : {})
       };
       updatedConversations.push(newConv);
       setActiveChatId(currentChatId);
+      setDraftAnnale(null);
     } else {
       updatedConversations = updatedConversations.map(c => 
         c.id === currentChatId ? { ...c, messages: [...c.messages, newQuestion] } : c
@@ -105,10 +184,11 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
     setIsAsking(true);
 
     try {
+      const annaleText = activeAnnale?.extractedText;
       if (isNewChat) {
         // Run both API calls concurrently
         const [answerText, title] = await Promise.all([
-          askQuestion(documentContext.substring(0, 300000), newQuestion.text, [], preferences),
+          askQuestion(documentContext.substring(0, 300000), newQuestion.text, [], preferences, annaleText),
           generateChatTitle(newQuestion.text)
         ]);
         const newAnswer: QAMessage = { role: 'ai', text: answerText };
@@ -117,7 +197,7 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
           c.id === currentChatId ? { ...c, title, messages: [...c.messages, newAnswer] } : c
         );
       } else {
-        const answerText = await askQuestion(documentContext.substring(0, 300000), newQuestion.text, messages, preferences);
+        const answerText = await askQuestion(documentContext.substring(0, 300000), newQuestion.text, messages, preferences, annaleText);
         const newAnswer: QAMessage = { role: 'ai', text: answerText };
         
         updatedConversations = updatedConversations.map(c => 
@@ -141,6 +221,15 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem' }}>
       
+      {/* Hidden File Input for Annale PDF */}
+      <input 
+        type="file" 
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="application/pdf"
+        style={{ display: 'none' }}
+      />
+
       {/* Top Bar for Conversations */}
       <div style={{ 
         display: 'flex', 
@@ -165,6 +254,25 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
         >
           <Plus size={16} /> Nouvelle discussion
         </button>
+
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isExtractingPdf || isAsking}
+          style={{
+            flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            padding: '0.5rem 0.75rem',
+            borderRadius: '0.5rem',
+            backgroundColor: 'var(--bg-elevated)',
+            color: 'var(--accent-primary)',
+            border: '1px dashed var(--accent-primary)',
+            cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', transition: 'all 0.2s'
+          }}
+          title="Joindre un sujet d'examen ou une annale en PDF"
+        >
+          <Paperclip size={15} />
+          {activeAnnale ? "Remplacer l'annale" : "Joindre une annale PDF"}
+        </button>
         
         {conversations.map(conv => (
           <div 
@@ -185,6 +293,9 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
             <span style={{ maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {conv.title}
             </span>
+            {conv.attachedAnnale && (
+              <span title="Annale PDF attachée" style={{ fontSize: '0.75rem', color: 'var(--accent-primary)' }}>📎</span>
+            )}
             <button 
               onClick={(e) => handleDeleteChat(conv.id, e)}
               style={{
@@ -201,11 +312,14 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
         ))}
       </div>
 
+      {/* Main Chat Content */}
       {messages.length === 0 ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', gap: '1rem' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', gap: '1rem', textAlign: 'center', padding: '1rem' }}>
           <Bot size={48} color="var(--accent-primary)" style={{ opacity: 0.8 }} />
           <p style={{ fontSize: '1.2rem', fontWeight: 500, color: 'var(--text-primary)' }}>Salut, c'est Sofia ! 👋</p>
-          <p>Pose-moi n'importe quelle question sur ton cours, je suis là pour t'aider à tout comprendre.</p>
+          <p style={{ maxWidth: '500px' }}>
+            Pose-moi n'importe quelle question sur ton cours, ou joint une annale PDF pour obtenir une correction pas à pas basée sur ton cours.
+          </p>
         </div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '1rem' }}>
@@ -271,6 +385,52 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
         </div>
       )}
 
+      {/* PDF Extraction Loader Banner */}
+      {isExtractingPdf && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.75rem',
+          padding: '0.6rem 1rem', borderRadius: '0.5rem',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)', border: '1px solid var(--accent-primary)',
+          fontSize: '0.85rem', color: 'var(--accent-primary)'
+        }}>
+          <Loader2 size={16} className="animate-spin" />
+          <span>{pdfProgress || 'Traitement du fichier PDF...'}</span>
+        </div>
+      )}
+
+      {/* Attached Annale Badge above input */}
+      {activeAnnale && !isExtractingPdf && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0.5rem 0.85rem', borderRadius: '0.5rem',
+          backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)',
+          fontSize: '0.85rem', color: 'var(--text-primary)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+            <FileText size={16} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
+            <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {activeAnnale.name}
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', flexShrink: 0 }}>
+              (Sujet d'annale joint pour correction)
+            </span>
+          </div>
+          <button 
+            onClick={handleRemoveAnnale}
+            style={{
+              background: 'transparent', border: 'none',
+              color: 'var(--danger)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', padding: '0.2rem',
+              borderRadius: '4px'
+            }}
+            title="Détacher cette annale"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Input Bar */}
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
         <input 
           type="text" 
@@ -278,14 +438,14 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Pose ta question à Sofia..."
+          placeholder={activeAnnale ? "Demande une correction ou pose une question sur ce sujet..." : "Pose ta question à Sofia..."}
           style={{ flex: 1, padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-          disabled={isAsking}
+          disabled={isAsking || isExtractingPdf}
         />
         <button 
           className="btn btn-primary shadow-sm" 
           onClick={handleSend}
-          disabled={isAsking || !inputValue.trim()}
+          disabled={isAsking || isExtractingPdf || !inputValue.trim()}
           style={{ padding: '0 1.5rem', borderRadius: '0.5rem' }}
         >
           <Send size={20} />
@@ -294,4 +454,3 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
     </div>
   );
 };
- 
