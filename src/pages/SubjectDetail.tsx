@@ -32,6 +32,7 @@ export default function SubjectDetail() {
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const isScheduled = id ? hasScheduledCourse(id) : false;
+  const [customInstructions, setCustomInstructions] = useState<string>('');
   const [activeTab, setActiveTab] = useState<GenerationTab | 'source'>('flashcards');
   const [flashcardCount, setFlashcardCount] = useState<number>(30);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export default function SubjectDetail() {
               if (parsed.pdfUrl) setPdfUrl(parsed.pdfUrl);
               if (parsed.fileName) setFileName(parsed.fileName);
               if (parsed.naiveAttachments) setNaiveAttachments(parsed.naiveAttachments);
+              if (parsed.customInstructions) setCustomInstructions(parsed.customInstructions);
             } catch (e) {
               console.error('Failed to load local data');
             }
@@ -89,6 +91,7 @@ export default function SubjectDetail() {
           setPdfUrl(data.pdf_url);
           setFileName(data.file_name);
           setNaiveAttachments(data.naive_attachments || []);
+          if (data.custom_instructions) setCustomInstructions(data.custom_instructions);
           setSyncStatus('connected');
         }
       } catch (err: any) {
@@ -132,10 +135,10 @@ export default function SubjectDetail() {
   // Save to local fallback (Buffer for sync reliability)
   useEffect(() => {
     // We always save to local if we have content, acting as a buffer
-    if (extractedContent || Object.values(generations).some(g => g !== null) || pdfUrl || naiveAttachments.length > 0) {
-      localStorage.setItem(storageKey, JSON.stringify({ extractedContent, generations, pdfUrl, fileName, naiveAttachments }));
+    if (extractedContent || Object.values(generations).some(g => g !== null) || pdfUrl || naiveAttachments.length > 0 || customInstructions) {
+      localStorage.setItem(storageKey, JSON.stringify({ extractedContent, generations, pdfUrl, fileName, naiveAttachments, customInstructions }));
     }
-  }, [extractedContent, generations, pdfUrl, fileName, storageKey]);
+  }, [extractedContent, generations, pdfUrl, fileName, naiveAttachments, customInstructions, storageKey]);
 
   // Sync time spent to database
   useEffect(() => {
@@ -360,7 +363,8 @@ export default function SubjectDetail() {
           extractedContent.substring(0, 300000), 
           activeTab,
           profile?.preferences,
-          activeTab === 'flashcards' ? flashcardCount : undefined
+          activeTab === 'flashcards' ? flashcardCount : undefined,
+          customInstructions
         );
         const newGenerations = { ...generations, [activeTab]: result };
         setGenerations(newGenerations);
@@ -370,10 +374,11 @@ export default function SubjectDetail() {
           extractedContent,
           generations: newGenerations,
           pdfUrl,
-          fileName
+          fileName,
+          customInstructions
         }));
 
-        if (profile) await saveToCloud({ generations: newGenerations });
+        if (profile) await saveToCloud({ generations: newGenerations, custom_instructions: customInstructions });
       }
     } catch (error) {
       console.error('Error generating materials:', error);
@@ -687,6 +692,33 @@ export default function SubjectDetail() {
                 )}
               </div>
             </div>
+
+            {activeTab !== 'explications' && activeTab !== 'source' && (
+              <div style={{ marginBottom: '1.25rem', width: '100%', padding: '0.75rem 1rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
+                <label htmlFor="custom-instructions-input" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  💡 <span>Consignes / Mots-clés de ciblage (Optionnel) :</span>
+                </label>
+                <input
+                  id="custom-instructions-input"
+                  type="text"
+                  placeholder="ex: Insister sur le chapitre 2, les définitions clés, la jurisprudence..."
+                  value={customInstructions}
+                  onChange={(e) => {
+                    setCustomInstructions(e.target.value);
+                    if (profile) saveToCloud({ custom_instructions: e.target.value });
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.85rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem'
+                  }}
+                />
+              </div>
+            )}
 
             <div className="content-viewer">
               {/* PDF Source Tab */}
