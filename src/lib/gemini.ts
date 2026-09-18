@@ -171,9 +171,23 @@ export async function askQuestion(
   context: string,
   question: string,
   history: { role: 'user' | 'ai'; text: string }[] = [],
-  prefs?: AIPreferences
+  prefsOrOptions?: AIPreferences | { preferences?: AIPreferences; annaleContext?: string },
+  annaleContextArg?: string
 ): Promise<string> {
-  const cacheKey = getCacheKey('qa', context + '|||' + question + '|||' + JSON.stringify(history) + '|||' + JSON.stringify(prefs));
+  let prefs: AIPreferences | undefined;
+  let annaleContext: string | undefined = annaleContextArg;
+
+  if (prefsOrOptions) {
+    if ('preferences' in prefsOrOptions || 'annaleContext' in prefsOrOptions) {
+      const opts = prefsOrOptions as { preferences?: AIPreferences; annaleContext?: string };
+      prefs = opts.preferences;
+      if (opts.annaleContext) annaleContext = opts.annaleContext;
+    } else {
+      prefs = prefsOrOptions as AIPreferences;
+    }
+  }
+
+  const cacheKey = getCacheKey('qa', context + '|||' + question + '|||' + (annaleContext || '') + '|||' + JSON.stringify(history) + '|||' + JSON.stringify(prefs));
   const cached = sessionStorage.getItem(cacheKey);
   if (cached) {
     console.log('[CACHE HIT] QA answer loaded from session cache.');
@@ -191,7 +205,7 @@ CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation,
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. RÉPONDS DIRECTEMENT À LA QUESTION.
 
 Consignes de formatage strictes (PRIORITÉ #1) :
-- UTILISE MASSIVEMENT LE SURLIGNAGE AVEC DEUX SIGNES ÉGAL '==' DE CHAQUE CÔTÉ (ex: ==mot surligné==, N'UTILISE JAMAIS UN SEUL '=' COMME =mot=, ni ==mot__ ou autre symbôle) pour les concepts clés, les termes techniques et les informations fondamentales.
+- UTILISE MASSIVEMENT LE SURLIGNAGE AVEC DEUX SIGNES ÉGAL '==' DE CHAQUE CÔTÉ (ex: ==mot surligné==, N'UTILISE JAMAIS UN SEUL '=' COMME =mot=) pour les concepts clés, les termes techniques et les informations fondamentales.
 - Utilise Markdown (#, ##, ###, ####) pour structurer ta réponse.
 - Utilise des listes à puces (* ) pour briser les paragraphes longs.
 - Utilise '__' pour souligner les précisions importantes.
@@ -204,7 +218,12 @@ Consignes de formatage strictes (PRIORITÉ #1) :
       history.map(h => `${h.role === 'user' ? 'Étudiant' : 'Sofia (IA)'} : ${h.text}`).join('\n') + '\n';
   }
 
-  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document :\n${context}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
+  let annalePrompt = "";
+  if (annaleContext && annaleContext.trim()) {
+    annalePrompt = `\n\nSUJET D'EXAMEN / ANNALES / EXERCICE ATTACHÉ PAR L'ÉTUDIANT :\n${annaleContext.substring(0, 150000)}\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal ci-dessus, ses méthodes, sa structure et ses notions.`;
+  }
+
+  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${context}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
   
   try {
     const response = await ai.models.generateContent({
