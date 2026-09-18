@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown } from 'lucide-react';
 import { uploadPDF, supabase } from '../lib/supabase';
@@ -47,6 +47,21 @@ export default function SubjectDetail() {
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'error'>('syncing');
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  const saveTimeoutRef = useRef<any>(null);
+
+  const handleCustomInstructionsChange = (val: string) => {
+    setCustomInstructions(val);
+    const updatedGenerations = { ...generations, custom_instructions: val };
+    setGenerations(updatedGenerations as any);
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    if (profile) {
+      saveTimeoutRef.current = setTimeout(() => {
+        saveToCloud({ generations: updatedGenerations });
+      }, 600);
+    }
+  };
+
   // Load data from Supabase or LocalStorage
   useEffect(() => {
     async function loadData() {
@@ -92,7 +107,11 @@ export default function SubjectDetail() {
           setPdfUrl(data.pdf_url);
           setFileName(data.file_name);
           setNaiveAttachments(data.naive_attachments || []);
-          if (data.custom_instructions) setCustomInstructions(data.custom_instructions);
+          if (data.custom_instructions) {
+            setCustomInstructions(data.custom_instructions);
+          } else if (data.generations?.custom_instructions) {
+            setCustomInstructions(data.generations.custom_instructions);
+          }
           setSyncStatus('connected');
         }
       } catch (err: any) {
@@ -727,10 +746,7 @@ export default function SubjectDetail() {
                   </label>
                   {customInstructions && (
                     <button 
-                      onClick={() => {
-                        setCustomInstructions('');
-                        if (profile) saveToCloud({ custom_instructions: '' });
-                      }}
+                      onClick={() => handleCustomInstructionsChange('')}
                       style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.7 }}
                     >
                       Effacer
@@ -742,10 +758,7 @@ export default function SubjectDetail() {
                   type="text"
                   placeholder="ex: Insister sur le chapitre 2, les définitions clés, la jurisprudence..."
                   value={customInstructions}
-                  onChange={(e) => {
-                    setCustomInstructions(e.target.value);
-                    if (profile) saveToCloud({ custom_instructions: e.target.value });
-                  }}
+                  onChange={(e) => handleCustomInstructionsChange(e.target.value)}
                   style={{
                     width: '100%',
                     padding: '0.6rem 0.85rem',
