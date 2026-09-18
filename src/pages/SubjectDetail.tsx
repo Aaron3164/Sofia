@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown } from 'lucide-react';
 import { uploadPDF, supabase } from '../lib/supabase';
 import { generateStudyMaterials } from '../lib/gemini';
 import { extractTextFromPDF } from '../lib/pdf-extractor';
@@ -33,6 +33,7 @@ export default function SubjectDetail() {
   const [isGenerating, setIsGenerating] = useState(false);
   const isScheduled = id ? hasScheduledCourse(id) : false;
   const [customInstructions, setCustomInstructions] = useState<string>('');
+  const [showCustomInstructions, setShowCustomInstructions] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<GenerationTab | 'source'>('flashcards');
   const [flashcardCount, setFlashcardCount] = useState<number>(30);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -649,7 +650,32 @@ export default function SubjectDetail() {
                 <BrainCircuit size={20} className="text-accent" />
                 {tabs.find(t => t.id === activeTab)?.label.split('(')[0]}
               </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {activeTab !== 'explications' && activeTab !== 'source' && (
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => setShowCustomInstructions(!showCustomInstructions)}
+                    style={{
+                      fontSize: '0.82rem',
+                      padding: '0.4rem 0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      borderColor: customInstructions.trim() ? 'var(--accent-primary)' : 'var(--border-color)',
+                      color: customInstructions.trim() ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                      backgroundColor: showCustomInstructions ? 'var(--bg-elevated)' : 'transparent',
+                      borderRadius: '0.5rem'
+                    }}
+                    title="Ajouter des consignes ou mots-clés spécifiques pour l'IA"
+                  >
+                    <span>💡 Consignes IA</span>
+                    {customInstructions.trim() && (
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-primary)' }}></span>
+                    )}
+                    <ChevronDown size={14} style={{ transform: showCustomInstructions ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
+                )}
+
                 {activeTab === 'flashcards' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
                     <label htmlFor="flashcard-count" style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>
@@ -693,11 +719,24 @@ export default function SubjectDetail() {
               </div>
             </div>
 
-            {activeTab !== 'explications' && activeTab !== 'source' && (
-              <div style={{ marginBottom: '1.25rem', width: '100%', padding: '0.75rem 1rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
-                <label htmlFor="custom-instructions-input" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  💡 <span>Consignes / Mots-clés de ciblage (Optionnel) :</span>
-                </label>
+            {activeTab !== 'explications' && activeTab !== 'source' && showCustomInstructions && (
+              <div className="fade-in" style={{ marginBottom: '1rem', width: '100%', padding: '0.75rem 1rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label htmlFor="custom-instructions-input" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    💡 <span>Consignes / Mots-clés de ciblage (Optionnel) :</span>
+                  </label>
+                  {customInstructions && (
+                    <button 
+                      onClick={() => {
+                        setCustomInstructions('');
+                        if (profile) saveToCloud({ custom_instructions: '' });
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.7 }}
+                    >
+                      Effacer
+                    </button>
+                  )}
+                </div>
                 <input
                   id="custom-instructions-input"
                   type="text"
@@ -736,42 +775,3 @@ export default function SubjectDetail() {
                 )}
               </div>
 
-              {/* Explications (IA) Tab */}
-              <div style={{ display: activeTab === 'explications' ? 'block' : 'none', height: '100%' }}>
-                <InteractiveQA 
-                  data={generations.explications} 
-                  onUpdate={d => updateData('explications', d)} 
-                  documentContext={extractedContent}
-                  preferences={profile?.preferences} 
-                />
-              </div>
-
-              {/* Generalized Generation Tabs (Flashcards, MCQ, Resume) */}
-              {tabs.map(tab => {
-                const content = generations[tab.id as GenerationTab];
-                if (tab.id === 'explications') return null; // Handled above
-
-                return (
-                  <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
-                    {!content ? (
-                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                        Cliquez sur "Générer" pour traiter le document.
-                      </div>
-                    ) : (
-                      <>
-                        {tab.id === 'flashcards' && <InteractiveFlashcard data={content} onUpdate={(d) => updateData('flashcards', d)} courseId={id} />}
-                        {tab.id === 'mcq' && <InteractiveMCQ data={content} courseId={id} courseName={courseNode?.name} />}
-                        {tab.id === 'resume' && <StudyResume content={typeof content === 'string' ? content : JSON.stringify(content)} courseId={id} />}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-}
