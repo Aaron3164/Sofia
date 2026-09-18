@@ -26,14 +26,20 @@ export const InteractiveFlashcard: React.FC<{
     }
   }, [currentIndex, courseId]);
 
+  const isManualChangeRef = React.useRef(false);
+
   // Reset state on new generation
   React.useEffect(() => {
+    if (isManualChangeRef.current) {
+      isManualChangeRef.current = false;
+      return;
+    }
     setCurrentIndex(0);
     setIsFlipped(false);
     if (courseId) {
       sessionStorage.removeItem(`aura_flashcard_idx_${courseId}`);
     }
-  }, [data]);
+  }, [data, courseId]);
 
   const [isFlipped, setIsFlipped] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -72,6 +78,7 @@ export const InteractiveFlashcard: React.FC<{
           <button 
             className="btn btn-primary"
             onClick={() => {
+              isManualChangeRef.current = true;
               onUpdate([{ front: 'Nouvelle Question', back: 'Nouvelle Réponse' }]);
               setCurrentIndex(0);
             }}
@@ -83,7 +90,7 @@ export const InteractiveFlashcard: React.FC<{
     );
   }
 
-  const currentCard = cards[currentIndex];
+  const currentCard = cards[currentIndex] || cards[0];
 
   const handleNext = () => {
     setIsFlipped(false);
@@ -106,6 +113,7 @@ export const InteractiveFlashcard: React.FC<{
   const handleSaveEdit = () => {
     const newCards = [...cards];
     newCards[currentIndex] = { front: editFront, back: editBack };
+    isManualChangeRef.current = true;
     onUpdate?.(newCards);
     setIsEditing(false);
   };
@@ -113,6 +121,7 @@ export const InteractiveFlashcard: React.FC<{
   const handleDelete = () => {
     if (confirm('Voulez-vous vraiment supprimer cette flashcard ?')) {
       const newCards = cards.filter((_, i) => i !== currentIndex);
+      isManualChangeRef.current = true;
       onUpdate?.(newCards);
       
       const newIndex = currentIndex >= newCards.length ? Math.max(0, newCards.length - 1) : currentIndex;
@@ -123,17 +132,18 @@ export const InteractiveFlashcard: React.FC<{
   };
 
   const handleAdd = () => {
-    const newCards = [...cards, { front: 'Nouvelle Question', back: 'Nouvelle Réponse' }];
+    const insertIndex = currentIndex + 1;
+    const newCard = { front: 'Nouvelle Question', back: 'Nouvelle Réponse' };
+    const newCards = [...cards.slice(0, insertIndex), newCard, ...cards.slice(insertIndex)];
+
+    isManualChangeRef.current = true;
     onUpdate?.(newCards);
-    setCurrentIndex(newCards.length - 1);
+
+    setCurrentIndex(insertIndex);
     setIsFlipped(false);
-    
-    // Auto-enter edit mode for the new card
-    setTimeout(() => {
-        setEditFront('Nouvelle Question');
-        setEditBack('Nouvelle Réponse');
-        setIsEditing(true);
-    }, 50);
+    setEditFront('Nouvelle Question');
+    setEditBack('Nouvelle Réponse');
+    setIsEditing(true);
   };
 
   // Global Keyboard Navigation (Space for Flip, ArrowLeft / ArrowRight for Next/Prev)
@@ -277,17 +287,12 @@ export const InteractiveFlashcard: React.FC<{
       )}
 
       {!isEditing && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="btn btn-outline" onClick={handlePrev}>Précédente</button>
-            <button className="btn btn-outline" onClick={() => setIsFlipped(!isFlipped)}>
-              {isFlipped ? 'Voir Question' : 'Voir Réponse'}
-            </button>
-            <button className="btn btn-primary" onClick={handleNext}>Suivante</button>
-          </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.75 }}>
-            💡 <kbd style={{ padding: '0.15rem 0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-elevated)', fontSize: '0.7rem', fontFamily: 'inherit' }}>Espace</kbd> pour retourner &bull; <kbd style={{ padding: '0.15rem 0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-elevated)', fontSize: '0.7rem', fontFamily: 'inherit' }}>←</kbd> <kbd style={{ padding: '0.15rem 0.4rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-elevated)', fontSize: '0.7rem', fontFamily: 'inherit' }}>→</kbd> pour naviguer
-          </span>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+          <button className="btn btn-outline" onClick={handlePrev}>Précédente</button>
+          <button className="btn btn-outline" onClick={() => setIsFlipped(!isFlipped)}>
+            {isFlipped ? 'Voir Question' : 'Voir Réponse'}
+          </button>
+          <button className="btn btn-primary" onClick={handleNext}>Suivante</button>
         </div>
       )}
     </div>
