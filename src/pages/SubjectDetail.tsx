@@ -775,3 +775,42 @@ export default function SubjectDetail() {
                 )}
               </div>
 
+              {/* Explications (IA) Tab */}
+              <div style={{ display: activeTab === 'explications' ? 'block' : 'none', height: '100%' }}>
+                <InteractiveQA 
+                  data={generations.explications} 
+                  onUpdate={d => updateData('explications', d)} 
+                  documentContext={extractedContent}
+                  preferences={profile?.preferences} 
+                />
+              </div>
+
+              {/* Generalized Generation Tabs (Flashcards, MCQ, Resume) */}
+              {tabs.map(tab => {
+                const content = generations[tab.id as GenerationTab];
+                if (tab.id === 'explications') return null; // Handled above
+
+                return (
+                  <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
+                    {!content ? (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                        Cliquez sur "Générer" pour traiter le document.
+                      </div>
+                    ) : (
+                      <>
+                        {tab.id === 'flashcards' && <InteractiveFlashcard data={content} onUpdate={(d) => updateData('flashcards', d)} courseId={id} />}
+                        {tab.id === 'mcq' && <InteractiveMCQ data={content} courseId={id} courseName={courseNode?.name} />}
+                        {tab.id === 'resume' && <StudyResume content={typeof content === 'string' ? content : JSON.stringify(content)} courseId={id} />}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
