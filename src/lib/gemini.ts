@@ -122,34 +122,8 @@ CONSIGNE RECTO (front) : Sois explicite dans la question pour que l'étudiant sa
 CONSIGNE VERSO (back) : Les réponses doivent rester CONCISES (entre 2 et 15 mots maximum). On veut une information percutante, pas de longs paragraphes.
 
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "front" (question) et "back" (réponse).`,
-    mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte du cours. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
-
-RÈGLE ABSOLUE POUR LES CAS CLINIQUES / ÉNONCÉS :
-- PAR DÉFAUT (si aucune consigne complémentaire d'étudiant ne demande un cas clinique) : Génère des questions directes sur le cours. Tu DOIS retourner uniquement un tableau JSON de questions, SANS créer de cas clinique ni de propriété "scenario".
-- SI ET SEULEMENT SI la consigne complémentaire de l'étudiant demande explicitement un cas clinique, une mise en situation ou un énoncé fictif : Rédige l'énoncé complet du cas dans une propriété "scenario" à la racine du JSON, et place les questions dans la propriété "questions".
-
-Format par défaut (QCM classiques sans cas clinique) :
-[
-  {
-    "question": "Question directe sur le cours...",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswers": ["Option A"]
-  }
-]
-
-Format d'exception (UNIQUEMENT si l'étudiant a demandé un cas clinique dans ses consignes) :
-{
-  "scenario": "Énoncé complet du cas clinique fictif...",
-  "questions": [
-    {
-      "question": "Question liée au cas clinique...",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswers": ["Option A"]
-    }
-  ]
-}
-
-Réponds STRICTEMENT en français et respecte rigoureusement le format JSON.`,
+    mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
+Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "question", "options" (tableau de 4 ou 5 chaînes), et "correctAnswers" (tableau contenant les réponses exactes).`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du texte fourni. 
     
 CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le texte section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
@@ -171,6 +145,11 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
   
   if (customInstructions && customInstructions.trim().length > 0) {
     fullPrompt += `\n\nCONSIGNE COMPLÉMENTAIRE DE L'ÉTUDIANT : Tout en respectant à 100% le prompt principal ci-dessus et en balayant l'ensemble du cours, accorde un soin, une profondeur et une densité légèrement supérieures aux notions, consignes ou mots-clés suivants : ${customInstructions.trim()}.`;
+
+    const isClinicalRequested = /cas clinique|scénario|scenario|histoire|énoncé|enoncé|patient|mise en situation/i.test(customInstructions);
+    if (mode === 'mcq' && isClinicalRequested) {
+      fullPrompt += `\n\nFORMAT SPÉCIFIQUE CAS CLINIQUE : Puisque la consigne de l'étudiant demande un cas clinique ou un énoncé fictif, rédige l'énoncé complet du cas clinique dans une propriété "scenario" à la racine de ton JSON, et place les questions dans la propriété "questions". Format attendu : {"scenario": "Texte complet de l'énoncé...", "questions": [...]}`;
+    }
   }
 
   const isJSON = mode === 'flashcards' || mode === 'mcq';
