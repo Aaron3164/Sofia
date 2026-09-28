@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { supabase } from './supabase';
 
 export type AIPreferences = {
@@ -8,18 +7,33 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
-const getGeminiClient = () => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  // Debug log pour vérifier la présence de la clé (sans l'afficher)
-  console.log('[DEBUG] Gemini API Key détectée:', apiKey ? 'OUI (longueur: ' + apiKey.length + ')' : 'NON (Vide)');
+/**
+ * Sends prompt requests securely through the serverless backend proxy (/api/gemini)
+ */
+async function callGeminiProxy(
+  model: string,
+  contents: string[],
+  config?: Record<string, any>
+): Promise<{ text: string }> {
+  const response = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      contents,
+      config,
+    }),
+  });
 
-  if (!apiKey) {
-    throw new Error('La clé API Gemini (VITE_GEMINI_API_KEY) est manquante. Vérifiez vos réglages Vercel.');
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || 'Erreur lors de la génération avec Gemini.');
   }
-  
-  return new GoogleGenAI({ apiKey });
-};
+
+  return { text: data.text || '' };
+}
 
 /**
  * Fetches the current daily AI usage for the logged-in user.
@@ -96,7 +110,6 @@ export async function generateStudyMaterials(
   customInstructions?: string
 ): Promise<string> {
   await ensureQuota();
-  const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
 
   const randomSeed = Math.random().toString(36).substring(7);
@@ -160,13 +173,11 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
   const isJSON = mode === 'flashcards' || mode === 'mcq';
 
   try {
-    const response = await ai.models.generateContent({
-        model: 'models/gemini-3.1-flash-lite-preview',
-        contents: [fullPrompt],
-        config: {
-          temperature: mode === 'resume' ? 0.2 : 0.7
-        }
-    });
+    const response = await callGeminiProxy(
+      'models/gemini-3.1-flash-lite-preview',
+      [fullPrompt],
+      { temperature: mode === 'resume' ? 0.2 : 0.7 }
+    );
     
     let generatedText = response.text || '';
     
@@ -226,7 +237,6 @@ export async function askQuestion(
   }
 
   await ensureQuota();
-  const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
 
   const baseInstruction = `Tu t'appelles Sofia. Tu es un agent IA d'apprentissage expert. Ton objectif est de fournir des explications CLAIRES, SYNTHÉTIQUES et VISUELLES basées sur le contexte fourni.
@@ -257,10 +267,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
   const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${context}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
   
   try {
-    const response = await ai.models.generateContent({
-        model: 'models/gemini-3.1-flash-lite-preview',
-        contents: [fullPrompt],
-    });
+    const response = await callGeminiProxy('models/gemini-3.1-flash-lite-preview', [fullPrompt]);
     const resultText = response.text || '';
     sessionStorage.setItem(cacheKey, resultText);
     return resultText;
@@ -272,14 +279,10 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 
 export async function generateChatTitle(question: string): Promise<string> {
   await ensureQuota();
-  const ai = getGeminiClient();
   const fullPrompt = `Génère un titre très court (3 à 5 mots maximum) résumant cette question posée par un étudiant : "${question}".\nNe retourne QUE le titre, sans guillemets.`;
   
   try {
-    const response = await ai.models.generateContent({
-        model: 'models/gemini-3.1-flash-lite-preview',
-        contents: [fullPrompt],
-    });
+    const response = await callGeminiProxy('models/gemini-3.1-flash-lite-preview', [fullPrompt]);
     return (response.text || 'Nouvelle discussion').trim();
   } catch (error) {
     console.error('Error generating chat title:', error);
@@ -296,7 +299,6 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
   }
 
   await ensureQuota();
-  const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
   const fullPrompt = `${systemInstruction}Tu es Sofia, une assistante universitaire experte et polyvalente.
 On te fournit ci-dessous le contenu textuel extrait de plusieurs de mes cours.
@@ -312,10 +314,7 @@ Ta mission :
 Contexte des cours :\n${allCoursesContext}`;
   
   try {
-    const response = await ai.models.generateContent({
-        model: 'models/gemini-3.1-flash-lite-preview',
-        contents: [fullPrompt],
-    });
+    const response = await callGeminiProxy('models/gemini-3.1-flash-lite-preview', [fullPrompt]);
     const resultText = response.text || '';
     sessionStorage.setItem(cacheKey, resultText);
     return resultText;
