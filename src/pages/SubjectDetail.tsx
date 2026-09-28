@@ -67,6 +67,7 @@ export default function SubjectDetail() {
     async function loadData() {
       if (!id || isUploading) return;
       setDataLoading(true);
+      setCustomInstructions(''); // Reset state on course switch to prevent state leak across courses
 
       try {
         setSyncStatus('syncing');
@@ -81,7 +82,7 @@ export default function SubjectDetail() {
               if (parsed.pdfUrl) setPdfUrl(parsed.pdfUrl);
               if (parsed.fileName) setFileName(parsed.fileName);
               if (parsed.naiveAttachments) setNaiveAttachments(parsed.naiveAttachments);
-              if (parsed.customInstructions) setCustomInstructions(parsed.customInstructions);
+              setCustomInstructions(parsed.customInstructions || '');
             } catch (e) {
               console.error('Failed to load local data');
             }
@@ -100,6 +101,7 @@ export default function SubjectDetail() {
 
         if (error && error.code === 'PGRST116') {
           // No record found in cloud, and we rely on GlobalMigration for the sync
+          setCustomInstructions('');
           setSyncStatus('connected');
         } else if (data) {
           setExtractedContent(data.extracted_content || '');
@@ -111,6 +113,8 @@ export default function SubjectDetail() {
             setCustomInstructions(data.custom_instructions);
           } else if (data.generations?.custom_instructions) {
             setCustomInstructions(data.generations.custom_instructions);
+          } else {
+            setCustomInstructions('');
           }
           setSyncStatus('connected');
         }
