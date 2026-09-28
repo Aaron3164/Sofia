@@ -185,6 +185,30 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
           generatedText = generatedText.replace(/```json\n?|```/g, '').trim();
         }
       }
+
+      // STRICT PROGRAMMATIC GUARANTEE FOR MCQ:
+      // If a clinical case/scenario was NOT explicitly requested in custom instructions,
+      // programmatically strip out any scenario/context key so it NEVER returns a scenario!
+      if (mode === 'mcq') {
+        const isClinicalRequested = Boolean(
+          customInstructions && /cas clinique|scénario|scenario|histoire|énoncé|enoncé|patient|mise en situation/i.test(customInstructions)
+        );
+        if (!isClinicalRequested) {
+          try {
+            const parsed = JSON.parse(generatedText);
+            let questionsArray = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.mcqs || []);
+            if (Array.isArray(questionsArray)) {
+              questionsArray = questionsArray.map((q: any) => {
+                const { scenario, context, statement, ...cleanQ } = q;
+                return cleanQ;
+              });
+              generatedText = JSON.stringify(questionsArray);
+            }
+          } catch (e) {
+            console.warn('Could not parse generated MCQ JSON for scenario stripping:', e);
+          }
+        }
+      }
     }
     
     return generatedText;
