@@ -122,31 +122,34 @@ CONSIGNE RECTO (front) : Sois explicite dans la question pour que l'étudiant sa
 CONSIGNE VERSO (back) : Les réponses doivent rester CONCISES (entre 2 et 15 mots maximum). On veut une information percutante, pas de longs paragraphes.
 
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "front" (question) et "back" (réponse).`,
-    mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
+    mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte du cours. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
 
-IMPORTANT (CAS CLINIQUE / ÉNONCÉ) : Si la consigne de l'étudiant demande un cas clinique, une mise en situation, une histoire ou un énoncé global (ex: "cas clinique fictif", "cas de M. Martin"), tu DOIS impérativement rédiger l'énoncé complet du cas clinique (profil du patient, âge, symptômes, antécédents, examens biologiques) dans une propriété "scenario" au niveau racine de ton JSON, puis baser tes 10 questions sur cet énoncé !
+RÈGLE ABSOLUE POUR LES CAS CLINIQUES / ÉNONCÉS :
+- PAR DÉFAUT (si aucune consigne complémentaire d'étudiant ne demande un cas clinique) : Génère des questions directes sur le cours. Tu DOIS retourner uniquement un tableau JSON de questions, SANS créer de cas clinique ni de propriété "scenario".
+- SI ET SEULEMENT SI la consigne complémentaire de l'étudiant demande explicitement un cas clinique, une mise en situation ou un énoncé fictif : Rédige l'énoncé complet du cas dans une propriété "scenario" à la racine du JSON, et place les questions dans la propriété "questions".
 
-Réponds STRICTEMENT en français.
-Format attendu si cas clinique / énoncé :
+Format par défaut (QCM classiques sans cas clinique) :
+[
+  {
+    "question": "Question directe sur le cours...",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswers": ["Option A"]
+  }
+]
+
+Format d'exception (UNIQUEMENT si l'étudiant a demandé un cas clinique dans ses consignes) :
 {
-  "scenario": "Énoncé complet et détaillé du cas clinique...",
+  "scenario": "Énoncé complet du cas clinique fictif...",
   "questions": [
     {
-      "question": "Question...",
-      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-      "correctAnswers": ["Option 1"]
+      "question": "Question liée au cas clinique...",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctAnswers": ["Option A"]
     }
   ]
 }
 
-Format attendu si QCM classiques sans cas clinique :
-[
-  {
-    "question": "Question...",
-    "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-    "correctAnswers": ["Option 1"]
-  }
-]`,
+Réponds STRICTEMENT en français et respecte rigoureusement le format JSON.`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du texte fourni. 
     
 CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le texte section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
@@ -176,7 +179,10 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
     const response = await callGeminiProxy(
       'models/gemini-3.1-flash-lite-preview',
       [fullPrompt],
-      { temperature: mode === 'resume' ? 0.2 : 0.7 }
+      {
+        temperature: mode === 'resume' ? 0.2 : 0.7,
+        responseMimeType: isJSON ? 'application/json' : undefined
+      }
     );
     
     let generatedText = response.text || '';
