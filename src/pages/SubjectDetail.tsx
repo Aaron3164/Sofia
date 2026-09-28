@@ -701,7 +701,21 @@ export default function SubjectDetail() {
                   >
                     <span>💡 Consignes IA</span>
                     {customInstructions.trim() && (
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-primary)' }}></span>
+                      <span 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCustomInstructionsChange('');
+                        }}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: '16px', height: '16px', borderRadius: '50%',
+                          backgroundColor: 'var(--accent-primary)', color: 'white',
+                          fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
+                        }}
+                        title="Effacer la consigne enregistrée pour ce cours"
+                      >
+                        ✕
+                      </span>
                     )}
                     <ChevronDown size={14} style={{ transform: showCustomInstructions ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                   </button>
