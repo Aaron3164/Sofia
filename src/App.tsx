@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { Layout } from './components/layout/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GlobalMigration } from './components/auth/GlobalMigration';
@@ -64,6 +65,7 @@ function App() {
     <AuthProvider>
       <DialogProvider>
         <AppContent />
+        <Analytics />
       </DialogProvider>
     </AuthProvider>
   );
