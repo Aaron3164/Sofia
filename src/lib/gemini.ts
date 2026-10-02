@@ -87,7 +87,9 @@ function getSystemInstruction(prefs?: AIPreferences) {
     critical: "Ton objectif principal est l'ESPRIT CRITIQUE : analyse les nuances, présente les débats doctrinaux (essentiel en Droit) et les contre-arguments potentiels."
   };
 
-  return `${personalities[personality]} ${modes[studyMode]}\n\n`;
+  const boldInstruction = "CONSIGNE IMPORTANTE SUR LES MOTS EN GRAS DANS LE TEXTE DU COURS : Les mots ou phrases encadrés par des astérisques **gras** (ex: **notion**) dans le texte de cours fourni ont été détectés en gras dans le document source (PDF). En général, ce sont des concepts, définitions ou mots-clés importants mis en valeur par l'auteur du cours. Tu dois généralement leur accorder une attention et une priorité particulières dans tes résumés, flashcards et questions, tout en conservant ton discernement et jugement pédagogique pour décider s'ils méritent ou non d'être retenus selon le contexte.";
+
+  return `${personalities[personality]} ${modes[studyMode]}\n${boldInstruction}\n\n`;
 }
 
 // Helper to generate a cache key from arguments
