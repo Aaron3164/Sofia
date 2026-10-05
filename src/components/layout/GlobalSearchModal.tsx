@@ -1,18 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, X } from 'lucide-react';
+import { Search, Loader2, X, FileText, Folder, Sparkles, ArrowRight, BookOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { globalSearch } from '../../lib/gemini';
 import { useFileSystem, type FileNode } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 
+interface MatchedCourse {
+  courseId: string;
+  courseName: string;
+  folderPath: string[];
+  matchCount: number;
+  score: number;
+  matchedInTitle: boolean;
+  matchedInResume: boolean;
+  matchedInFlashcards: boolean;
+  snippets: string[];
+  fullSnippetsForAI: string;
+}
+
 export const GlobalSearchModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'direct' | 'ai'>('direct');
+  
+  // Search states
+  const [isSearchingDirect, setIsSearchingDirect] = useState(false);
+  const [isSearchingAI, setIsSearchingAI] = useState(false);
+  const [directResults, setDirectResults] = useState<MatchedCourse[] | null>(null);
+  const [aiResults, setAiResults] = useState<string | null>(null);
+  const [searchedKeywords, setSearchedKeywords] = useState<string[]>([]);
+  
   const { nodes } = useFileSystem();
   const { profile } = useAuth();
-  
+  const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -44,215 +65,253 @@ export const GlobalSearchModal: React.FC = () => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
       setQuery('');
-      setResults(null);
+      setDirectResults(null);
+      setAiResults(null);
+      setActiveTab('direct');
     }
   }, [isOpen]);
 
-// Helper to extract snippets of text around matched keywords
-function extractSnippets(content: string, keywords: string[], contextWindow: number = 300): string {
-  if (!content) return '';
-  
-  const contentLower = content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const snippets: string[] = [];
-  
-  // Find matches for each keyword
-  for (const keyword of keywords) {
-    let index = 0;
-    while ((index = contentLower.indexOf(keyword, index)) !== -1) {
-      const start = Math.max(0, index - contextWindow);
-      const end = Math.min(content.length, index + keyword.length + contextWindow);
-      
-      let snippet = content.substring(start, end);
-      
-      // Try to align to sentence boundaries
-      if (start > 0) {
-        const firstPeriod = snippet.indexOf('.');
-        if (firstPeriod !== -1 && firstPeriod < contextWindow) {
-          snippet = snippet.substring(firstPeriod + 1);
-        }
-      }
-      if (end < content.length) {
-        const lastPeriod = snippet.lastIndexOf('.');
-        if (lastPeriod !== -1 && lastPeriod > contextWindow) {
-          snippet = snippet.substring(0, lastPeriod + 1);
-        }
-      }
-      
-      const trimmedSnippet = snippet.trim();
-      if (trimmedSnippet && !snippets.includes(trimmedSnippet)) {
-        snippets.push(trimmedSnippet);
-      }
-      
-      // Move index forward to avoid overlapping snippets
-      index += keyword.length + contextWindow * 2; 
-      
-      if (snippets.length >= 10) break;
+  // Compute folder path for a node
+  const getFolderPath = (nodeId: string | null): string[] => {
+    const path: string[] = [];
+    let current = nodes.find(n => n.id === nodeId);
+    while (current) {
+      path.unshift(current.name);
+      current = nodes.find(n => n.id === current?.parentId);
     }
-    if (snippets.length >= 15) break;
-  }
-  
-  if (snippets.length === 0) {
-    // Fallback: if no keyword matches but it was returned, provide first few paragraphs
-    return content.substring(0, 4000) + "\n... [Contenu tronqué] ...";
-  }
-  
-  return snippets.join('\n\n[...] \n\n');
-}
+    return path;
+  };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-
-    setIsSearching(true);
-    setResults(null);
-
-    // Extract keywords for search matching
-    const cleanQuery = query
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+  // Helper to extract clean snippets with context
+  const extractCourseSnippets = (content: string, keywords: string[], contextWindow = 120): string[] => {
+    if (!content || keywords.length === 0) return [];
     
-    const tokens = cleanQuery.split(/[\s,.'";:!?()\-+/]+/);
+    const contentNorm = content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const snippets: string[] = [];
+    const foundIndices: number[] = [];
+
+    for (const kw of keywords) {
+      let idx = 0;
+      while ((idx = contentNorm.indexOf(kw, idx)) !== -1) {
+        // Avoid overlapping intervals
+        const isOverlapping = foundIndices.some(existing => Math.abs(existing - idx) < contextWindow);
+        if (!isOverlapping) {
+          foundIndices.push(idx);
+          const start = Math.max(0, idx - contextWindow);
+          const end = Math.min(content.length, idx + kw.length + contextWindow);
+          
+          let snippet = content.substring(start, end).replace(/\s+/g, ' ');
+          if (start > 0) snippet = '...' + snippet;
+          if (end < content.length) snippet = snippet + '...';
+          
+          snippets.push(snippet);
+        }
+        idx += kw.length;
+        if (snippets.length >= 3) break;
+      }
+      if (snippets.length >= 3) break;
+    }
+
+    return snippets;
+  };
+
+  // Zero-token Instant Direct Search
+  const performDirectSearch = async (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
+
+    setIsSearchingDirect(true);
+    setDirectResults(null);
+    setAiResults(null);
+    setActiveTab('direct');
+
+    const cleanQuery = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const tokens = cleanQuery.split(/[\s,.'";:!?()\-+/]+/).filter(t => t.length > 2);
     
     const stopWords = new Set([
       'dans', 'quels', 'cours', 'on', 'parle', 'de', 'la', 'le', 'les', 'des', 
       'du', 'en', 'est', 'un', 'une', 'et', 'ou', 'je', 'tu', 'il', 'nous', 
-      'vous', 'ils', 'elle', 'elles', 'a', 'par', 'pour', 'sur', 'dans', 'avec',
-      'qui', 'que', 'quoi', 'dont', 'ou', 'où', 'recherche', 'trouve', 'expliquer'
+      'vous', 'ils', 'elle', 'elles', 'a', 'par', 'pour', 'sur', 'avec',
+      'qui', 'que', 'quoi', 'dont', 'où', 'recherche', 'trouve', 'expliquer', 'moi'
     ]);
     
-    const keywords = tokens.filter(t => t.length > 2 && !stopWords.has(t));
+    const keywords = tokens.filter(t => !stopWords.has(t));
+    const effectiveKeywords = keywords.length > 0 ? keywords : tokens;
+    setSearchedKeywords(effectiveKeywords);
 
     try {
-      // 1. Fetch Cloud Matching Data
-      let cloudMatchingRows: any[] = [];
-      
-      if (keywords.length > 0) {
-        // First try textSearch
-        const { data: ftsData, error: ftsError } = await supabase
+      // 1. Fetch Cloud Course Data (or from local fallback)
+      let cloudRows: any[] = [];
+      try {
+        const { data } = await supabase
           .from('course_data')
-          .select('course_id, file_name, extracted_content')
-          .textSearch('extracted_content', keywords.join(' '), { config: 'french', type: 'plain' });
-          
-        if (!ftsError && ftsData && ftsData.length > 0) {
-          cloudMatchingRows = ftsData;
-        } else {
-          // Fallback: search using OR ILIKE
-          const orFilter = keywords.map(t => `extracted_content.ilike.%${t}%`).join(',');
-          const { data: ilikeData } = await supabase
-            .from('course_data')
-            .select('course_id, file_name, extracted_content')
-            .or(orFilter);
-          if (ilikeData) cloudMatchingRows = ilikeData;
-        }
-      } else {
-        // Fallback for extremely short queries: retrieve first 5 items
-        const { data: topData } = await supabase
-          .from('course_data')
-          .select('course_id, file_name, extracted_content')
-          .limit(5);
-        if (topData) cloudMatchingRows = topData;
+          .select('course_id, file_name, extracted_content, generations');
+        if (data) cloudRows = data;
+      } catch (e) {
+        console.warn("Supabase fetch fallback:", e);
       }
 
-      // 2. Gather and extract snippets from all sources
-      const allMatchingSources: { name: string; snippets: string; score: number }[] = [];
+      const courseNodes = nodes.filter((n: FileNode) => n.type === 'course');
+      const matches: MatchedCourse[] = [];
 
-      // Process Cloud matches
-      for (const row of cloudMatchingRows) {
-        const content = row.extracted_content || '';
-        const snippetsText = extractSnippets(content, keywords);
-        
-        if (snippetsText) {
-          // Calculate score based on matches
-          let score = 0;
-          const fileNameLower = (row.file_name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          for (const kw of keywords) {
-            if (fileNameLower.includes(kw)) score += 150; // high weight for matches in title
-            const regex = new RegExp(kw, 'gi');
-            const matches = snippetsText.match(regex);
-            if (matches) score += matches.length;
+      for (const node of courseNodes) {
+        const cloudRow = cloudRows.find(r => r.course_id === node.id);
+        let extractedContent = cloudRow?.extracted_content || '';
+        let generations = cloudRow?.generations || null;
+
+        // Supplement with local storage
+        if (!extractedContent || !generations) {
+          const localSaved = localStorage.getItem(`aura_subject_${node.id}`);
+          if (localSaved) {
+            try {
+              const parsed = JSON.parse(localSaved);
+              if (!extractedContent) extractedContent = parsed.extractedContent || '';
+              if (!generations) generations = parsed.generations || null;
+            } catch {}
           }
-          
-          allMatchingSources.push({
-            name: row.file_name || 'Sans titre',
-            snippets: snippetsText,
-            score
+        }
+
+        const courseName = node.name || cloudRow?.file_name || 'Cours sans titre';
+        const folderPath = getFolderPath(node.parentId);
+
+        const nameNorm = courseName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const contentNorm = extractedContent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const resumeNorm = (generations?.resume || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const flashcardsNorm = (typeof generations?.flashcards === 'string' ? generations.flashcards : JSON.stringify(generations?.flashcards || '')).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        let score = 0;
+        let matchCount = 0;
+        let matchedInTitle = false;
+        let matchedInResume = false;
+        let matchedInFlashcards = false;
+
+        for (const kw of effectiveKeywords) {
+          // Title match (high weight)
+          if (nameNorm.includes(kw)) {
+            score += 350;
+            matchCount++;
+            matchedInTitle = true;
+          }
+
+          // Summary match (medium-high weight)
+          if (resumeNorm.includes(kw)) {
+            score += 180;
+            matchCount++;
+            matchedInResume = true;
+          }
+
+          // Flashcards match
+          if (flashcardsNorm.includes(kw)) {
+            score += 120;
+            matchCount++;
+            matchedInFlashcards = true;
+          }
+
+          // Content match
+          if (contentNorm) {
+            const regex = new RegExp(kw, 'gi');
+            const foundInContent = contentNorm.match(regex);
+            if (foundInContent) {
+              matchCount += foundInContent.length;
+              score += foundInContent.length * 15;
+            }
+          }
+        }
+
+        if (score > 0 || matchCount > 0) {
+          const snippets = extractCourseSnippets(extractedContent || generations?.resume || '', effectiveKeywords);
+          const fullSnippetsForAI = snippets.join('\n');
+
+          matches.push({
+            courseId: node.id,
+            courseName,
+            folderPath,
+            matchCount,
+            score,
+            matchedInTitle,
+            matchedInResume,
+            matchedInFlashcards,
+            snippets,
+            fullSnippetsForAI
           });
         }
       }
 
-      // Supplement with local matches
-      const localCourseIds = nodes.filter((n: FileNode) => n.type === 'course').map(n => n.id);
-      for (const courseId of localCourseIds) {
-        if (cloudMatchingRows.some((c: any) => c.course_id === courseId)) continue;
+      // Sort by score descending
+      matches.sort((a, b) => b.score - a.score);
+      setDirectResults(matches);
+    } catch (err) {
+      console.error("Direct search error:", err);
+      setDirectResults([]);
+    } finally {
+      setIsSearchingDirect(false);
+    }
+  };
 
-        const saved = localStorage.getItem(`aura_subject_${courseId}`);
-        if (saved) {
-           try {
-             const parsed = JSON.parse(saved);
-             const content = parsed.extractedContent || '';
-             if (content) {
-                // Check if it matches at least one keyword
-                const contentLower = content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                const hasMatch = keywords.length === 0 || keywords.some(kw => contentLower.includes(kw));
-                
-                if (hasMatch) {
-                  const snippetsText = extractSnippets(content, keywords);
-                  const courseName = nodes.find(n => n.id === courseId)?.name || 'Anonyme';
-                  
-                  let score = 0;
-                  const nameLower = courseName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  for (const kw of keywords) {
-                    if (nameLower.includes(kw)) score += 150;
-                    const regex = new RegExp(kw, 'gi');
-                    const matches = snippetsText.match(regex);
-                    if (matches) score += matches.length;
-                  }
+  // Optional AI Synthesis (only triggered on user demand!)
+  const handleTriggerAISynthesis = async () => {
+    if (!directResults || directResults.length === 0) return;
 
-                  allMatchingSources.push({
-                    name: courseName,
-                    snippets: snippetsText,
-                    score
-                  });
-                }
-             }
-           } catch (e) {}
-        }
-      }
+    setActiveTab('ai');
+    setIsSearchingAI(true);
+    setAiResults(null);
 
-      if (allMatchingSources.length === 0) {
-        setResults("Aucun cours ne semble correspondre à votre recherche. Essayez d'utiliser d'autres mots-clés (par exemple : 'cordes vocales').");
-        setIsSearching(false);
-        return;
-      }
-
-      // 3. Sort by relevance score
-      allMatchingSources.sort((a, b) => b.score - a.score);
-
-      // 4. Build prompt context using snippets (max 300k chars)
-      const contextBudget = 300000;
+    try {
+      const contextBudget = 250000;
       let currentLength = 0;
       let fullContext = '';
 
-      for (const source of allMatchingSources) {
+      for (const item of directResults) {
         if (currentLength >= contextBudget) break;
-        const snippetBlock = `\n\n--- COURS: ${source.name} ---\n... [Extraits pertinents] ...\n${source.snippets}`;
-        fullContext += snippetBlock;
-        currentLength += snippetBlock.length;
+        const block = `\n\n--- COURS: ${item.courseName} ---\n[Extraits pertinents du cours]\n${item.fullSnippetsForAI || item.snippets.join('\n')}`;
+        fullContext += block;
+        currentLength += block.length;
       }
 
-      const gResult = await globalSearch(query, fullContext, profile?.preferences);
-      setResults(gResult);
+      const result = await globalSearch(query, fullContext, profile?.preferences);
+      setAiResults(result);
     } catch (error: any) {
-      console.error("Global Search Error:", error);
+      console.error("AI Search Error:", error);
       if (error?.message?.includes('Quota')) {
-         setResults("Limite de l'IA atteinte pour aujourd'hui. Réessayez demain ou passez au pack Premium.");
+        setAiResults("Limite de l'IA atteinte pour aujourd'hui. Réessayez plus tard.");
       } else {
-         setResults("Une erreur est survenue lors de la recherche globale. Veuillez vérifier votre connexion ou votre clé API.");
+        setAiResults("Une erreur est survenue lors de l'analyse avec Sofia. Vérifiez votre connexion.");
       }
     } finally {
-      setIsSearching(false);
+      setIsSearchingAI(false);
     }
+  };
+
+  const handleOpenCourse = (courseId: string) => {
+    setIsOpen(false);
+    navigate(`/subject/${courseId}`);
+  };
+
+  const highlightText = (text: string, keywords: string[]) => {
+    if (!keywords || keywords.length === 0) return text;
+    const escapedKws = keywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const regex = new RegExp(`(${escapedKws})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, i) => {
+      const isMatch = keywords.some(k => k.toLowerCase() === part.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+      if (isMatch) {
+        return (
+          <mark 
+            key={i} 
+            style={{ 
+              backgroundColor: 'rgba(219, 39, 119, 0.2)', 
+              color: 'var(--accent-primary, #db2777)', 
+              padding: '0.1rem 0.3rem', 
+              borderRadius: '3px',
+              fontWeight: 600
+            }}
+          >
+            {part}
+          </mark>
+        );
+      }
+      return part;
+    });
   };
 
   if (!isOpen) return null;
@@ -261,77 +320,307 @@ function extractSnippets(content: string, keywords: string[], contextWindow: num
     <div 
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)',
-        display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '10vh', padding: '1rem'
+        backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(6px)',
+        display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '8vh', padding: '1rem',
+        animation: 'fadeIn 0.2s ease-out'
       }}
       onClick={() => setIsOpen(false)}
     >
       <div 
-        className="glass-panel fade-in"
+        className="glass-panel"
         style={{
-          width: '100%', maxWidth: '700px', backgroundColor: 'var(--bg-primary)',
-          borderRadius: '1rem', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-          maxHeight: '80vh', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          width: '100%', maxWidth: '820px', backgroundColor: 'var(--bg-primary, #0f172a)',
+          borderRadius: '1.25rem', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          maxHeight: '84vh', boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.6)',
+          border: '1px solid var(--border-color)'
         }}
-        onClick={e => e.stopPropagation()} // Prevent close on modal click
+        onClick={e => e.stopPropagation()}
       >
-        <form onSubmit={handleSearch} style={{ display: 'flex', alignItems: 'center', padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
-          <Search size={24} style={{ color: '#94a3b8', marginRight: '1rem' }} />
+        {/* Search Header Input */}
+        <form 
+          onSubmit={(e) => { e.preventDefault(); performDirectSearch(query); }} 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            padding: '1.1rem 1.5rem', 
+            borderBottom: '1px solid var(--border-color)',
+            backgroundColor: 'var(--bg-elevated)'
+          }}
+        >
+          <Search size={22} style={{ color: 'var(--accent-primary)', marginRight: '1rem', flexShrink: 0 }} />
           <input
             ref={inputRef}
             type="text"
-            placeholder="Que cherchez-vous dans vos cours ?..."
-            className="global-search-input"
+            placeholder="Rechercher un concept, terme ou pathologie dans tous vos cours..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{
               flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent',
-              fontSize: '1.2rem'
+              fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 500
             }}
           />
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '0.2rem 0.5rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.25rem', border: '1px solid var(--border-color)' }}>
-              Cmd K
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '0.2rem 0.5rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.25rem', border: '1px solid var(--border-color)' }}>
-              Entrée pour chercher
-            </span>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+            >
+              Rechercher
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setIsOpen(false)} 
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.3rem' }}
+            >
+              <X size={20} />
+            </button>
           </div>
-          <button type="button" onClick={() => setIsOpen(false)} style={{ marginLeft: '1rem', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-            <X size={24} />
-          </button>
         </form>
 
-        {(isSearching || results) && (
-          <div style={{ padding: '2rem', overflowY: 'auto', backgroundColor: 'var(--bg-secondary)' }}>
-            {isSearching ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: 'var(--text-secondary)' }}>
-                <Loader2 size={32} className="spin" color="var(--accent-primary)" />
-                <p>Gemini analyse tous vos cours, cela peut prendre quelques secondes...</p>
-              </div>
-            ) : (
-              <div className="flashcard-content" style={{ color: 'var(--text-primary)', lineHeight: 1.6 }}>
-                {results ? renderMarkdown(results) : null}
-              </div>
-            )}
+        {/* Navigation Tabs (Direct Results vs AI Synthesis) */}
+        {directResults !== null && (
+          <div 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.6rem 1.5rem',
+              borderBottom: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-primary)',
+              fontSize: '0.85rem'
+            }}
+          >
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('direct')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  padding: '0.35rem 0.8rem', borderRadius: '0.5rem',
+                  border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                  backgroundColor: activeTab === 'direct' ? 'var(--accent-primary)' : 'transparent',
+                  color: activeTab === 'direct' ? 'white' : 'var(--text-secondary)'
+                }}
+              >
+                <BookOpen size={15} />
+                <span>Cours correspondants ({directResults.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('ai');
+                  if (!aiResults && !isSearchingAI) {
+                    handleTriggerAISynthesis();
+                  }
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  padding: '0.35rem 0.8rem', borderRadius: '0.5rem',
+                  border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                  backgroundColor: activeTab === 'ai' ? 'var(--accent-primary)' : 'transparent',
+                  color: activeTab === 'ai' ? 'white' : 'var(--text-secondary)'
+                }}
+              >
+                <Sparkles size={15} />
+                <span>Synthèse Sofia (IA)</span>
+              </button>
+            </div>
+
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              0 token consommé en mode direct
+            </span>
           </div>
         )}
+
+        {/* Content Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', backgroundColor: 'var(--bg-secondary)' }}>
+          {isSearchingDirect ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', gap: '1rem', color: 'var(--text-secondary)' }}>
+              <Loader2 size={32} className="spin" color="var(--accent-primary)" />
+              <p style={{ margin: 0, fontSize: '0.95rem' }}>Recherche instantanée dans vos cours...</p>
+            </div>
+          ) : directResults !== null && activeTab === 'direct' ? (
+            <div>
+              {/* AI Banner Shortcut */}
+              {directResults.length > 0 && !aiResults && (
+                <div 
+                  style={{
+                    backgroundColor: 'rgba(219, 39, 119, 0.08)',
+                    border: '1px solid rgba(219, 39, 119, 0.25)',
+                    borderRadius: '0.75rem',
+                    padding: '0.85rem 1.25rem',
+                    marginBottom: '1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Sparkles size={18} color="var(--accent-primary)" />
+                    <span style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                      Besoin d'un résumé global ? Sofia peut croiser et synthétiser ces <strong>{directResults.length} cours</strong>.
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={handleTriggerAISynthesis}
+                    className="btn btn-primary"
+                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Sparkles size={13} /> Synthétiser avec Sofia
+                  </button>
+                </div>
+              )}
+
+              {directResults.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                    Aucun résultat trouvé pour « {query} »
+                  </p>
+                  <p style={{ fontSize: '0.9rem', maxWidth: '450px', margin: '0 auto' }}>
+                    Vérifiez l'orthographe ou essayez un mot-clé plus générique (ex: "nerf", "cardiaque", "symptômes").
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {directResults.map((item) => (
+                    <div
+                      key={item.courseId}
+                      className="glass-panel hover-lift"
+                      onClick={() => handleOpenCourse(item.courseId)}
+                      style={{
+                        padding: '1.25rem',
+                        borderRadius: '1rem',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-elevated)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {/* Course Header & Badges */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.6rem' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                            <Folder size={13} />
+                            <span>{item.folderPath.length > 0 ? item.folderPath.join(' / ') : 'Dossier principal'}</span>
+                          </div>
+                          <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileText size={18} color="var(--accent-primary)" />
+                            <span>{highlightText(item.courseName, searchedKeywords)}</span>
+                          </h4>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                          {item.matchedInTitle && (
+                            <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: 'rgba(219, 39, 119, 0.15)', color: 'var(--accent-primary)', fontWeight: 600 }}>
+                              Titre
+                            </span>
+                          )}
+                          {item.matchedInResume && (
+                            <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600 }}>
+                              Résumé
+                            </span>
+                          )}
+                          {item.matchedInFlashcards && (
+                            <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', fontWeight: 600 }}>
+                              Flashcards
+                            </span>
+                          )}
+                          <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
+                            {item.matchCount} mention{item.matchCount > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Snippets / Excerpts */}
+                      {item.snippets.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem' }}>
+                          {item.snippets.map((snip, sidx) => (
+                            <div 
+                              key={sidx}
+                              style={{
+                                fontSize: '0.86rem',
+                                color: 'var(--text-secondary)',
+                                lineHeight: 1.5,
+                                backgroundColor: 'var(--bg-primary)',
+                                padding: '0.5rem 0.75rem',
+                                borderRadius: '0.5rem',
+                                borderLeft: '3px solid var(--accent-primary)'
+                              }}
+                            >
+                              {highlightText(snip, searchedKeywords)}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          Correspondance trouvée dans les métadonnées de ce cours.
+                        </p>
+                      )}
+
+                      {/* Footer Call to Action */}
+                      <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.3rem', fontSize: '0.82rem', fontWeight: 600, color: 'var(--accent-primary)' }}>
+                        <span>Accéder à ce cours</span>
+                        <ArrowRight size={14} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'ai' ? (
+            /* AI Synthesis View */
+            <div>
+              {isSearchingAI ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3.5rem 1rem', gap: '1rem', color: 'var(--text-secondary)' }}>
+                  <Loader2 size={36} className="spin" color="var(--accent-primary)" />
+                  <p style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                    Sofia analyse tous vos cours, cela peut prendre quelques secondes...
+                  </p>
+                </div>
+              ) : aiResults ? (
+                <div className="flashcard-content" style={{ color: 'var(--text-primary)', lineHeight: 1.7, fontSize: '0.96rem' }}>
+                  {renderMarkdown(aiResults)}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+                  <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                    Demandez à Sofia de croiser et de rédiger une synthèse complète de vos cours sur ce sujet.
+                  </p>
+                  <button onClick={handleTriggerAISynthesis} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={16} /> Lancer la synthèse avec Sofia
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Initial state */
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+              <p style={{ fontSize: '1.05rem', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                Recherche globale ultrarapide dans tous vos cours
+              </p>
+              <p style={{ fontSize: '0.88rem', maxWidth: '420px', margin: '0 auto' }}>
+                Tapez un mot-clé pour voir instantanément les cours et extraits correspondants (0 token utilisé).
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-// Simple Markdown parser
+// Markdown & Rich Text formatter for Sofia AI synthesis
 const formatRichText = (text: string) => {
-  // First handle bold **
   let parts = text.split(/(\*\*.*?\*\*)/g);
   let elements = parts.map((p, i) => {
     if (p.startsWith('**') && p.endsWith('**')) return <strong key={`b-${i}`}>{p.slice(2, -2)}</strong>;
     return p;
   });
 
-  // Then handle highlighting ==
-  // We need to process the text nodes within elements
   const finalElements: (string | React.ReactNode)[] = [];
   elements.forEach((el, idx) => {
     if (typeof el === 'string') {
@@ -353,12 +642,12 @@ const formatRichText = (text: string) => {
 
 const renderMarkdown = (text: string) => {
   return text.split('\n').map((line, i) => {
-    if (line.startsWith('### ')) return <h3 key={i} style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>{line.replace('### ', '')}</h3>;
-    if (line.startsWith('## ')) return <h2 key={i} style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>{line.replace('## ', '')}</h2>;
-    if (line.startsWith('# ')) return <h1 key={i} style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>{line.replace('# ', '')}</h1>;
-    if (line.startsWith('- ')) return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.25rem' }}>{formatRichText(line.replace('- ', ''))}</li>;
-    if (line.startsWith('* ')) return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.25rem' }}>{formatRichText(line.replace('* ', ''))}</li>;
+    if (line.startsWith('### ')) return <h3 key={i} style={{ marginTop: '1.25rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>{line.replace('### ', '')}</h3>;
+    if (line.startsWith('## ')) return <h2 key={i} style={{ marginTop: '1.5rem', marginBottom: '0.5rem', color: 'var(--accent-primary)' }}>{line.replace('## ', '')}</h2>;
+    if (line.startsWith('# ')) return <h1 key={i} style={{ marginTop: '1.5rem', marginBottom: '0.75rem', color: 'var(--accent-primary)' }}>{line.replace('# ', '')}</h1>;
+    if (line.startsWith('- ')) return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.35rem' }}>{formatRichText(line.replace('- ', ''))}</li>;
+    if (line.startsWith('* ')) return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.35rem' }}>{formatRichText(line.replace('* ', ''))}</li>;
     if (line.trim() === '') return <div key={i} style={{ height: '0.5rem' }} />;
-    return <p key={i} style={{ marginBottom: '0.5rem' }}>{formatRichText(line)}</p>;
+    return <p key={i} style={{ marginBottom: '0.65rem' }}>{formatRichText(line)}</p>;
   });
 };
