@@ -200,6 +200,9 @@ export const MoveNodeModal: React.FC<MoveNodeModalProps> = ({
                 onClick={() => {
                   if (!isItemForbidden) {
                     setSelectedTargetId(folder.id);
+                    if (childSubfolders.length > 0) {
+                      setExpandedIds(prev => new Set(prev).add(folder.id));
+                    }
                   }
                 }}
                 style={{
