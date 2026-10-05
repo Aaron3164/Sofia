@@ -18,6 +18,18 @@ interface InteractiveMCQProps {
   documentContext?: string;
 }
 
+const cleanExplanation = (text: string): string => {
+  if (!text) return '';
+  let cleaned = text.trim();
+  // Strip prefixes like "D'après le cours :", "Selon le cours :", etc.
+  cleaned = cleaned.replace(/^(d'après|selon|d’après)\s+(le\s+cours|le\s+document|la\s+source|le\s+texte)\s*[:,\-–—]?\s*/i, '');
+  // Strip quotes
+  cleaned = cleaned.replace(/^[«"“']\s*/, '').replace(/\s*[»"”']$/, '');
+  cleaned = cleaned.replace(/^(d'après|selon|d’après)\s+(le\s+cours|le\s+document|la\s+source|le\s+texte)\s*[:,\-–—]?\s*/i, '');
+  cleaned = cleaned.replace(/^[«"“']\s*/, '').replace(/\s*[»"”']$/, '');
+  return cleaned.trim();
+};
+
 export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({ 
   data, 
   courseId, 
@@ -373,7 +385,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
                 {isLoadingCorrections ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    <span>Sofia extrait les justifications du cours...</span>
+                    <span>Sofia prépare l'explication...</span>
                   </>
                 ) : (
                   <>
@@ -411,7 +423,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem' }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--accent-primary)', fontSize: '1.15rem' }}>
               <Sparkles size={20} />
-              <span>Correction détaillée des erreurs (Sources brutes du cours)</span>
+              <span>Explications détaillées des erreurs</span>
             </h3>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               1 phrase par question
@@ -439,13 +451,12 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
                     fontSize: '0.92rem', 
                     color: 'var(--text-primary)', 
                     lineHeight: '1.6', 
-                    fontStyle: 'italic', 
                     backgroundColor: 'var(--bg-elevated)', 
                     padding: '0.75rem 1rem', 
                     borderRadius: '0.5rem',
                     borderLeft: '3px solid var(--accent-primary)' 
                   }}>
-                    « {correction} »
+                    {cleanExplanation(correction)}
                   </div>
                 </div>
               );
@@ -576,10 +587,10 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.85rem' }}>
                   <BookOpen size={16} />
-                  <span>Correction sourcée (tirée du cours) :</span>
+                  <span>Explication :</span>
                 </div>
-                <p style={{ margin: 0, fontSize: '0.925rem', color: 'var(--text-primary)', lineHeight: '1.6', fontStyle: 'italic' }}>
-                  « {detailedCorrections[qIndex]} »
+                <p style={{ margin: 0, fontSize: '0.925rem', color: 'var(--text-primary)', lineHeight: '1.6' }}>
+                  {cleanExplanation(detailedCorrections[qIndex])}
                 </p>
               </div>
             )}
