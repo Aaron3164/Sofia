@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, Loader2, Pencil, Check } from 'lucide-react';
+import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, Loader2, Pencil } from 'lucide-react';
 import { askQuestion, generateChatTitle } from '../../lib/gemini';
 import { mdToHtml } from '../../lib/markdown';
 import { extractTextFromPDF } from '../../lib/pdf-extractor';
+import { SelectionToolbar } from './SelectionToolbar';
+import { WysiwygEditor } from './WysiwygEditor';
 
 export interface QAMessage {
   role: 'user' | 'ai';
@@ -30,6 +32,58 @@ interface InteractiveQAProps {
   preferences?: AIPreferences;
 }
 
+const QAAiMessageItem: React.FC<{
+  text: string;
+  isEditing: boolean;
+  onEditStart: () => void;
+  onEditSave: (newHtml: string) => void;
+  onEditCancel: () => void;
+}> = ({ text, isEditing, onEditStart, onEditSave, onEditCancel }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handleSelectionSave = () => {
+    if (contentRef.current) {
+      onEditSave(contentRef.current.innerHTML);
+    }
+  };
+
+  return (
+    <div className="study-resume-container" style={{ padding: '0', height: 'auto', overflow: 'visible' }}>
+      <div className="resume-glass-wrapper" style={{ padding: '2rem', margin: '0', maxWidth: '100%', fontSize: '1rem', position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+          {!isEditing && (
+            <button 
+              onClick={onEditStart}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                padding: '0.3rem 0.6rem', borderRadius: '0.4rem',
+                backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem'
+              }}
+              title="Modifier cette explication en mode visuel"
+            >
+              <Pencil size={13} /> <span>Modifier</span>
+            </button>
+          )}
+        </div>
+
+        {isEditing ? (
+          <WysiwygEditor 
+            initialContent={text}
+            onSave={onEditSave}
+            onCancel={onEditCancel}
+          />
+        ) : (
+          <>
+            <SelectionToolbar containerRef={contentRef} onSaveContent={handleSelectionSave} />
+            <div ref={contentRef} className="resume-content-rendered" dangerouslySetInnerHTML={{ __html: mdToHtml(text) }} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, documentContext, preferences }) => {
   const [inputValue, setInputValue] = useState('');
   const [isAsking, setIsAsking] = useState(false);
@@ -44,12 +98,11 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
 
   // AI Message Editing state
   const [editingMsgIndex, setEditingMsgIndex] = useState<number | null>(null);
-  const [editedMsgText, setEditedMsgText] = useState<string>('');
 
-  const handleSaveMessageEdit = (idx: number) => {
+  const handleSaveMessageEdit = (idx: number, newText: string) => {
     if (!activeChatId || !activeConversation) return;
     const updatedMessages = activeConversation.messages.map((msg, i) => 
-      i === idx ? { ...msg, text: editedMsgText } : msg
+      i === idx ? { ...msg, text: newText } : msg
     );
     const updatedConversations = conversations.map(c => 
       c.id === activeChatId ? { ...c, messages: updatedMessages } : c
@@ -369,75 +422,13 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
                 flex: 1
               }}>
                 {m.role === 'ai' ? (
-                  <div className="study-resume-container" style={{ padding: '0', height: 'auto', overflow: 'visible' }}>
-                    <div className="resume-glass-wrapper" style={{ padding: '2rem', margin: '0', maxWidth: '100%', fontSize: '1rem', position: 'relative' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
-                        {editingMsgIndex !== idx ? (
-                          <button 
-                            onClick={() => {
-                              setEditingMsgIndex(idx);
-                              setEditedMsgText(m.text);
-                            }}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: '0.3rem',
-                              padding: '0.3rem 0.6rem', borderRadius: '0.4rem',
-                              backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)',
-                              color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem'
-                            }}
-                            title="Modifier cette explication"
-                          >
-                            <Pencil size={13} /> <span>Modifier</span>
-                          </button>
-                        ) : (
-                          <div style={{ display: 'flex', gap: '0.4rem' }}>
-                            <button 
-                              onClick={() => handleSaveMessageEdit(idx)}
-                              style={{
-                                display: 'flex', alignItems: 'center', gap: '0.3rem',
-                                padding: '0.3rem 0.6rem', borderRadius: '0.4rem',
-                                backgroundColor: 'var(--accent-primary)', color: 'white',
-                                border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500
-                              }}
-                            >
-                              <Check size={13} /> <span>Enregistrer</span>
-                            </button>
-                            <button 
-                              onClick={() => setEditingMsgIndex(null)}
-                              style={{
-                                display: 'flex', alignItems: 'center', gap: '0.3rem',
-                                padding: '0.3rem 0.6rem', borderRadius: '0.4rem',
-                                backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)',
-                                color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem'
-                              }}
-                            >
-                              <X size={13} /> <span>Annuler</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {editingMsgIndex === idx ? (
-                        <textarea 
-                          value={editedMsgText}
-                          onChange={(e) => setEditedMsgText(e.target.value)}
-                          style={{
-                            width: '100%',
-                            minHeight: '200px',
-                            padding: '0.75rem',
-                            borderRadius: '0.5rem',
-                            border: '1px solid var(--accent-primary)',
-                            backgroundColor: 'var(--bg-primary)',
-                            color: 'var(--text-primary)',
-                            fontSize: '0.9rem',
-                            lineHeight: '1.6',
-                            fontFamily: 'monospace'
-                          }}
-                        />
-                      ) : (
-                        <div className="resume-content-rendered" dangerouslySetInnerHTML={{ __html: mdToHtml(m.text) }} />
-                      )}
-                    </div>
-                  </div>
+                  <QAAiMessageItem 
+                    text={m.text}
+                    isEditing={editingMsgIndex === idx}
+                    onEditStart={() => setEditingMsgIndex(idx)}
+                    onEditSave={(newHtml) => handleSaveMessageEdit(idx, newHtml)}
+                    onEditCancel={() => setEditingMsgIndex(null)}
+                  />
                 ) : (
                   <div style={{ 
                     padding: '0.8rem 1.2rem', 
