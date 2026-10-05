@@ -335,3 +335,93 @@ Contexte des cours :\n${allCoursesContext}`;
     throw error;
   }
 }
+
+export interface MCQErrorItem {
+  questionIndex: number;
+  question: string;
+  options: string[];
+  userSelected: string[];
+  correctAnswers: string[];
+}
+
+/**
+ * Generates a targeted 1-sentence correction for each wrong MCQ item directly quoted from the raw source document.
+ */
+export async function explainMCQErrors(
+  documentContext: string,
+  errors: MCQErrorItem[],
+  prefs?: AIPreferences
+): Promise<Record<number, string>> {
+  if (!errors || errors.length === 0) return {};
+
+  const cacheKey = getCacheKey('mcq_errors', documentContext.substring(0, 30000) + '|||' + JSON.stringify(errors));
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // ignore
+    }
+  }
+
+  await ensureQuota();
+  const systemInstruction = getSystemInstruction(prefs);
+
+  const errorsListText = errors.map((err) => {
+    return `Question n°${err.questionIndex + 1} (index ${err.questionIndex}) : "${err.question}"
+Options : ${err.options.map((opt) => `\n  - ${opt}`).join('')}
+Bonne(s) réponse(s) : ${err.correctAnswers.join(' | ')}
+Réponse(s) choisie(s) par l'étudiant : ${err.userSelected.length > 0 ? err.userSelected.join(' | ') : 'Aucune sélection'}`;
+  }).join('\n\n');
+
+  const fullPrompt = `${systemInstruction}Tu t'appelles Sofia. Tu es une assistante universitaire d'apprentissage experte.
+L'étudiant vient de terminer une session d'examen blanc (QCM) sur son cours et a fait des erreurs sur les questions suivantes :
+
+${errorsListText}
+
+CONSIGNE STRICTE (CRITIQUE) :
+Pour CHAQUE question ratée ci-dessus, donne une correction sous la forme de STRICTEMENT 1 SEULE PHRASE percutante, DIRECTEMENT TIRÉE (ou très fidèlement citée mot pour mot) DE LA SOURCE BRUTE DU COURS ci-dessous.
+Cette phrase doit expliquer précisément la bonne réponse ou pourquoi l'option choisie était une erreur, en s'appuyant mot pour mot sur le cours.
+Ne fais aucune salutation.
+
+Format attendu STRICTEMENT en JSON :
+Un objet JSON où chaque clé est l'index numérique de la question (${errors.map(e => `"${e.questionIndex}"`).join(', ')}) et la valeur est la phrase de correction extraite de la source brute.
+Exemple :
+{
+  "${errors[0]?.questionIndex ?? 0}": "D'après le cours : « Phrase exacte du document justifiant la réponse. »"
+}
+
+Texte source brut du cours :
+${documentContext.substring(0, 250000)}`;
+
+  try {
+    const response = await callGeminiProxy('models/gemini-3.1-flash-lite-preview', [fullPrompt], {
+      responseMimeType: 'application/json'
+    });
+
+    let generatedText = response.text || '{}';
+    const firstBrace = generatedText.indexOf('{');
+    const lastBrace = generatedText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      generatedText = generatedText.substring(firstBrace, lastBrace + 1);
+    } else {
+      generatedText = generatedText.replace(/```json\n?|```/g, '').trim();
+    }
+
+    const parsed = JSON.parse(generatedText);
+    const result: Record<number, string> = {};
+    for (const key of Object.keys(parsed)) {
+      const numKey = parseInt(key, 10);
+      if (!isNaN(numKey)) {
+        result[numKey] = parsed[key];
+      }
+    }
+
+    sessionStorage.setItem(cacheKey, JSON.stringify(result));
+    return result;
+  } catch (error) {
+    console.error('Error explaining MCQ errors:', error);
+    throw error;
+  }
+}
+
