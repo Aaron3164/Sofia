@@ -12,8 +12,7 @@ import { useFileSystem } from '../hooks/useFileSystem';
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
-import { Calendar, Move } from 'lucide-react';
-import { MoveNodeModal } from '../components/library/MoveNodeModal';
+import { Calendar } from 'lucide-react';
 import './SubjectDetail.css';
 
 type GenerationTab = 'flashcards' | 'mcq' | 'explications' | 'resume';
@@ -28,7 +27,6 @@ export default function SubjectDetail() {
   
   const courseNode = getNode(id || null);
   const storageKey = `aura_subject_${id}`;
-  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   const [extractedContent, setExtractedContent] = useState<string>('');
@@ -509,14 +507,6 @@ export default function SubjectDetail() {
           )}
           <button 
             className="btn btn-outline" 
-            onClick={() => setIsMoveModalOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-            title="Déplacer ce cours dans un autre dossier"
-          >
-            <Move size={16} /> <span className="desktop-only">Déplacer</span>
-          </button>
-          <button 
-            className="btn btn-outline" 
             style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
             onClick={async () => {
               if (await confirm('Voulez-vous vraiment supprimer ce cours ?')) {
@@ -900,22 +890,6 @@ export default function SubjectDetail() {
         </div>
 
       </div>
-
-      {courseNode && (
-        <MoveNodeModal
-          isOpen={isMoveModalOpen}
-          nodeToMove={courseNode}
-          nodes={nodes}
-          onClose={() => setIsMoveModalOpen(false)}
-          onMove={async (courseId, targetParentId) => {
-            await moveNode(courseId, targetParentId);
-            setIsMoveModalOpen(false);
-          }}
-          onCreateFolder={async (name, parentId) => {
-            return await addNode(name, 'folder', parentId);
-          }}
-        />
-      )}
     </div>
   );
 }
