@@ -426,10 +426,6 @@ export const GlobalSearchModal: React.FC = () => {
                 <span>Synthèse Sofia (IA)</span>
               </button>
             </div>
-
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              0 token consommé en mode direct
-            </span>
           </div>
         )}
 
@@ -603,7 +599,7 @@ export const GlobalSearchModal: React.FC = () => {
                 Recherche globale ultrarapide dans tous vos cours
               </p>
               <p style={{ fontSize: '0.88rem', maxWidth: '420px', margin: '0 auto' }}>
-                Tapez un mot-clé pour voir instantanément les cours et extraits correspondants (0 token utilisé).
+                Tapez un mot-clé pour voir instantanément les cours et extraits correspondants.
               </p>
             </div>
           )}
