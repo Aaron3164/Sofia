@@ -117,7 +117,7 @@ export async function generateStudyMaterials(
   const randomSeed = Math.random().toString(36).substring(7);
 
   const prompts = {
-    flashcards: `[Session unique: ${randomSeed}] Crée exactement ${cardCount || 30} flashcards de type Anki à partir de ce texte. Extraie les concepts, détails et définitions les plus importants sans faire de doublons ni de répétitions. Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte.
+    flashcards: `[Session unique: ${randomSeed}] Crée exactement ${cardCount || 30} flashcards de révision à partir de ce texte. Extraie les concepts, détails et définitions les plus importants sans faire de doublons ni de répétitions. Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte.
     
 CONSIGNE RECTO (front) : Sois explicite dans la question pour que l'étudiant sache précisément quoi répondre (ex: "Quelle est la définition de [concept] ?", "Quelles sont les 3 conditions de [X] ?", "En quoi consiste l'exception de [Y] ?"). Évite les questions trop vagues comme juste un nom de concept.
 
@@ -261,6 +261,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 - Utilise Markdown (#, ##, ###, ####) pour structurer ta réponse.
 - Utilise des listes à puces (* ) pour briser les paragraphes longs.
 - Utilise '__' pour souligner les précisions importantes.
+- TABLEAUX : Si une comparaison, classification ou synthèse de plusieurs notions s'y prête, STRUCTURE-LA DANS UN BEAU TABLEAU MARKDOWN standard avec des en-têtes clairs (| Colonne 1 | Colonne 2 | \n | --- | --- |).
 - SOURCE : Si l'information provient du document, mentionne-le subtilement.
 - Tu DOIS tutoyer l'étudiant (utilise "tu").`;
 
