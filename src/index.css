@@ -616,3 +616,71 @@ p { color: var(--text-secondary); }
   font-size: 1.75rem;
   font-weight: 800;
 }
+
+/* ============================================================
+   SOF.IA — GLOBAL TABLES & AI HIGHLIGHTS
+   ============================================================ */
+
+mark.ai-highlight {
+  background-color: rgba(56, 189, 248, 0.18);
+  color: #0284c7;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  padding: 0.1em 0.35rem;
+  border-radius: 0.35rem;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(56, 189, 248, 0.08);
+}
+
+.dark mark.ai-highlight {
+  background-color: rgba(56, 189, 248, 0.22);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 1px 6px rgba(56, 189, 248, 0.15);
+}
+
+.glass mark.ai-highlight {
+  background-color: rgba(56, 189, 248, 0.2);
+  color: #0369a1;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.table-container {
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border-radius: var(--radius-md, 0.75rem);
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+
+.sofia-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.sofia-table th {
+  background: var(--bg-secondary);
+  color: var(--accent-primary);
+  font-weight: 700;
+  padding: 0.85rem 1.15rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.sofia-table td {
+  padding: 0.85rem 1.15rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sofia-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.sofia-table tbody tr:hover {
+  background-color: var(--accent-light);
+  transition: background-color 0.15s ease;
+}
+
