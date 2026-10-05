@@ -683,10 +683,10 @@ const formatRichText = (text: string) => {
               key={`m-${idx}-${si}`} 
               className="ai-highlight"
               style={{ 
-                backgroundColor: 'rgba(56, 189, 248, 0.18)', 
-                color: '#0284c7', 
-                border: '1px solid rgba(56, 189, 248, 0.28)',
-                padding: '0.1rem 0.35rem', 
+                backgroundColor: '#6366f125', 
+                color: '#4f46e5', 
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                padding: '0.1rem 0.38rem', 
                 borderRadius: '0.35rem',
                 fontWeight: 600
               }}
