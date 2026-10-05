@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Pencil } from 'lucide-react';
 import { mdToHtml } from '../../lib/markdown';
-import { SelectionToolbar } from './SelectionToolbar';
 import { WysiwygEditor } from './WysiwygEditor';
 import './StudyResume.css';
 
@@ -13,7 +12,6 @@ interface StudyResumeProps {
 
 export const StudyResume: React.FC<StudyResumeProps> = ({ content, courseId, onUpdate }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const renderedContentRef = useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   // Restore scroll
@@ -30,12 +28,6 @@ export const StudyResume: React.FC<StudyResumeProps> = ({ content, courseId, onU
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (courseId) {
       sessionStorage.setItem(`aura_resume_scroll_${courseId}`, e.currentTarget.scrollTop.toString());
-    }
-  };
-
-  const handleSelectionHighlightSave = () => {
-    if (onUpdate && renderedContentRef.current) {
-      onUpdate(renderedContentRef.current.innerHTML);
     }
   };
 
@@ -75,16 +67,10 @@ export const StudyResume: React.FC<StudyResumeProps> = ({ content, courseId, onU
               onCancel={() => setIsEditing(false)}
             />
           ) : (
-            <>
-              {/* Contextual Floating Selection Highlight Toolbar */}
-              {onUpdate && <SelectionToolbar containerRef={renderedContentRef} onSaveContent={handleSelectionHighlightSave} />}
-              
-              <div 
-                ref={renderedContentRef}
-                className="resume-content-rendered" 
-                dangerouslySetInnerHTML={{ __html: mdToHtml(content) }} 
-              />
-            </>
+            <div 
+              className="resume-content-rendered" 
+              dangerouslySetInnerHTML={{ __html: mdToHtml(content) }} 
+            />
           )}
        </div>
     </div>
