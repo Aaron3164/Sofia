@@ -10,9 +10,7 @@ export const parseMarkdownTables = (text: string): string => {
 
   const isDelimiterRow = (str: string) => {
     const trimmed = str.trim();
-    if (!trimmed.includes('|') || !trimmed.includes('--')) return false;
-    const parts = trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|');
-    return parts.length >= 1 && parts.every(p => /^\s*:?-{2,}:?\s*$/.test(p));
+    return /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(trimmed);
   };
 
   const isTableRow = (str: string) => {
@@ -45,7 +43,6 @@ export const parseMarkdownTables = (text: string): string => {
       });
 
       const headerCells = parseCells(headerRow);
-
       i += 2; // skip header & delimiter
 
       const bodyRows: string[][] = [];
@@ -87,39 +84,36 @@ export const parseMarkdownTables = (text: string): string => {
 export const mdToHtml = (md: string) => {
   if (!md || !md.trim()) return '';
 
-  let html = md;
+  // 1. Normalize line endings
+  let html = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // 1. Check if content is already rich HTML (from WYSIWYG editor or SelectionToolbar)
-  const isAlreadyHtml = /^<[a-z1-6]+/i.test(html.trim()) || /<(p|h[1-6]|div|mark|span|strong|b|u|em|i|ul|ol|li|br|img|table|thead|tbody|tr|th|td)/i.test(html);
+  // 2. Auto-migrate any legacy yellow highlights (#fef08a / #854d0e) to the beloved glass indigo blue
+  html = html.replace(/#fef08a/gi, '#6366f125');
+  html = html.replace(/#854d0e/gi, '#4f46e5');
 
-  if (isAlreadyHtml) {
-    // If it's already HTML, return it directly without escaping or re-parsing
-    return html;
-  }
-
-  // 2. Process Block Math ($$ ... $$)
+  // 3. Process Block Math ($$ ... $$)
   html = html.replace(/\$\$([\s\S]+?)\$\$/g, (_, tex) => {
     try {
       return `<div class="math-block" style="margin: 1rem 0; display: flex; justify-content: center; overflow-x: auto;">${katex.renderToString(tex, { displayMode: true, throwOnError: false })}</div>`;
     } catch (e) { return `$$${tex}$$`; }
   });
 
-  // 3. Process Inline Math ($ ... $)
+  // 4. Process Inline Math ($ ... $)
   html = html.replace(/\$([^\$\n]+?)\$/g, (_, tex) => {
     try {
       return katex.renderToString(tex, { displayMode: false, throwOnError: false });
     } catch (e) { return `$${tex}$`; }
   });
 
-  // 4. Process Markdown Tables
+  // 5. Process Markdown Tables
   html = parseMarkdownTables(html);
 
-  // 5. Convert Raw Markdown to HTML
+  // 6. Convert Raw Markdown to HTML
   // Headers
-  html = html.replace(/^\s*#### (.*?)\s*\r?$/gim, '<h4 style="margin: 0.75rem 0 0.25rem; font-weight: 700;">$1</h4>');
-  html = html.replace(/^\s*### (.*?)\s*\r?$/gim, '<h3 style="margin: 1rem 0 0.5rem; color: var(--accent-primary); font-size: 1.1rem;">$1</h3>');
-  html = html.replace(/^\s*## (.*?)\s*\r?$/gim, '<h2 style="margin: 1.5rem 0 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3rem;">$1</h2>');
-  html = html.replace(/^\s*# (.*?)\s*\r?$/gim, '<h1 style="margin: 2rem 0 1rem; font-size: 1.5rem;">$1</h1>');
+  html = html.replace(/^\s*#### (.*?)\s*$/gim, '<h4 style="margin: 0.75rem 0 0.25rem; font-weight: 700;">$1</h4>');
+  html = html.replace(/^\s*### (.*?)\s*$/gim, '<h3 style="margin: 1rem 0 0.5rem; color: var(--accent-primary); font-size: 1.1rem;">$1</h3>');
+  html = html.replace(/^\s*## (.*?)\s*$/gim, '<h2 style="margin: 1.5rem 0 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3rem;">$1</h2>');
+  html = html.replace(/^\s*# (.*?)\s*$/gim, '<h1 style="margin: 2rem 0 1rem; font-size: 1.5rem;">$1</h1>');
 
   // Lists
   html = html.replace(/^\s*[\*\-] (.*$)/gim, '<li style="margin-left: 1.5rem; margin-bottom: 0.25rem;">$1</li>');
@@ -131,11 +125,11 @@ export const mdToHtml = (md: string) => {
   
   // Highlights
   // Custom color highlight ==color:text==
-  html = html.replace(/==(#[\w]+|rgba?\([^)]+\)):(.*?)==/gim, '<mark style="background-color: $1; color: inherit; padding: 0.12em 0.35em; border-radius: 0.35em;">$2</mark>');
-  // Default glass blue highlight (replaces the yellow #fef08a)
-  html = html.replace(/==(.*?)==/gim, '<mark class="ai-highlight" style="background-color: rgba(56, 189, 248, 0.18); color: #0284c7; border: 1px solid rgba(56, 189, 248, 0.28); padding: 0.12em 0.35em; border-radius: 0.35em; font-weight: 600;">$1</mark>');
+  html = html.replace(/==(#[\w]+|rgba?\([^)]+\)):(.*?)==/gim, '<mark style="background-color: $1; color: inherit; padding: 0.12em 0.38em; border-radius: 0.35em;">$2</mark>');
+  // Default glass indigo blue highlight (restored to the original #6366f125 / #4f46e5)
+  html = html.replace(/==(.*?)==/gim, '<mark class="ai-highlight" style="background-color: #6366f125; color: #4f46e5; border: 1px solid rgba(99, 102, 241, 0.25); padding: 0.12em 0.38em; border-radius: 0.35em; font-weight: 600;">$1</mark>');
 
-  // Paragraphs
+  // Paragraphs — wrap only non-HTML lines to avoid double-wrapping
   html = html.split('\n').map(line => {
     const trimmed = line.trim();
     if (trimmed === '') return '';
@@ -153,7 +147,8 @@ export const mdToHtml = (md: string) => {
       trimmed.startsWith('<th') ||
       trimmed.startsWith('<td') ||
       trimmed.startsWith('</') ||
-      trimmed.startsWith('<p')
+      trimmed.startsWith('<p') ||
+      trimmed.startsWith('<blockquote')
     ) {
       return line;
     }
