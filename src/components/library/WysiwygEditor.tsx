@@ -13,7 +13,7 @@ export const HIGHLIGHT_COLORS = [
 
 export const TEXT_COLORS = [
   { name: 'Défaut', hex: 'inherit' },
-  { name: 'Rose Aurore', hex: '#e11d48' },
+  { name: 'Rose Aurore', hex: '#db2777' },
   { name: 'Bleu', hex: '#3b82f6' },
   { name: 'Vert', hex: '#22c55e' },
   { name: 'Violet', hex: '#a855f7' },
