@@ -263,13 +263,15 @@ export const InteractiveFlashcard: React.FC<{
     (currentCard.imageSide === 'back' || currentCard.imageSide === 'both' || !currentCard.imageSide)
   );
 
-  const cardMinHeight = (showFrontImage || showBackImage) ? '420px' : '300px';
+  const hasImage = showFrontImage || showBackImage;
+  const cardMaxWidth = hasImage ? '860px' : '560px';
+  const cardMinHeight = hasImage ? '540px' : '320px';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       
       {/* Top Bar Navigation & Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '560px', marginBottom: '1rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: isEditing ? '650px' : cardMaxWidth, marginBottom: '1rem', alignItems: 'center' }}>
         <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
           Carte {currentIndex + 1} sur {cards.length}
         </div>
@@ -307,7 +309,7 @@ export const InteractiveFlashcard: React.FC<{
           onPaste={handlePasteInEditor}
           onDrop={handleDropInEditor}
           onDragOver={(e) => e.preventDefault()}
-          style={{ width: '100%', maxWidth: '560px', padding: '1.5rem', borderRadius: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+          style={{ width: '100%', maxWidth: '650px', padding: '1.5rem', borderRadius: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
         >
           {/* Question / Front */}
           <div>
@@ -488,7 +490,7 @@ export const InteractiveFlashcard: React.FC<{
           onClick={() => setIsFlipped(!isFlipped)}
           style={{
             width: '100%',
-            maxWidth: '560px',
+            maxWidth: cardMaxWidth,
             minHeight: cardMinHeight,
             perspective: '1000px',
             cursor: 'pointer',
@@ -516,7 +518,7 @@ export const InteractiveFlashcard: React.FC<{
               flexDirection: 'column',
               alignItems: 'center', 
               justifyContent: 'center', 
-              padding: '1.75rem',
+              padding: showFrontImage ? '1rem' : '1.75rem',
               textAlign: 'center', 
               backgroundColor: 'var(--bg-elevated)', 
               borderRadius: '1.5rem',
@@ -524,19 +526,32 @@ export const InteractiveFlashcard: React.FC<{
               overflowY: 'auto'
             }}>
               {showFrontImage && currentCard.image && (
-                <div style={{ marginBottom: '1rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                   <OccludedImageViewer
                     imageUrl={currentCard.image}
                     occlusions={currentCard.occlusions}
                     isRevealed={false}
-                    maxHeight="220px"
+                    maxHeight="480px"
                     alt="Question Illustration"
                   />
                 </div>
               )}
-              <div style={{ fontSize: '1.2rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                {currentCard.front}
-              </div>
+              {currentCard.front && (
+                <div style={{ 
+                  fontSize: showFrontImage ? '1.05rem' : '1.25rem', 
+                  fontWeight: 500, 
+                  color: 'var(--text-primary)', 
+                  lineHeight: 1.5,
+                  marginTop: showFrontImage ? '0.6rem' : 0,
+                  padding: showFrontImage ? '0.4rem 1rem' : 0,
+                  backgroundColor: showFrontImage ? 'var(--bg-primary)' : 'transparent',
+                  borderRadius: showFrontImage ? '0.75rem' : 0,
+                  border: showFrontImage ? '1px solid var(--border-color)' : 'none',
+                  maxWidth: '95%'
+                }}>
+                  {currentCard.front}
+                </div>
+              )}
             </div>
             
             {/* Verso (Answer Side) */}
@@ -550,7 +565,7 @@ export const InteractiveFlashcard: React.FC<{
               flexDirection: 'column',
               alignItems: 'center', 
               justifyContent: 'center', 
-              padding: '1.75rem',
+              padding: showBackImage ? '1rem' : '1.75rem',
               textAlign: 'center', 
               backgroundColor: 'var(--accent-primary)', 
               color: 'white', 
@@ -559,19 +574,30 @@ export const InteractiveFlashcard: React.FC<{
               overflowY: 'auto'
             }}>
               {showBackImage && currentCard.image && (
-                <div style={{ marginBottom: '1rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                   <OccludedImageViewer
                     imageUrl={currentCard.image}
                     occlusions={currentCard.occlusions}
                     isRevealed={true}
-                    maxHeight="220px"
+                    maxHeight="480px"
                     alt="Réponse Illustration"
                   />
                 </div>
               )}
-              <div style={{ fontSize: '1.1rem', lineHeight: 1.5, color: '#ffffff' }}>
-                {currentCard.back}
-              </div>
+              {currentCard.back && (
+                <div style={{ 
+                  fontSize: showBackImage ? '1rem' : '1.15rem', 
+                  lineHeight: 1.5, 
+                  color: '#ffffff',
+                  marginTop: showBackImage ? '0.6rem' : 0,
+                  padding: showBackImage ? '0.4rem 1rem' : 0,
+                  backgroundColor: showBackImage ? 'rgba(0, 0, 0, 0.25)' : 'transparent',
+                  borderRadius: showBackImage ? '0.75rem' : 0,
+                  maxWidth: '95%'
+                }}>
+                  {currentCard.back}
+                </div>
+              )}
             </div>
           </div>
         </div>
