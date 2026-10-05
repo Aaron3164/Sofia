@@ -27,7 +27,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     {
       icon: <Zap size={22} />,
       title: 'Flashcards intelligentes',
-      desc: 'Tes fiches de révision générées en 10 secondes depuis n\'importe quel PDF. Format Anki compatible.',
+      desc: 'Tes fiches de révision générées en 10 secondes depuis n\'importe quel PDF. Format de révision optimisé.',
       color: '#db2777',
     },
     {

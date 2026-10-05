@@ -420,7 +420,7 @@ export default function SubjectDetail() {
   };
 
   const tabs = [
-    { id: 'flashcards', label: '⚡ Flashcards (Anki)' },
+    { id: 'flashcards', label: '⚡ Flashcards' },
     { id: 'mcq', label: '🎯 Examens Blancs (QCM)' },
     { id: 'explications', label: '🤖 Explications (IA)' },
     { id: 'resume', label: '✨ Résumé' },
