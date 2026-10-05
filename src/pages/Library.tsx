@@ -4,6 +4,7 @@ import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useDialog } from '../context/DialogContext';
 import { useAuth } from '../context/AuthContext';
 import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft } from 'lucide-react';
+import { MoveNodeModal } from '../components/library/MoveNodeModal';
 import './Library.css';
 
 export default function Library() {
@@ -14,7 +15,7 @@ export default function Library() {
   const { nodes, deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes } = useFileSystem();
   
   const currentFolderId = folderId || null;
-  const [isMovingId, setIsMovingId] = useState<string | null>(null);
+  const [nodeToMove, setNodeToMove] = useState<FileNode | null>(null);
   
   const currentFolder = getNode(currentFolderId);
   const items = getChildren(currentFolderId);
@@ -67,14 +68,7 @@ export default function Library() {
 
   const handleMove = (e: React.MouseEvent, item: FileNode) => {
     e.stopPropagation();
-    setIsMovingId(item.id);
-  };
-
-  const confirmMove = (targetId: string | null) => {
-    if (isMovingId) {
-      moveNode(isMovingId, targetId);
-      setIsMovingId(null);
-    }
+    setNodeToMove(item);
   };
 
   const handleReorder = (e: React.MouseEvent, item: FileNode, direction: 'prev' | 'next') => {
@@ -99,7 +93,7 @@ export default function Library() {
   };
 
   const handleItemClick = (item: FileNode) => {
-    if (isMovingId) return; // Prevent navigation while moving
+    if (nodeToMove) return;
     if (item.type === 'folder') {
       navigateToFolder(item.id);
     } else {
@@ -141,23 +135,20 @@ export default function Library() {
         </div>
       </header>
 
-      {/* Moving Overlay Mode */}
-      {isMovingId && (
-        <div className="glass-panel moving-overlay">
-          <div className="moving-info">
-            <Move size={20} />
-            <span>Déplaçant <strong>{getNode(isMovingId)?.name}</strong></span>
-          </div>
-          <div className="moving-actions">
-            <button className="btn btn-place" onClick={() => confirmMove(currentFolderId)}>
-              Placer ici
-            </button>
-            <button className="btn btn-cancel" onClick={() => setIsMovingId(null)}>
-              Annuler
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Interactive Move Modal */}
+      <MoveNodeModal
+        isOpen={!!nodeToMove}
+        nodeToMove={nodeToMove}
+        nodes={nodes}
+        onClose={() => setNodeToMove(null)}
+        onMove={async (id, targetParentId) => {
+          await moveNode(id, targetParentId);
+          setNodeToMove(null);
+        }}
+        onCreateFolder={async (name, parentId) => {
+          return await addNode(name, 'folder', parentId);
+        }}
+      />
 
       {items.length === 0 ? (
         <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', borderRadius: '1.5rem', minHeight: '300px' }}>
@@ -170,7 +161,7 @@ export default function Library() {
           {items.map(item => (
             <div 
               key={item.id} 
-              className={`folder-card hover-lift glass-panel ${isMovingId === item.id ? 'is-moving' : ''}`}
+              className="folder-card hover-lift glass-panel"
               onClick={() => handleItemClick(item)}
               style={item.type === 'course' ? { border: '1px solid var(--accent-primary)' } : {}}
             >
