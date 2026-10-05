@@ -260,7 +260,7 @@ export const ImageOcclusionModal: React.FC<ImageOcclusionModalProps> = ({
             <span style={{ fontSize: '1.3rem' }}>🎭</span>
             <div>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                Masquage d'image (Style Anki)
+                Masquage d'image
               </h3>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
                 Tracez des rectangles pour masquer les termes, définitions ou schémas à deviner.
@@ -372,7 +372,7 @@ export const ImageOcclusionModal: React.FC<ImageOcclusionModalProps> = ({
           >
             <img 
               src={imageUrl} 
-              alt="Anki Occlusion Target"
+              alt="Masquage d'image"
               draggable={false}
               style={{
                 display: 'block',

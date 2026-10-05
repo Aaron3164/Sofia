@@ -335,11 +335,11 @@ export const InteractiveFlashcard: React.FC<{
             />
           </div>
 
-          {/* Image & Anki Occlusion Section */}
+          {/* Image & Image Occlusion Section */}
           <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <ImageIcon size={16} color="var(--accent-primary)" /> Illustration & Masquage Anki
+                <ImageIcon size={16} color="var(--accent-primary)" /> Illustration & Masquage d'image
               </span>
 
               <input 
@@ -441,7 +441,7 @@ export const InteractiveFlashcard: React.FC<{
                       <Sparkles size={15} /> 
                       {editOcclusions.length > 0 
                         ? `Modifier les masques (${editOcclusions.length} défini${editOcclusions.length > 1 ? 's' : ''})` 
-                        : 'Masquer des zones (Style Anki)'
+                        : 'Masquer des zones'
                       }
                     </button>
 
@@ -588,7 +588,7 @@ export const InteractiveFlashcard: React.FC<{
         </div>
       )}
 
-      {/* Anki Occlusion Editor Modal */}
+      {/* Image Occlusion Editor Modal */}
       {isOcclusionModalOpen && editImage && (
         <ImageOcclusionModal
           isOpen={isOcclusionModalOpen}
