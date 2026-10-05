@@ -1,32 +1,67 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { compressPDF } from './pdf-compressor';
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+/**
+ * Uploads a PDF to Cloudflare R2 after optimizing/compressing it.
+ * Supabase Storage is NO LONGER used to store heavy PDF files.
+ */
 export async function uploadPDF(file: File, subjectId: string): Promise<string | null> {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Supabase is not configured yet. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env');
-    return null;
-  }
-
   try {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${subjectId}/${fileName}`;
+    console.log(`[Upload] Traitement du fichier : ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
 
-    const { error } = await supabase.storage.from('pdfs').upload(filePath, file);
-    
-    if (error) {
-      console.error('Error uploading to Supabase storage bucket "pdfs":', error.message);
+    // 1. Client-side PDF compression & optimization
+    const processedFile = await compressPDF(file);
+
+    // 2. Request presigned upload URL from backend
+    const presignRes = await fetch('/api/r2-presign', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filename: processedFile.name,
+        contentType: processedFile.type || 'application/pdf',
+        folder: subjectId || 'general',
+      }),
+    });
+
+    if (!presignRes.ok) {
+      const errData = await presignRes.json().catch(() => ({}));
+      const errorMsg = errData.error || `Erreur serveur HTTP ${presignRes.status}`;
+      console.error('[Cloudflare R2] Impossible d\'obtenir l\'URL d\'upload pré-signée :', errorMsg);
+      alert(`⚠️ Erreur Cloudflare R2 :\n${errorMsg}`);
       return null;
     }
 
-    const { data } = supabase.storage.from('pdfs').getPublicUrl(filePath);
-    return data.publicUrl;
-  } catch (err) {
-    console.error('Unexpected error in uploadPDF:', err);
+    const { uploadUrl, publicUrl } = await presignRes.json();
+
+    // 3. Direct browser-to-R2 upload (zero backend payload limit issues)
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': processedFile.type || 'application/pdf',
+      },
+      body: processedFile,
+    });
+
+    if (!uploadRes.ok) {
+      console.error('[Cloudflare R2] Échec du téléversement PUT vers R2 :', uploadRes.status, uploadRes.statusText);
+      alert(`⚠️ Échec de l'envoi vers Cloudflare R2 (${uploadRes.status} ${uploadRes.statusText}). Pensez à vérifier la règle CORS du bucket R2.`);
+      return null;
+    }
+
+    console.log('[Cloudflare R2] Téléversement réussi ! URL :', publicUrl);
+    return publicUrl;
+  } catch (err: any) {
+    console.error('Erreur inattendue dans uploadPDF (Cloudflare R2) :', err);
+    alert(`Erreur lors de l'envoi vers Cloudflare R2 : ${err?.message || String(err)}`);
     return null;
   }
 }
+
