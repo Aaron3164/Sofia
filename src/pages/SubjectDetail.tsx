@@ -21,7 +21,7 @@ export default function SubjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { alert, confirm } = useDialog();
-  const { getNode, deleteNode, nodes, moveNode, addNode } = useFileSystem();
+  const { getNode, deleteNode } = useFileSystem();
   const { scheduleCourse, hasScheduledCourse, removeCourseSchedules, loading: isSpacedLoading } = useSpacedRepetition();
   const { profile } = useAuth();
   
