@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
             req.on('end', async () => {
               try {
                 const body = JSON.parse(bodyStr || '{}');
-                const { model = 'models/gemini-3.5-flash-lite-preview', contents, config } = body;
+                const { model = 'models/gemini-3.5-flash-lite', contents, config } = body;
 
                 const ai = new GoogleGenAI({ apiKey });
                 let attempts = 0;
