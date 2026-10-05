@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { explainMCQErrors } from '../../lib/gemini';
+import { BookOpen, Loader2, Sparkles, RotateCcw } from 'lucide-react';
 
 interface MCQ {
   question: string;
@@ -9,7 +11,19 @@ interface MCQ {
   correctAnswer?: string; // Fallback for older generations
 }
 
-export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string, courseName?: string }> = ({ data, courseId, courseName }) => {
+interface InteractiveMCQProps {
+  data: string | MCQ[];
+  courseId?: string;
+  courseName?: string;
+  documentContext?: string;
+}
+
+export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({ 
+  data, 
+  courseId, 
+  courseName,
+  documentContext 
+}) => {
   const { profile } = useAuth();
   
   // Persistence logic
@@ -28,21 +42,36 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
     return false;
   });
 
+  // Detailed corrections state (quoted directly from source)
+  const [detailedCorrections, setDetailedCorrections] = useState<Record<number, string>>(() => {
+    if (courseId) {
+      const saved = sessionStorage.getItem(`aura_mcq_corrections_${courseId}`);
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+  const [isLoadingCorrections, setIsLoadingCorrections] = useState(false);
+  const [showDetailedPanel, setShowDetailedPanel] = useState(false);
+
   // Track changes and save to session
   useEffect(() => {
     if (courseId) {
       sessionStorage.setItem(`aura_mcq_answers_${courseId}`, JSON.stringify(selectedAnswers));
       sessionStorage.setItem(`aura_mcq_results_${courseId}`, showResults.toString());
+      sessionStorage.setItem(`aura_mcq_corrections_${courseId}`, JSON.stringify(detailedCorrections));
     }
-  }, [selectedAnswers, showResults, courseId]);
+  }, [selectedAnswers, showResults, detailedCorrections, courseId]);
 
   // Reset state on new generation
   useEffect(() => {
     setSelectedAnswers({});
     setShowResults(false);
+    setDetailedCorrections({});
+    setShowDetailedPanel(false);
     if (courseId) {
       sessionStorage.removeItem(`aura_mcq_answers_${courseId}`);
       sessionStorage.removeItem(`aura_mcq_results_${courseId}`);
+      sessionStorage.removeItem(`aura_mcq_corrections_${courseId}`);
     }
   }, [data]);
 
@@ -163,20 +192,75 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
     });
   };
 
-  const score = mcqs.reduce((acc, q, idx) => {
-    const selected = (selectedAnswers[idx] || []).map(normalize);
+  const isQuestionCorrect = (qIndex: number) => {
+    const q = mcqs[qIndex];
+    if (!q) return false;
+    const selected = (selectedAnswers[qIndex] || []).map(normalize);
     const correctOpts = getCorrectAnswers(q);
-    
-    // Identifier les bonnes options réelles de la question
     const correctOptionTexts = q.options.filter((opt, i) => isCorrectOption(correctOpts, opt, i)).map(normalize);
 
-    // Score parfait : toutes les bonnes options sont sélectionnées, et rien d'autre
-    const isPerfectMatch = 
+    return (
       selected.length === correctOptionTexts.length &&
-      selected.every(ans => correctOptionTexts.includes(ans));
-      
-    return acc + (isPerfectMatch ? 1 : 0);
+      selected.every(ans => correctOptionTexts.includes(ans))
+    );
+  };
+
+  const score = mcqs.reduce((acc, _, idx) => {
+    return acc + (isQuestionCorrect(idx) ? 1 : 0);
   }, 0);
+
+  const wrongQuestions = mcqs
+    .map((q, idx) => ({ q, idx }))
+    .filter(({ idx }) => !isQuestionCorrect(idx));
+
+  const handleFetchDetailedCorrections = async () => {
+    if (Object.keys(detailedCorrections).length > 0) {
+      setShowDetailedPanel(prev => !prev);
+      return;
+    }
+
+    if (wrongQuestions.length === 0) return;
+
+    let ctx = documentContext || '';
+    if (!ctx && courseId) {
+      try {
+        const saved = localStorage.getItem(`aura_subject_${courseId}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.extractedContent) ctx = parsed.extractedContent;
+        }
+      } catch {}
+    }
+
+    if (!ctx) {
+      alert("Le document source de ce cours n'est pas disponible pour extraire les justifications textuelles.");
+      return;
+    }
+
+    setIsLoadingCorrections(true);
+    try {
+      const errorItems = wrongQuestions.map(({ q, idx }) => {
+        const correctOpts = getCorrectAnswers(q);
+        const correctTexts = q.options.filter((opt, i) => isCorrectOption(correctOpts, opt, i));
+        return {
+          questionIndex: idx,
+          question: q.question,
+          options: q.options,
+          userSelected: selectedAnswers[idx] || [],
+          correctAnswers: correctTexts
+        };
+      });
+
+      const corrections = await explainMCQErrors(ctx, errorItems, profile?.preferences);
+      setDetailedCorrections(corrections);
+      setShowDetailedPanel(true);
+    } catch (err: any) {
+      console.error('Failed to get detailed corrections:', err);
+      alert(err.message || "Erreur lors de la récupération des corrections détaillées auprès de Sofia.");
+    } finally {
+      setIsLoadingCorrections(false);
+    }
+  };
 
   const handleValidate = async () => {
     setShowResults(true);
@@ -235,18 +319,173 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
       )}
 
       {showResults && (
-        <div className="glass-panel fade-in" style={{ padding: '1.5rem', borderRadius: '1rem', backgroundColor: 'var(--bg-elevated)', textAlign: 'center' }}>
-          <h2>Votre Score : {score} / {mcqs.length}</h2>
+        <div className="glass-panel fade-in" style={{ 
+          padding: '2rem', 
+          borderRadius: '1.25rem', 
+          backgroundColor: 'var(--bg-elevated)', 
+          textAlign: 'center',
+          boxShadow: 'var(--shadow-md)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800 }}>
+              Votre Score : {score} / {mcqs.length}
+            </h2>
+            <span style={{ 
+              padding: '0.25rem 0.75rem', 
+              borderRadius: '2rem', 
+              fontSize: '0.9rem', 
+              fontWeight: 800,
+              backgroundColor: score === mcqs.length ? 'var(--success-light)' : (score >= mcqs.length / 2 ? 'var(--accent-light)' : 'var(--danger-light)'),
+              color: score === mcqs.length ? 'var(--success)' : (score >= mcqs.length / 2 ? 'var(--accent-primary)' : 'var(--danger)')
+            }}>
+              {Math.round((score / mcqs.length) * 100)}%
+            </span>
+          </div>
+
+          {wrongQuestions.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', width: '100%', maxWidth: '520px' }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                Tu as fait {wrongQuestions.length} erreur{wrongQuestions.length > 1 ? 's' : ''} sur cette session d'examen blanc.
+              </p>
+              <button
+                onClick={handleFetchDetailedCorrections}
+                disabled={isLoadingCorrections}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  padding: '0.8rem 1.6rem',
+                  borderRadius: '0.75rem',
+                  backgroundColor: 'var(--accent-primary)',
+                  color: 'white',
+                  border: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  cursor: isLoadingCorrections ? 'wait' : 'pointer',
+                  boxShadow: 'var(--shadow-accent)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {isLoadingCorrections ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Sofia extrait les justifications du cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <BookOpen size={18} />
+                    <span>
+                      {Object.keys(detailedCorrections).length > 0 
+                        ? (showDetailedPanel ? 'Masquer la correction détaillée' : 'Afficher la correction détaillée')
+                        : `Voir la correction détaillée (${wrongQuestions.length} item${wrongQuestions.length > 1 ? 's' : ''})`}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.95rem' }}>
+              <span>🎉 Félicitations ! Score parfait de 100%, aucune erreur commise sur ce QCM.</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Accordion / Full Summary of detailed corrections when opened */}
+      {showResults && showDetailedPanel && Object.keys(detailedCorrections).length > 0 && (
+        <div className="glass-panel fade-in" style={{
+          padding: '1.75rem',
+          borderRadius: '1.25rem',
+          backgroundColor: 'var(--bg-elevated)',
+          border: '1px solid var(--border-color)',
+          borderLeft: '5px solid var(--accent-primary)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1.25rem',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem' }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--accent-primary)', fontSize: '1.15rem' }}>
+              <Sparkles size={20} />
+              <span>Correction détaillée des erreurs (Sources brutes du cours)</span>
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              1 phrase par question
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {wrongQuestions.map(({ q, idx }) => {
+              const correction = detailedCorrections[idx];
+              if (!correction) return null;
+              return (
+                <div 
+                  key={idx}
+                  style={{
+                    padding: '1.1rem 1.25rem',
+                    borderRadius: '0.75rem',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)'
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+                    Question {idx + 1} : {q.question}
+                  </div>
+                  <div style={{ 
+                    fontSize: '0.92rem', 
+                    color: 'var(--text-primary)', 
+                    lineHeight: '1.6', 
+                    fontStyle: 'italic', 
+                    backgroundColor: 'var(--bg-elevated)', 
+                    padding: '0.75rem 1rem', 
+                    borderRadius: '0.5rem',
+                    borderLeft: '3px solid var(--accent-primary)' 
+                  }}>
+                    « {correction} »
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {mcqs.map((q, qIndex) => {
         const correctOpts = getCorrectAnswers(q);
         const selected = selectedAnswers[qIndex] || [];
+        const isWrong = showResults && !isQuestionCorrect(qIndex);
 
         return (
-          <div key={qIndex} className="glass-panel" style={{ padding: '1.5rem', borderRadius: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>{qIndex + 1}. {q.question}</h3>
+          <div 
+            key={qIndex} 
+            className="glass-panel" 
+            style={{ 
+              padding: '1.5rem', 
+              borderRadius: '1rem',
+              border: isWrong ? '1px solid rgba(239, 68, 68, 0.4)' : undefined
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{qIndex + 1}. {q.question}</h3>
+              {showResults && (
+                <span style={{ 
+                  padding: '0.2rem 0.6rem', 
+                  borderRadius: '1rem', 
+                  fontSize: '0.75rem', 
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  backgroundColor: !isWrong ? 'var(--success-light)' : 'var(--danger-light)',
+                  color: !isWrong ? 'var(--success)' : 'var(--danger)'
+                }}>
+                  {!isWrong ? 'Correct (+1 pt)' : 'Erreur (0 pt)'}
+                </span>
+              )}
+            </div>
+            
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               {correctOpts.length > 1 ? "(Plusieurs réponses possibles)" : "(Une seule réponse possible)"}
             </p>
@@ -320,6 +559,30 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
                 );
               })}
             </div>
+
+            {/* Individual Quoted Source Correction Box for this wrong question */}
+            {showResults && detailedCorrections[qIndex] && (
+              <div 
+                className="fade-in"
+                style={{
+                  marginTop: '1.25rem',
+                  padding: '1rem 1.25rem',
+                  borderRadius: '0.75rem',
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-color)',
+                  borderLeft: '4px solid var(--accent-primary)',
+                  boxShadow: 'var(--shadow-xs)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.85rem' }}>
+                  <BookOpen size={16} />
+                  <span>Correction sourcée (tirée du cours) :</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.925rem', color: 'var(--text-primary)', lineHeight: '1.6', fontStyle: 'italic' }}>
+                  « {detailedCorrections[qIndex]} »
+                </p>
+              </div>
+            )}
           </div>
         );
       })}
@@ -335,9 +598,46 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
       )}
       
       {showResults && (
-        <button className="btn btn-outline" onClick={() => { setShowResults(false); setSelectedAnswers({}); }}>
-          Recommencer le QCM
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <button 
+            className="btn btn-outline" 
+            onClick={() => { 
+              setShowResults(false); 
+              setSelectedAnswers({}); 
+              setDetailedCorrections({});
+              setShowDetailedPanel(false);
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <RotateCcw size={16} />
+            <span>Recommencer le QCM</span>
+          </button>
+
+          {wrongQuestions.length > 0 && (
+            <button
+              className="btn btn-secondary"
+              onClick={handleFetchDetailedCorrections}
+              disabled={isLoadingCorrections}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              {isLoadingCorrections ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Sofia analyse le cours...</span>
+                </>
+              ) : (
+                <>
+                  <BookOpen size={16} />
+                  <span>
+                    {Object.keys(detailedCorrections).length > 0 
+                      ? (showDetailedPanel ? 'Masquer la correction détaillée' : 'Afficher la correction détaillée')
+                      : 'Voir la correction détaillée'}
+                  </span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
