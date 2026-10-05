@@ -3,7 +3,6 @@ import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, L
 import { askQuestion, generateChatTitle } from '../../lib/gemini';
 import { mdToHtml } from '../../lib/markdown';
 import { extractTextFromPDF } from '../../lib/pdf-extractor';
-import { SelectionToolbar } from './SelectionToolbar';
 import { WysiwygEditor } from './WysiwygEditor';
 
 export interface QAMessage {
@@ -39,14 +38,6 @@ const QAAiMessageItem: React.FC<{
   onEditSave: (newHtml: string) => void;
   onEditCancel: () => void;
 }> = ({ text, isEditing, onEditStart, onEditSave, onEditCancel }) => {
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  const handleSelectionSave = () => {
-    if (contentRef.current) {
-      onEditSave(contentRef.current.innerHTML);
-    }
-  };
-
   return (
     <div className="study-resume-container" style={{ padding: '0', height: 'auto', overflow: 'visible' }}>
       <div className="resume-glass-wrapper" style={{ padding: '2rem', margin: '0', maxWidth: '100%', fontSize: '1rem', position: 'relative' }}>
@@ -74,10 +65,7 @@ const QAAiMessageItem: React.FC<{
             onCancel={onEditCancel}
           />
         ) : (
-          <>
-            <SelectionToolbar containerRef={contentRef} onSaveContent={handleSelectionSave} />
-            <div ref={contentRef} className="resume-content-rendered" dangerouslySetInnerHTML={{ __html: mdToHtml(text) }} />
-          </>
+          <div className="resume-content-rendered" dangerouslySetInnerHTML={{ __html: mdToHtml(text) }} />
         )}
       </div>
     </div>
