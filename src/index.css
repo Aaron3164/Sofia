@@ -684,3 +684,11 @@ mark[style*="#fef08a"] {
   transition: background-color 0.15s ease;
 }
 
+.hover-bg-subtle {
+  transition: background-color var(--transition-fast, 0.15s ease);
+}
+
+.hover-bg-subtle:hover {
+  background-color: var(--bg-secondary) !important;
+}
+
