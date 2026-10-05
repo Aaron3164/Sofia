@@ -678,7 +678,22 @@ const formatRichText = (text: string) => {
       const subParts = el.split(/(==.*?==)/g);
       subParts.forEach((sp, si) => {
         if (sp.startsWith('==') && sp.endsWith('==')) {
-          finalElements.push(<mark key={`m-${idx}-${si}`} style={{ backgroundColor: '#fef08a', color: '#1e293b', padding: '0 0.2rem', borderRadius: '0.2rem' }}>{sp.slice(2, -2)}</mark>);
+          finalElements.push(
+            <mark 
+              key={`m-${idx}-${si}`} 
+              className="ai-highlight"
+              style={{ 
+                backgroundColor: 'rgba(56, 189, 248, 0.18)', 
+                color: '#0284c7', 
+                border: '1px solid rgba(56, 189, 248, 0.28)',
+                padding: '0.1rem 0.35rem', 
+                borderRadius: '0.35rem',
+                fontWeight: 600
+              }}
+            >
+              {sp.slice(2, -2)}
+            </mark>
+          );
         } else {
           finalElements.push(sp);
         }
