@@ -354,7 +354,7 @@ export async function explainMCQErrors(
 ): Promise<Record<number, string>> {
   if (!errors || errors.length === 0) return {};
 
-  const cacheKey = getCacheKey('mcq_errors', documentContext.substring(0, 30000) + '|||' + JSON.stringify(errors));
+  const cacheKey = getCacheKey('mcq_errors_v3', documentContext.substring(0, 30000) + '|||' + JSON.stringify(errors));
   const cached = sessionStorage.getItem(cacheKey);
   if (cached) {
     try {
@@ -379,19 +379,24 @@ L'étudiant vient de terminer une session d'examen blanc (QCM) sur son cours et 
 
 ${errorsListText}
 
-CONSIGNE STRICTE (CRITIQUE) :
-Pour CHAQUE question ratée ci-dessus, donne une correction sous la forme de STRICTEMENT 1 SEULE PHRASE percutante, DIRECTEMENT TIRÉE (ou très fidèlement citée mot pour mot) DE LA SOURCE BRUTE DU COURS ci-dessous.
-Cette phrase doit expliquer précisément la bonne réponse ou pourquoi l'option choisie était une erreur, en s'appuyant mot pour mot sur le cours.
-Ne fais aucune salutation.
+CONSIGNES STRICTES :
+Pour CHAQUE question ratée ci-dessus, formule une explication pédagogique, fluide et naturelle en STRICTEMENT 1 SEULE PHRASE, basée sur le contenu du cours ci-dessous.
+Cette phrase doit expliquer simplement et clairement pourquoi la bonne réponse est exacte ou en quoi le choix de l'étudiant était faux.
+
+RÈGLES CAPITALES :
+- Donne une explication naturelle, bien formulée et pédagogique (ne fais PAS une simple citation brute froide avec des crochets ou des coupures).
+- INTERDICTION FORMELLE d'utiliser la formule "D'après le cours", "Selon le cours", "Le texte indique" ou toute tournure similaire. Entre directement dans l'explication.
+- INTERDICTION FORMELLE d'inclure des guillemets (aucun « », aucun "", aucun “”).
+- Pas d'italique, pas de salutation, uniquement l'explication directe et naturelle.
 
 Format attendu STRICTEMENT en JSON :
-Un objet JSON où chaque clé est l'index numérique de la question (${errors.map(e => `"${e.questionIndex}"`).join(', ')}) et la valeur est la phrase de correction extraite de la source brute.
+Un objet JSON où chaque clé est l'index numérique de la question (${errors.map(e => `"${e.questionIndex}"`).join(', ')}) et la valeur est l'explication naturelle en 1 seule phrase.
 Exemple :
 {
-  "${errors[0]?.questionIndex ?? 0}": "D'après le cours : « Phrase exacte du document justifiant la réponse. »"
+  "${errors[0]?.questionIndex ?? 0}": "Les médicaments atropiniques et l'acide valproïque aggravent les fonctions cognitives et peuvent entraîner une pseudodémence réversible."
 }
 
-Texte source brut du cours :
+Texte source du cours :
 ${documentContext.substring(0, 250000)}`;
 
   try {
@@ -408,12 +413,24 @@ ${documentContext.substring(0, 250000)}`;
       generatedText = generatedText.replace(/```json\n?|```/g, '').trim();
     }
 
+    const sanitizeExplanation = (str: string): string => {
+      if (!str) return '';
+      return str
+        .replace(/^(d'après|selon|d’après)\s+(le\s+cours|le\s+document|la\s+source|le\s+texte)\s*[:,\-–—]?\s*/i, '')
+        .replace(/^[«"“']\s*/, '')
+        .replace(/\s*[»"”']$/, '')
+        .replace(/^(d'après|selon|d’après)\s+(le\s+cours|le\s+document|la\s+source|le\s+texte)\s*[:,\-–—]?\s*/i, '')
+        .replace(/^[«"“']\s*/, '')
+        .replace(/\s*[»"”']$/, '')
+        .trim();
+    };
+
     const parsed = JSON.parse(generatedText);
     const result: Record<number, string> = {};
     for (const key of Object.keys(parsed)) {
       const numKey = parseInt(key, 10);
       if (!isNaN(numKey)) {
-        result[numKey] = parsed[key];
+        result[numKey] = sanitizeExplanation(parsed[key]);
       }
     }
 
