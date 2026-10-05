@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { mdToHtml } from '../../lib/markdown';
+import { SelectionToolbar } from './SelectionToolbar';
+import { WysiwygEditor } from './WysiwygEditor';
 import './StudyResume.css';
 
 interface StudyResumeProps {
@@ -11,12 +13,8 @@ interface StudyResumeProps {
 
 export const StudyResume: React.FC<StudyResumeProps> = ({ content, courseId, onUpdate }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const renderedContentRef = useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedText, setEditedText] = useState(content);
-
-  useEffect(() => {
-    setEditedText(content);
-  }, [content]);
 
   // Restore scroll
   useEffect(() => {
@@ -35,16 +33,10 @@ export const StudyResume: React.FC<StudyResumeProps> = ({ content, courseId, onU
     }
   };
 
-  const handleSave = () => {
-    if (onUpdate) {
-      onUpdate(editedText);
+  const handleSelectionHighlightSave = () => {
+    if (onUpdate && renderedContentRef.current) {
+      onUpdate(renderedContentRef.current.innerHTML);
     }
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setEditedText(content);
-    setIsEditing(false);
   };
 
   return (
@@ -66,59 +58,33 @@ export const StudyResume: React.FC<StudyResumeProps> = ({ content, courseId, onU
                   color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem',
                   transition: 'all 0.2s'
                 }}
-                title="Modifier ce résumé"
+                title="Modifier ce résumé en mode visuel"
               >
                 <Pencil size={14} /> <span>Modifier</span>
               </button>
             )}
-
-            {isEditing && (
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  onClick={handleSave}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.35rem',
-                    padding: '0.4rem 0.75rem', borderRadius: '0.5rem',
-                    backgroundColor: 'var(--accent-primary)', color: 'white',
-                    border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500
-                  }}
-                >
-                  <Check size={14} /> <span>Enregistrer</span>
-                </button>
-                <button 
-                  onClick={handleCancel}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.35rem',
-                    padding: '0.4rem 0.75rem', borderRadius: '0.5rem',
-                    backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)',
-                    color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem'
-                  }}
-                >
-                  <X size={14} /> <span>Annuler</span>
-                </button>
-              </div>
-            )}
           </div>
 
           {isEditing ? (
-            <textarea 
-              value={editedText}
-              onChange={(e) => setEditedText(e.target.value)}
-              style={{
-                width: '100%',
-                minHeight: '400px',
-                padding: '1rem',
-                borderRadius: '0.5rem',
-                border: '1px solid var(--accent-primary)',
-                backgroundColor: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-                fontSize: '0.95rem',
-                lineHeight: '1.6',
-                fontFamily: 'monospace'
+            <WysiwygEditor 
+              initialContent={content}
+              onSave={(newHtml) => {
+                if (onUpdate) onUpdate(newHtml);
+                setIsEditing(false);
               }}
+              onCancel={() => setIsEditing(false)}
             />
           ) : (
-            <div className="resume-content-rendered" dangerouslySetInnerHTML={{ __html: mdToHtml(content) }} />
+            <>
+              {/* Contextual Floating Selection Highlight Toolbar */}
+              {onUpdate && <SelectionToolbar containerRef={renderedContentRef} onSaveContent={handleSelectionHighlightSave} />}
+              
+              <div 
+                ref={renderedContentRef}
+                className="resume-content-rendered" 
+                dangerouslySetInnerHTML={{ __html: mdToHtml(content) }} 
+              />
+            </>
           )}
        </div>
     </div>
