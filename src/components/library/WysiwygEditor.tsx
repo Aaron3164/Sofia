@@ -1,7 +1,24 @@
 import React, { useRef, useEffect } from 'react';
 import { Bold, Italic, Underline, List, ListOrdered, RotateCcw, Check, X } from 'lucide-react';
-import { HIGHLIGHT_COLORS, TEXT_COLORS } from './SelectionToolbar';
 import { mdToHtml } from '../../lib/markdown';
+
+export const HIGHLIGHT_COLORS = [
+  { name: 'Jaune', hex: '#fef08a', textColor: '#854d0e' },
+  { name: 'Vert', hex: '#bbf7d0', textColor: '#166534' },
+  { name: 'Bleu', hex: '#bfdbfe', textColor: '#1e40af' },
+  { name: 'Rose', hex: '#fbcfe8', textColor: '#9d174d' },
+  { name: 'Violet', hex: '#e9d5ff', textColor: '#6b21a8' },
+  { name: 'Orange', hex: '#fed7aa', textColor: '#9a3412' }
+];
+
+export const TEXT_COLORS = [
+  { name: 'Défaut', hex: 'inherit' },
+  { name: 'Rose Aurore', hex: '#e11d48' },
+  { name: 'Bleu', hex: '#3b82f6' },
+  { name: 'Vert', hex: '#22c55e' },
+  { name: 'Violet', hex: '#a855f7' },
+  { name: 'Orange', hex: '#f97316' }
+];
 
 interface WysiwygEditorProps {
   initialContent: string;
