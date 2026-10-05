@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       }
     }
     
-    const { model = 'models/gemini-3.1-flash-lite-preview', contents, config } = body || {};
+    const { model = 'models/gemini-3.5-flash-lite-preview', contents, config } = body || {};
 
     if (!contents) {
       return res.status(400).json({ error: 'Contenu manquant pour la génération.' });
