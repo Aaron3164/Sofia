@@ -82,18 +82,33 @@ export const GlobalSearchModal: React.FC = () => {
     return path;
   };
 
-  // Helper to extract clean snippets with context
+  // Helper to normalize strings (remove accents and lowercase)
+  const normalizeStr = (str: string): string => {
+    return (str || '')
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  };
+
+  // Create regex matching whole words only, respecting accents and french word boundaries
+  const createWordRegex = (kw: string) => {
+    const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?<![a-zA-Z0-9À-ÿ])${escaped}(?![a-zA-Z0-9À-ÿ])`, 'gi');
+  };
+
+  // Helper to extract clean snippets with context and multi-term density
   const extractCourseSnippets = (content: string, keywords: string[], contextWindow = 120): string[] => {
     if (!content || keywords.length === 0) return [];
     
-    const contentNorm = content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const snippets: string[] = [];
+    const contentNorm = normalizeStr(content);
+    const candidateSnippets: { text: string; kwCount: number; idx: number }[] = [];
     const foundIndices: number[] = [];
 
     for (const kw of keywords) {
-      let idx = 0;
-      while ((idx = contentNorm.indexOf(kw, idx)) !== -1) {
-        // Avoid overlapping intervals
+      const regex = createWordRegex(kw);
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(contentNorm)) !== null) {
+        const idx = match.index;
         const isOverlapping = foundIndices.some(existing => Math.abs(existing - idx) < contextWindow);
         if (!isOverlapping) {
           foundIndices.push(idx);
@@ -104,15 +119,21 @@ export const GlobalSearchModal: React.FC = () => {
           if (start > 0) snippet = '...' + snippet;
           if (end < content.length) snippet = snippet + '...';
           
-          snippets.push(snippet);
+          const snipNorm = normalizeStr(snippet);
+          let kwInSnippet = 0;
+          for (const k of keywords) {
+            if (createWordRegex(k).test(snipNorm)) kwInSnippet++;
+          }
+          
+          candidateSnippets.push({ text: snippet, kwCount: kwInSnippet, idx });
         }
-        idx += kw.length;
-        if (snippets.length >= 3) break;
+        if (candidateSnippets.length >= 8) break;
       }
-      if (snippets.length >= 3) break;
     }
 
-    return snippets;
+    // Sort snippets so snippets with the highest number of co-occurring query keywords appear first
+    candidateSnippets.sort((a, b) => b.kwCount - a.kwCount);
+    return candidateSnippets.slice(0, 3).map(s => s.text);
   };
 
   // Zero-token Instant Direct Search
@@ -124,19 +145,29 @@ export const GlobalSearchModal: React.FC = () => {
     setAiResults(null);
     setActiveTab('direct');
 
-    const cleanQuery = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const tokens = cleanQuery.split(/[\s,.'";:!?()\-+/]+/).filter(t => t.length > 2);
+    const cleanQuery = normalizeStr(searchQuery);
+    const rawTokens = cleanQuery.split(/[\s,.'";:!?()\-+/]+/).filter(t => t.length > 0);
     
     const stopWords = new Set([
-      'dans', 'quels', 'cours', 'on', 'parle', 'de', 'la', 'le', 'les', 'des', 
+      'dans', 'quels', 'quel', 'quelle', 'quelles', 'cours', 'on', 'parle', 'de', 'la', 'le', 'les', 'des', 
       'du', 'en', 'est', 'un', 'une', 'et', 'ou', 'je', 'tu', 'il', 'nous', 
-      'vous', 'ils', 'elle', 'elles', 'a', 'par', 'pour', 'sur', 'avec',
-      'qui', 'que', 'quoi', 'dont', 'où', 'recherche', 'trouve', 'expliquer', 'moi'
+      'vous', 'ils', 'elle', 'elles', 'a', 'au', 'aux', 'par', 'pour', 'sur', 'avec',
+      'qui', 'que', 'quoi', 'dont', 'où', 'recherche', 'trouve', 'expliquer', 'moi', 'ce', 'ces', 'cet', 'cette'
     ]);
     
-    const keywords = tokens.filter(t => !stopWords.has(t));
-    const effectiveKeywords = keywords.length > 0 ? keywords : tokens;
+    // Keep words >= 2 chars, or single numbers
+    const keywords = rawTokens.filter(t => !stopWords.has(t) && (t.length >= 2 || /^\d+$/.test(t)));
+    const effectiveKeywords = keywords.length > 0 ? keywords : rawTokens;
     setSearchedKeywords(effectiveKeywords);
+
+    // Number of distinct keywords required for a match:
+    // If 1 keyword (ex: "lamotrigine") => 1
+    // If 2 keywords (ex: "hernie hiatale") => 2 (AND logic!)
+    // If 3 keywords (ex: "insuffisance renale aigue") => at least 2 or 3
+    // If 4+ keywords (ex: "art 17 code penal") => at least 75% of keywords
+    const minRequiredMatches = effectiveKeywords.length === 1 ? 1 :
+      effectiveKeywords.length === 2 ? 2 :
+      Math.max(2, Math.ceil(effectiveKeywords.length * 0.75));
 
     try {
       // 1. Fetch Cloud Course Data (or from local fallback)
@@ -173,51 +204,72 @@ export const GlobalSearchModal: React.FC = () => {
         const courseName = node.name || cloudRow?.file_name || 'Cours sans titre';
         const folderPath = getFolderPath(node.parentId);
 
-        const nameNorm = courseName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const contentNorm = extractedContent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const resumeNorm = (generations?.resume || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const flashcardsNorm = (typeof generations?.flashcards === 'string' ? generations.flashcards : JSON.stringify(generations?.flashcards || '')).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const nameNorm = normalizeStr(courseName);
+        const contentNorm = normalizeStr(extractedContent);
+        const resumeNorm = normalizeStr(generations?.resume || '');
+        const flashcardsNorm = normalizeStr(typeof generations?.flashcards === 'string' ? generations.flashcards : JSON.stringify(generations?.flashcards || ''));
+
+        const fullCourseText = `${nameNorm} ${resumeNorm} ${flashcardsNorm} ${contentNorm}`;
 
         let score = 0;
         let matchCount = 0;
+        let matchedKeywordsCount = 0;
         let matchedInTitle = false;
         let matchedInResume = false;
         let matchedInFlashcards = false;
 
+        // Check exact whole phrase match first (huge bonus)
+        if (effectiveKeywords.length > 1 && fullCourseText.includes(cleanQuery)) {
+          score += 1200;
+          matchCount += 5;
+        }
+
         for (const kw of effectiveKeywords) {
-          // Title match (high weight)
-          if (nameNorm.includes(kw)) {
-            score += 350;
-            matchCount++;
+          const wordRegex = createWordRegex(kw);
+          let kwFoundInCourse = false;
+
+          // Title match
+          if (wordRegex.test(nameNorm)) {
+            score += 400;
+            matchCount += 2;
             matchedInTitle = true;
+            kwFoundInCourse = true;
           }
 
-          // Summary match (medium-high weight)
-          if (resumeNorm.includes(kw)) {
-            score += 180;
-            matchCount++;
+          // Resume match
+          if (wordRegex.test(resumeNorm)) {
+            score += 200;
+            matchCount += 2;
             matchedInResume = true;
+            kwFoundInCourse = true;
           }
 
           // Flashcards match
-          if (flashcardsNorm.includes(kw)) {
-            score += 120;
-            matchCount++;
+          if (wordRegex.test(flashcardsNorm)) {
+            score += 150;
+            matchCount += 1;
             matchedInFlashcards = true;
+            kwFoundInCourse = true;
           }
 
-          // Content match
+          // Content match (whole word occurrences)
           if (contentNorm) {
-            const regex = new RegExp(kw, 'gi');
-            const foundInContent = contentNorm.match(regex);
-            if (foundInContent) {
-              matchCount += foundInContent.length;
-              score += foundInContent.length * 15;
+            const occurrences = contentNorm.match(wordRegex);
+            if (occurrences && occurrences.length > 0) {
+              matchCount += occurrences.length;
+              score += occurrences.length * 15;
+              kwFoundInCourse = true;
             }
+          }
+
+          if (kwFoundInCourse) {
+            matchedKeywordsCount++;
           }
         }
 
-        if (score > 0 || matchCount > 0) {
+        // STRICT FILTER: A course must contain at least the required number of distinct keywords!
+        // This completely prevents unrelated courses matching on a single isolated token like 'art'
+        if (matchedKeywordsCount >= minRequiredMatches) {
           const snippets = extractCourseSnippets(extractedContent || generations?.resume || '', effectiveKeywords);
           const fullSnippetsForAI = snippets.join('\n');
 
@@ -226,7 +278,7 @@ export const GlobalSearchModal: React.FC = () => {
             courseName,
             folderPath,
             matchCount,
-            score,
+            score: score + (matchedKeywordsCount === effectiveKeywords.length ? 500 : 0),
             matchedInTitle,
             matchedInResume,
             matchedInFlashcards,
@@ -287,13 +339,16 @@ export const GlobalSearchModal: React.FC = () => {
   };
 
   const highlightText = (text: string, keywords: string[]) => {
-    if (!keywords || keywords.length === 0) return text;
+    if (!keywords || keywords.length === 0 || !text) return text;
+    
+    // Match only complete words, respecting boundaries
     const escapedKws = keywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-    const regex = new RegExp(`(${escapedKws})`, 'gi');
+    const regex = new RegExp(`(?<![a-zA-Z0-9À-ÿ])(${escapedKws})(?![a-zA-Z0-9À-ÿ])`, 'gi');
     const parts = text.split(regex);
 
     return parts.map((part, i) => {
-      const isMatch = keywords.some(k => k.toLowerCase() === part.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+      const partNorm = normalizeStr(part);
+      const isMatch = keywords.some(k => k === partNorm);
       if (isMatch) {
         return (
           <mark 
@@ -303,7 +358,7 @@ export const GlobalSearchModal: React.FC = () => {
               color: 'var(--accent-primary, #db2777)', 
               padding: '0.1rem 0.3rem', 
               borderRadius: '3px',
-              fontWeight: 600
+              fontWeight: 700
             }}
           >
             {part}
