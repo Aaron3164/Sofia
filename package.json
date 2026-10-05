@@ -10,12 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1146.0",
+    "@aws-sdk/s3-request-presigner": "^3.1146.0",
     "@google/genai": "^1.46.0",
     "@supabase/supabase-js": "^2.100.0",
     "@types/katex": "^0.16.8",
     "date-fns": "^4.1.0",
     "katex": "^0.16.45",
     "lucide-react": "^1.6.0",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^3.11.174",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
