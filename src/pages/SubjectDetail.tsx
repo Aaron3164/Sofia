@@ -838,7 +838,14 @@ export default function SubjectDetail() {
                     ) : (
                       <>
                         {tab.id === 'flashcards' && <InteractiveFlashcard data={content} onUpdate={(d) => updateData('flashcards', d)} courseId={id} />}
-                        {tab.id === 'mcq' && <InteractiveMCQ data={content} courseId={id} courseName={courseNode?.name} />}
+                        {tab.id === 'mcq' && (
+                          <InteractiveMCQ 
+                            data={content} 
+                            courseId={id} 
+                            courseName={courseNode?.name} 
+                            documentContext={extractedContent} 
+                          />
+                        )}
                         {tab.id === 'resume' && <StudyResume content={typeof content === 'string' ? content : JSON.stringify(content)} courseId={id} onUpdate={(d) => updateData('resume', d)} />}
                       </>
                     )}
