@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown } from 'lucide-react';
+import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
 import { uploadPDF, supabase } from '../lib/supabase';
 import { generateStudyMaterials } from '../lib/gemini';
 import { extractTextFromPDF } from '../lib/pdf-extractor';
@@ -29,6 +29,7 @@ export default function SubjectDetail() {
   const courseNode = getNode(id || null);
   const storageKey = `aura_subject_${id}`;
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const [extractedContent, setExtractedContent] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
@@ -63,6 +64,17 @@ export default function SubjectDetail() {
       }, 600);
     }
   };
+
+  // Handle Escape key to exit fullscreen focus mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
   // Load data from Supabase or LocalStorage
   useEffect(() => {
@@ -462,7 +474,7 @@ export default function SubjectDetail() {
   }
 
   return (
-    <div className="fade-in subject-detail-container">
+    <div className={`fade-in subject-detail-container ${isFullscreen ? 'fullscreen-active' : ''}`}>
       <header className="subject-header">
         <div className="title-group">
           <button className="icon-button" onClick={() => navigate(courseNode?.parentId ? `/${courseNode.parentId}` : '/')}>
@@ -665,8 +677,8 @@ export default function SubjectDetail() {
           </div>
         </div>
 
-        {/* Right Column: AI Generations */}
-        <div className="glass-panel generation-column">
+        {/* Right Column: AI Generations / Plan de travail */}
+        <div className={`glass-panel generation-column ${isFullscreen ? 'fullscreen-plan' : ''}`}>
           <div className="tabs-container">
             <button
                onClick={() => setActiveTab('source')}
@@ -683,6 +695,27 @@ export default function SubjectDetail() {
                 {tab.label.split(' ')[0]} <span className="desktop-only">{tab.label.split(' ').slice(1).join(' ')}</span>
               </button>
             ))}
+
+            {/* Bouton discret Plein écran / Focus aligné sur le bord droit */}
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(prev => !prev)}
+              className="fullscreen-focus-btn"
+              title={isFullscreen ? "Quitter le plein écran (Échap)" : "Mettre le plan de travail en plein écran (Mode focus)"}
+              aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 size={14} />
+                  <span className="desktop-only">Réduire</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 size={14} />
+                  <span className="desktop-only">Plein écran</span>
+                </>
+              )}
+            </button>
           </div>
 
           <div className="tab-content-area">
