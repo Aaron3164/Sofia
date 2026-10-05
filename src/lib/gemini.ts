@@ -158,7 +158,7 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
 
   try {
     const response = await callGeminiProxy(
-      'models/gemini-3.1-flash-lite-preview',
+      'models/gemini-3.5-flash-lite-preview',
       [fullPrompt],
       {
         temperature: mode === 'resume' ? 0.2 : 0.7,
@@ -279,7 +279,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
   const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${context}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
   
   try {
-    const response = await callGeminiProxy('models/gemini-3.1-flash-lite-preview', [fullPrompt]);
+    const response = await callGeminiProxy('models/gemini-3.5-flash-lite-preview', [fullPrompt]);
     const resultText = response.text || '';
     sessionStorage.setItem(cacheKey, resultText);
     return resultText;
@@ -294,7 +294,7 @@ export async function generateChatTitle(question: string): Promise<string> {
   const fullPrompt = `Génère un titre très court (3 à 5 mots maximum) résumant cette question posée par un étudiant : "${question}".\nNe retourne QUE le titre, sans guillemets.`;
   
   try {
-    const response = await callGeminiProxy('models/gemini-3.1-flash-lite-preview', [fullPrompt]);
+    const response = await callGeminiProxy('models/gemini-3.5-flash-lite-preview', [fullPrompt]);
     return (response.text || 'Nouvelle discussion').trim();
   } catch (error) {
     console.error('Error generating chat title:', error);
@@ -326,7 +326,7 @@ Ta mission :
 Contexte des cours :\n${allCoursesContext}`;
   
   try {
-    const response = await callGeminiProxy('models/gemini-3.1-flash-lite-preview', [fullPrompt]);
+    const response = await callGeminiProxy('models/gemini-3.5-flash-lite-preview', [fullPrompt]);
     const resultText = response.text || '';
     sessionStorage.setItem(cacheKey, resultText);
     return resultText;
@@ -400,7 +400,7 @@ Texte source du cours :
 ${documentContext.substring(0, 250000)}`;
 
   try {
-    const response = await callGeminiProxy('models/gemini-3.1-flash-lite-preview', [fullPrompt], {
+    const response = await callGeminiProxy('models/gemini-3.5-flash-lite-preview', [fullPrompt], {
       responseMimeType: 'application/json'
     });
 
