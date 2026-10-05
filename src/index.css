@@ -621,27 +621,27 @@ p { color: var(--text-secondary); }
    SOF.IA — GLOBAL TABLES & AI HIGHLIGHTS
    ============================================================ */
 
-mark.ai-highlight {
-  background-color: rgba(56, 189, 248, 0.18);
-  color: #0284c7;
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  padding: 0.1em 0.35rem;
-  border-radius: 0.35rem;
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(56, 189, 248, 0.08);
+mark.ai-highlight,
+mark[style*="#fef08a"] {
+  background-color: #6366f125 !important;
+  color: #4f46e5 !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
+  padding: 0.12em 0.38rem !important;
+  border-radius: 0.35rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.08) !important;
 }
 
 .dark mark.ai-highlight {
-  background-color: rgba(56, 189, 248, 0.22);
-  color: #38bdf8;
-  border-color: rgba(56, 189, 248, 0.35);
-  box-shadow: 0 1px 6px rgba(56, 189, 248, 0.15);
+  background-color: #818cf840 !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(129, 140, 248, 0.35) !important;
 }
 
 .glass mark.ai-highlight {
-  background-color: rgba(56, 189, 248, 0.2);
-  color: #0369a1;
-  border-color: rgba(56, 189, 248, 0.3);
+  background-color: #6366f125 !important;
+  color: #4338ca !important;
+  border-color: rgba(99, 102, 241, 0.28) !important;
 }
 
 .table-container {
