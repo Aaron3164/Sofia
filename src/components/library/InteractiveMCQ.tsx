@@ -51,6 +51,8 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
   try {
     if (typeof data === 'string') {
       let jsonStr = data.trim();
+      jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
+
       const firstBrace = jsonStr.indexOf('{');
       const firstBracket = jsonStr.indexOf('[');
 
@@ -58,31 +60,29 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
         const lastBrace = jsonStr.lastIndexOf('}');
         if (lastBrace > firstBrace) {
           jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-          const parsedObj = JSON.parse(jsonStr);
-          if (parsedObj.scenario || parsedObj.context || parsedObj.statement) {
-            scenarioText = parsedObj.scenario || parsedObj.context || parsedObj.statement;
-          }
-          if (Array.isArray(parsedObj.questions)) {
-            mcqs = parsedObj.questions;
-          } else if (Array.isArray(parsedObj.mcqs)) {
-            mcqs = parsedObj.mcqs;
-          }
         }
-      } else {
-        const startIdx = jsonStr.indexOf('[');
-        const endIdx = jsonStr.lastIndexOf(']');
-        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-          jsonStr = jsonStr.substring(startIdx, endIdx + 1);
-        } else {
-          jsonStr = jsonStr.replace(/```json\n?|```/g, '').trim();
+      } else if (firstBracket !== -1) {
+        const lastBracket = jsonStr.lastIndexOf(']');
+        if (lastBracket > firstBracket) {
+          jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
         }
-        const parsedData = JSON.parse(jsonStr);
-        if (Array.isArray(parsedData)) {
-          mcqs = parsedData;
-        } else if (parsedData && typeof parsedData === 'object') {
-          scenarioText = parsedData.scenario || parsedData.context || null;
-          mcqs = parsedData.questions || parsedData.mcqs || [];
-        }
+      }
+
+      // Clean trailing commas before closing braces/brackets
+      const cleanedJsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
+
+      let parsedObj;
+      try {
+        parsedObj = JSON.parse(cleanedJsonStr);
+      } catch (e1) {
+        parsedObj = JSON.parse(jsonStr);
+      }
+
+      if (Array.isArray(parsedObj)) {
+        mcqs = parsedObj;
+      } else if (parsedObj && typeof parsedObj === 'object') {
+        scenarioText = parsedObj.scenario || parsedObj.context || parsedObj.statement || null;
+        mcqs = parsedObj.questions || parsedObj.mcqs || (Array.isArray(parsedObj.data) ? parsedObj.data : []);
       }
     } else if (Array.isArray(data)) {
       mcqs = data;
@@ -91,10 +91,18 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
       mcqs = (data as any).questions || (data as any).mcqs || [];
     }
   } catch (e) {
-    return <div className="text-danger">Échec de l'analyse des QCM. Les données brutes ne sont pas au format attendu.</div>;
+    console.error('Error parsing MCQ data:', e);
+    return (
+      <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--danger)', backgroundColor: '#ef444410' }}>
+        <h4 style={{ color: 'var(--danger)', margin: '0 0 0.5rem 0' }}>⚠️ Erreur de formatage du QCM</h4>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          Les données générées précédemment avaient un problème de format. Cliquez sur le bouton <strong>Générer</strong> pour créer un nouveau QCM.
+        </p>
+      </div>
+    );
   }
 
-  if (mcqs.length === 0) return <div>Aucun QCM généré.</div>;
+  if (mcqs.length === 0) return <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>Aucun QCM généré. Cliquez sur le bouton <strong>Générer</strong> ci-dessus.</div>;
 
   const handleSelect = (qIndex: number, option: string) => {
     if (showResults) return;
@@ -253,7 +261,6 @@ export const InteractiveMCQ: React.FC<{ data: string | MCQ[], courseId?: string,
                 let feedbackText = '';
                 
                 if (showResults) {
-                  if (console) {} // To appease linters if needed
                   if (isCorrect && isSelected) {
                     bgColor = '#10b98120'; 
                     borderColor = 'var(--success)';

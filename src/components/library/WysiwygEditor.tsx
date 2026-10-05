@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, List, ListOrdered, RotateCcw, Check, X } from 'lucide-react';
+import { Bold, Italic, Underline, List, ListOrdered, RotateCcw, Check, X, Image as ImageIcon } from 'lucide-react';
 import { mdToHtml } from '../../lib/markdown';
+import { compressImage, getImageFromClipboard } from '../../lib/image-utils';
 
 export const HIGHLIGHT_COLORS = [
   { name: 'Jaune', hex: '#fef08a', textColor: '#854d0e' },
@@ -28,6 +29,7 @@ interface WysiwygEditorProps {
 
 export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({ initialContent, onSave, onCancel }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editorRef.current) {
@@ -40,6 +42,57 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({ initialContent, on
   const exec = (command: string, value: string = '') => {
     document.execCommand(command, false, value);
     if (editorRef.current) editorRef.current.focus();
+  };
+
+  const insertImage = (src: string) => {
+    if (!editorRef.current) return;
+    const imgHtml = `<p><img src="${src}" alt="Illustration" style="max-width: 100%; height: auto; border-radius: 0.75rem; margin: 1rem 0; display: block; box-shadow: 0 4px 14px rgba(0,0,0,0.08);" /></p><p><br></p>`;
+    editorRef.current.focus();
+    try {
+      document.execCommand('insertHTML', false, imgHtml);
+    } catch {
+      editorRef.current.innerHTML += imgHtml;
+    }
+  };
+
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      const compressed = await compressImage(file);
+      insertImage(compressed);
+    } catch (err) {
+      console.error('Erreur lors de la compression de l\'image:', err);
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const file = getImageFromClipboard(e);
+    if (file) {
+      e.preventDefault();
+      try {
+        const compressed = await compressImage(file);
+        insertImage(compressed);
+      } catch (err) {
+        console.error('Erreur lors du collage de l\'image:', err);
+      }
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    const files = Array.from(e.dataTransfer.files);
+    const imgFile = files.find(f => f.type.startsWith('image/'));
+    if (imgFile) {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const compressed = await compressImage(imgFile);
+        insertImage(compressed);
+      } catch (err) {
+        console.error('Erreur lors du drop de l\'image:', err);
+      }
+    }
   };
 
   const handleSave = () => {
@@ -188,6 +241,37 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({ initialContent, on
           <RotateCcw size={15} />
         </button>
 
+        <div style={{ width: '1px', height: '18px', backgroundColor: 'var(--border-color)', margin: '0 0.2rem' }} />
+
+        {/* Image Upload Button */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          accept="image/*" 
+          onChange={handleImageFileSelect} 
+          style={{ display: 'none' }} 
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="toolbar-btn"
+          title="Insérer une image (ou glisser-déposer / Ctrl+V)"
+          style={{
+            padding: '0.35rem 0.65rem',
+            borderRadius: '0.4rem',
+            border: '1px solid var(--border-color)',
+            backgroundColor: 'var(--bg-primary)',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            fontSize: '0.8rem',
+            fontWeight: 500
+          }}
+        >
+          <ImageIcon size={15} color="var(--accent-primary)" /> <span>Image</span>
+        </button>
+
         {/* Save / Cancel buttons */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
           <button
@@ -220,6 +304,9 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({ initialContent, on
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
+        onPaste={handlePaste}
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
         className="wysiwyg-content-area"
         style={{
           width: '100%',
