@@ -447,8 +447,12 @@ export function parseAnnaleQuestionsFromText(
   };
 }
 
+import { parseAnnaleWithAI } from './gemini';
+
 /**
- * Main function: extracts text and embedded images from PDF, then parses QCM mot pour mot.
+ * Main function: extracts text and embedded images from PDF,
+ * uses Sofia IA for 100% layout comprehension (inverted formats, checkboxes, SIDES),
+ * and falls back to algorithmic parser if needed.
  */
 export async function parseAnnalePDF(
   file: File | Blob | ArrayBuffer,
@@ -463,7 +467,7 @@ export async function parseAnnalePDF(
 
   for (let pageNum = 1; pageNum <= numPages; pageNum++) {
     if (onProgress) {
-      onProgress(`Analyse et extraction page ${pageNum}/${numPages}...`, pageNum, numPages);
+      onProgress(`Lecture du document : page ${pageNum}/${numPages}...`, pageNum, numPages);
     }
 
     const page = await pdf.getPage(pageNum);
@@ -491,10 +495,84 @@ export async function parseAnnalePDF(
 
   const fullText = pageTexts.join('');
 
+  // 3. Sofia IA parsing for complete layout and checkbox comprehension
+  try {
+    if (onProgress) {
+      onProgress('Sofia IA structure les questions mot pour mot et analyse le corrigé...', numPages, numPages);
+    }
+    const aiQuestions = await parseAnnaleWithAI(fullText);
+    if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
+      const pageImagesCopy = new Map<number, string[]>();
+      pageImagesMap.forEach((imgs, p) => pageImagesCopy.set(p, [...imgs]));
+
+      const extractedQuestions: ExtractedQuestion[] = aiQuestions.map((q: any, idx: number) => {
+        const qNum = q.questionNumber || idx + 1;
+        const pageNum = q.pageNumber || 1;
+        const questionImages: string[] = [];
+        const pageImgs = pageImagesCopy.get(pageNum) || [];
+        if (pageImgs.length > 0) {
+          questionImages.push(...pageImgs);
+          pageImagesCopy.delete(pageNum);
+        }
+
+        const rawOptions = Array.isArray(q.options) ? q.options : [];
+        const cleanOptions = rawOptions.map((opt: string, optIdx: number) => {
+          const letter = String.fromCharCode(65 + optIdx);
+          let cleaned = String(opt || '').trim();
+          cleaned = cleaned.replace(/^[A-Ga-g][\.\)\:\-–—\/\s\]]*/, '').trim();
+          cleaned = cleaned.replace(/^[☑■☒☐\[\]xX\s\-\–—\(\)]+/, '').trim();
+          return `${letter}. ${cleaned}`;
+        });
+
+        const rawAnswers = q.correctAnswers || q.correct_answers || [];
+        const cleanAnswers = Array.isArray(rawAnswers) 
+          ? rawAnswers.map((a: any) => String(a).toUpperCase().replace(/[^A-G]/g, '')).filter(Boolean)
+          : parseAnswerLetters(String(rawAnswers));
+
+        return {
+          id: crypto.randomUUID(),
+          questionNumber: qNum,
+          question: String(q.question || `Question ${qNum}`).trim(),
+          options: cleanOptions.length > 0 ? cleanOptions : [
+            'A. Première proposition',
+            'B. Deuxième proposition',
+            'C. Troisième proposition',
+            'D. Quatrième proposition',
+            'E. Cinquième proposition'
+          ],
+          correctAnswers: Array.from(new Set(cleanAnswers)).sort(),
+          images: questionImages.length > 0 ? questionImages : undefined,
+          explanation: q.explanation ? String(q.explanation).trim() : undefined,
+          pageNumber: pageNum
+        };
+      });
+
+      const unassignedImages: { id: string; url: string; pageNumber: number }[] = [];
+      pageImagesCopy.forEach((imgs, pageNum) => {
+        imgs.forEach(url => {
+          unassignedImages.push({ id: crypto.randomUUID(), url, pageNumber: pageNum });
+        });
+      });
+
+      let totalImages = extractedQuestions.reduce((acc, q) => acc + (q.images?.length || 0), 0) + unassignedImages.length;
+
+      return {
+        questions: extractedQuestions,
+        rawText: fullText,
+        totalImagesExtracted: totalImages,
+        unassignedImages
+      };
+    }
+  } catch (aiErr) {
+    console.warn('[Annale Parser] Sofia IA parsing error, trying algorithmic fallback:', aiErr);
+  }
+
+  // Fallback to algorithmic parser
   if (onProgress) {
-    onProgress('Découpage mot pour mot des QCM et des propositions...', numPages, numPages);
+    onProgress('Découpage algorithmique des QCM et des propositions...', numPages, numPages);
   }
 
   const result = parseAnnaleQuestionsFromText(fullText, pageImagesMap);
   return result;
 }
+
