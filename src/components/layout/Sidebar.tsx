@@ -18,7 +18,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const navItems = [
     { to: '/', label: 'Bibliothèque', icon: <Library size={17} />, exact: true },
-    { to: '/chat', label: 'Chat SofIA', icon: <Bot size={17} /> },
     { to: '/planning', label: 'Planification', icon: <Calendar size={17} /> },
     { to: '/flashcards', label: 'Flashcards', icon: <Zap size={17} /> },
     { to: '/statistics', label: 'Statistiques', icon: <BarChart3 size={17} /> },
@@ -86,6 +85,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <span className="nav-item-icon"><Search size={17} /></span>
           Recherche Globale
         </button>
+
+        <NavLink
+          to="/chat"
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          onClick={() => {
+            if (window.innerWidth <= 768 && onClose) onClose();
+          }}
+        >
+          <span className="nav-item-icon"><Sparkles size={17} /></span>
+          Chat SofIA
+        </NavLink>
       </nav>
 
       <div className="sidebar-footer">
