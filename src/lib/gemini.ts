@@ -12,9 +12,9 @@ export type AIPreferences = {
  */
 async function callGeminiProxy(
   model: string,
-  contents: string[],
+  contents: string[] | any[],
   config?: Record<string, any>
-): Promise<{ text: string }> {
+): Promise<{ text: string; groundingMetadata?: any }> {
   const response = await fetch('/api/gemini', {
     method: 'POST',
     headers: {
@@ -32,7 +32,10 @@ async function callGeminiProxy(
     throw new Error(data.error || 'Erreur lors de la génération avec Gemini.');
   }
 
-  return { text: data.text || '' };
+  return { 
+    text: data.text || '',
+    groundingMetadata: data.groundingMetadata || null
+  };
 }
 
 /**
@@ -516,5 +519,123 @@ ${rawPdfText.substring(0, 300000)}`;
   const questionsList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
   return questionsList;
 }
+
+export interface SofiaChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: number;
+  sources?: { title: string; url: string }[];
+  attachmentName?: string;
+}
+
+export interface SofiaChatSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: SofiaChatMessage[];
+}
+
+function getUniversalSofiaSystemPrompt(prefs?: AIPreferences) {
+  const personality = prefs?.ai_personality || 'benevolent';
+  const studyMode = prefs?.ai_study_mode || 'understanding';
+
+  const personalities = {
+    benevolent: "Tu es SofIA, une assistante pédagogique et universitaire bienveillante, passionnée et encourageante. Ton ton est chaleureux, empathique et motivant.",
+    concise: "Tu es SofIA, une assistante universitaire ultra-concise, directe et efficace. Va droit au but sans fioritures.",
+    academic: "Tu es SofIA, une assistante académique de haut niveau, experte, rigoureuse et érudite. Adopte une structure formelle et un vocabulaire soutenu."
+  };
+
+  const modes = {
+    understanding: "Objectif majeur : Pédagogie et compréhension profonde. Explique les mécanismes sous-jacents, fais des liens et donne des analogies parlantes.",
+    memorization: "Objectif majeur : Efficacité mémorielle. Mets en exergue les définitions clés, points cardinaux et mnémotechniques.",
+    critical: "Objectif majeur : Esprit critique et nuance. Analyse les contre-exemples, les exceptions, les débats d'école ou doctrinaux."
+  };
+
+  return `${personalities[personality]} ${modes[studyMode]}
+Tu t'adresses à un étudiant que tu tutoies avec respect, dynamisme et bienveillance.
+Tu es une IA universelle experte dans TOUS les domaines académiques et méthodologiques : Droit, Médecine, Pharmacie, Biologie, Physique, Chimie, Mathématiques, Informatique, Histoire, Littérature, Économie, Philosophie, Langues, etc. Tu réponds également aux questions de culture générale, d'organisation, de méthodologie et d'orientation.
+
+CONSIGNES DE RÉPONSE ET DE MISE EN PAGE STRICTES :
+1. PÉDAGOGIE LUMINEUSE : Structure tes réponses de façon claire et aérée avec des titres Markdown (##, ###) et des listes à puces (* ).
+2. SURLIGNAGE VISUEL (CRITIQUE) : UTILISE FRÉQUEMMENT LE SURLIGNAGE AVEC DEUX SIGNES ÉGAL '==' (ex: ==concept fondamental==) pour faire ressortir les termes techniques, formules et notions clés. N'utilise jamais un simple signe égal comme =terme=.
+3. FORMULES MATHÉMATIQUES & SCIENTIFIQUES : Écris TOUTES les formules, équations, symboles et variables au format LaTeX entre des symboles '$' en ligne (ex: $E = mc^2$, $\\alpha$, $\\vec{F}$) et '$$' sur leur propre ligne pour les équations majeures.
+4. TABLEAUX : Si une comparaison, classification ou synthèse de plusieurs éléments s'y prête, STRUCTURE-LA DANS UN TABLEAU MARKDOWN standard (| Entête 1 | Entête 2 |).
+5. CODE : Pour tout code source, utilise des blocs de code avec spécification du langage (\`\`\`python, \`\`\`sql, etc.).
+6. DIRECTE & EFFICACE : Pas de salutations répétitives ni de politesses vides si la conversation est déjà en cours. Réponds avec pertinence, rigueur et élégance.`;
+}
+
+/**
+ * Universal SofIA chat outside of specific course restrictions, with optional live Web Search.
+ */
+export async function askChatSofia(
+  messages: { role: 'user' | 'assistant'; content: string }[],
+  options?: {
+    useWebSearch?: boolean;
+    attachmentContext?: string;
+    preferences?: AIPreferences;
+  }
+): Promise<{ text: string; sources?: { title: string; url: string }[] }> {
+  await ensureQuota();
+
+  const systemInstruction = getUniversalSofiaSystemPrompt(options?.preferences);
+  // Gemini 2.5 Flash has first-class Google Search tool grounding
+  const model = options?.useWebSearch ? 'models/gemini-2.5-flash' : 'models/gemini-3.5-flash-lite';
+
+  let basePrompt = `${systemInstruction}\n\n`;
+
+  if (options?.attachmentContext && options.attachmentContext.trim()) {
+    basePrompt += `DOCUMENT OU FICHIER JOINT PAR L'ÉTUDIANT :\n"""\n${options.attachmentContext.slice(0, 100000)}\n"""\n\n`;
+  }
+
+  const lastUserMsg = messages[messages.length - 1]?.content || '';
+  const previousMessages = messages.slice(0, -1);
+
+  if (previousMessages.length > 0) {
+    basePrompt += `HISTORIQUE RÉCENT DE CETTE CONVERSATION :\n` +
+      previousMessages.map(m => `${m.role === 'user' ? 'Étudiant' : 'SofIA'} : ${m.content}`).join('\n\n') +
+      `\n\n`;
+  }
+
+  basePrompt += `MESSAGE DE L'ÉTUDIANT :\n${lastUserMsg}`;
+
+  const config: Record<string, any> = {
+    temperature: 0.7,
+  };
+
+  if (options?.useWebSearch) {
+    config.tools = [{ googleSearch: {} }];
+  }
+
+  try {
+    const response = await callGeminiProxy(model, [basePrompt], config);
+    const resultText = response.text || '';
+
+    const sources: { title: string; url: string }[] = [];
+    if (response.groundingMetadata) {
+      const chunks = response.groundingMetadata.groundingChunks || [];
+      for (const chunk of chunks) {
+        if (chunk.web?.uri) {
+          sources.push({
+            title: chunk.web.title || new URL(chunk.web.uri).hostname,
+            url: chunk.web.uri,
+          });
+        }
+      }
+    }
+
+    const uniqueSources = sources.filter((s, idx, self) => idx === self.findIndex(t => t.url === s.url));
+
+    return {
+      text: resultText,
+      sources: uniqueSources.length > 0 ? uniqueSources : undefined,
+    };
+  } catch (error) {
+    console.error('Error in askChatSofia:', error);
+    throw error;
+  }
+}
+
 
 
