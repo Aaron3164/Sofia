@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
-import { uploadPDF, supabase } from '../lib/supabase';
+import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { generateStudyMaterials } from '../lib/gemini';
 import { extractTextFromPDF } from '../lib/pdf-extractor';
 import { InteractiveMCQ } from '../components/library/InteractiveMCQ';
@@ -384,6 +384,10 @@ export default function SubjectDetail() {
 
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!await confirm('Supprimer ce document ?')) return;
+    const target = naiveAttachments.find(a => a.id === attachmentId);
+    if (target?.url) {
+      deletePDFFromR2(target.url);
+    }
     const updated = naiveAttachments.filter(a => a.id !== attachmentId);
     setNaiveAttachments(updated);
     if (profile) await saveToCloud({ naive_attachments: updated });
