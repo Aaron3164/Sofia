@@ -442,3 +442,78 @@ ${documentContext.substring(0, 250000)}`;
   }
 }
 
+/**
+ * Intelligent AI parser for complex exam annales (handles inverted question layouts,
+ * checkboxes ☑/■, multi-column tables, SIDES/EDN formats, and clinical vignettes).
+ */
+export async function parseAnnaleWithAI(rawPdfText: string): Promise<any[]> {
+  const prompt = `Tu es un assistant expert dans la numérisation et la structuration d'annales d'examens (notamment médicales et universitaires : PASS, LAS, DFGSM, EDN, ECN, etc.).
+Ta mission est d'analyser le texte brut issu d'une annale PDF et de le convertir en une liste structurée de QCM, STRICTEMENT MOT POUR MOT, sans rien inventer, résumer ou modifier.
+
+CONSIGNES PARTICULIÈRES SUR LES MISES EN PAGE D'ANNALES :
+1. ORDRE DES QUESTIONS ET PROPOSITIONS :
+   - Dans beaucoup d'annales (comme celle fournie), l'énoncé de la question se trouve parfois EN DESSOUS du tableau des propositions A-E, ou sous l'en-tête "Question X". Identifie correctement l'énoncé complet de la question et associe-le à ses propositions.
+   - Si un cas clinique ou une mise en situation précède une question (ex: "Un jeune homme de 21 ans est admis en urgence..."), inclus cet énoncé complet dans la question pour que l'étudiant ait tout le contexte.
+2. DÉTECTION DU CORRIGÉ (CASES COCHÉES / SYMBOLES) :
+   - Dans le texte, les cases à cocher indiquent souvent les réponses vraies et fausses :
+     * "☑" ou "[x]" = RÉPONSE VRAIE (cochée)
+     * "■" ou "☐" ou "[ ]" = RÉPONSE FAUSSE (décochée / case vide ou noire)
+     * "Réponse attendue" = les options cochées sont les réponses correctes.
+   - S'il y a une grille de correction ou une ligne "Réponse : AC", utilise-la.
+   - Remplis le tableau "correctAnswers" avec les lettres des bonnes réponses (ex: ["A", "C"]).
+3. NETTOYAGE DU TEXTE DES PROPOSITIONS :
+   - Retire les symboles de cases (☑, ■, ☐, , etc.) du texte des propositions pour ne garder que le libellé propre de la proposition.
+   - Format de chaque proposition dans "options" : "A. [texte]", "B. [texte]", etc.
+4. PAGES ET NUMÉROS :
+   - Note le numéro de page où se trouve la question d'après les repères "--- Page X ---".
+   - Conserve le numéro officiel de chaque question ("questionNumber": 1, 2, 3...).
+
+Format attendu STRICTEMENT en JSON :
+Un tableau JSON d'objets, ou un objet avec la clé "questions" :
+[
+  {
+    "questionNumber": 1,
+    "question": "Énoncé complet mot pour mot de la question...",
+    "options": [
+      "A. Première proposition",
+      "B. Deuxième proposition",
+      "C. Troisième proposition",
+      "D. Quatrième proposition",
+      "E. Cinquième proposition"
+    ],
+    "correctAnswers": ["A", "C"],
+    "pageNumber": 1,
+    "explanation": "..." 
+  }
+]
+
+Texte brut de l'annale :
+${rawPdfText.substring(0, 300000)}`;
+
+  const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [prompt], {
+    responseMimeType: 'application/json',
+    temperature: 0.1
+  });
+
+  let jsonStr = response.text || '[]';
+  const firstBracket = jsonStr.indexOf('[');
+  const firstBrace = jsonStr.indexOf('{');
+  
+  if (firstBracket !== -1 && (firstBracket === -1 || firstBracket < firstBrace)) {
+    const lastBracket = jsonStr.lastIndexOf(']');
+    if (lastBracket > firstBracket) {
+      jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
+    }
+  } else if (firstBrace !== -1) {
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (lastBrace > firstBrace) {
+      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+    }
+  }
+
+  const parsed = JSON.parse(jsonStr);
+  const questionsList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
+  return questionsList;
+}
+
+
