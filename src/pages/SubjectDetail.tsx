@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { Calendar } from 'lucide-react';
 import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
+import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportModal';
 import { isGoogleDriveUrl } from '../lib/google-drive';
 import './SubjectDetail.css';
 
@@ -31,6 +32,7 @@ export default function SubjectDetail() {
   const storageKey = `aura_subject_${id}`;
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+  const [isAnnaleModalOpen, setIsAnnaleModalOpen] = useState(false);
   
   const [extractedContent, setExtractedContent] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
@@ -827,6 +829,18 @@ export default function SubjectDetail() {
                     />
                   </div>
                 )}
+                {activeTab === 'mcq' && (
+                  <button 
+                    className="btn btn-outline"
+                    onClick={() => setIsAnnaleModalOpen(true)}
+                    title="Importer une annale officielle au format PDF (mot pour mot, avec schémas & images, 0 token d'IA)"
+                    style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <UploadCloud size={15} />
+                    <span>📥 Importer une annale (PDF)</span>
+                  </button>
+                )}
+
                 {activeTab !== 'explications' && activeTab !== 'source' && (
                   <button 
                     className="btn btn-primary" 
@@ -924,9 +938,49 @@ export default function SubjectDetail() {
                 return (
                   <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
                     {!content ? (
-                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                        Cliquez sur "Générer" pour traiter le document.
-                      </div>
+                      tab.id === 'mcq' ? (
+                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', padding: '2rem', textAlign: 'center' }}>
+                          <div style={{ maxWidth: '480px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>
+                              🎯 Préparez votre Examen Blanc
+                            </h3>
+                            <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                              Choisissez comment vous entraîner sur ce cours :
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                            <button 
+                              className="btn btn-outline glass-panel hover-lift"
+                              onClick={() => setIsAnnaleModalOpen(true)}
+                              style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', width: '230px', borderRadius: '1rem', borderColor: 'var(--accent-primary)', textAlign: 'center' }}
+                            >
+                              <span style={{ fontSize: '1.75rem' }}>📥</span>
+                              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--accent-primary)' }}>Importer une Annale</span>
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                Retranscription mot pour mot du PDF, 0 token, avec figures & corrigé
+                              </span>
+                            </button>
+
+                            <button 
+                              className="btn btn-outline glass-panel hover-lift"
+                              onClick={handleGenerate}
+                              disabled={isGenerating || !extractedContent}
+                              style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', width: '230px', borderRadius: '1rem', opacity: !extractedContent ? 0.6 : 1, textAlign: 'center' }}
+                            >
+                              <span style={{ fontSize: '1.75rem' }}>✨</span>
+                              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Générer par Sofia IA</span>
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                Création automatique de QCM à partir de votre cours
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                          Cliquez sur "Générer" pour traiter le document.
+                        </div>
+                      )
                     ) : (
                       <>
                         {tab.id === 'flashcards' && <InteractiveFlashcard data={content} onUpdate={(d) => updateData('flashcards', d)} courseId={id} />}
@@ -960,6 +1014,15 @@ export default function SubjectDetail() {
           setPdfUrl(importedUrl);
           setExtractedContent(importedText);
           setActiveTab('source');
+        }}
+      />
+
+      {/* Annale Exam Import Modal */}
+      <AnnaleExamImportModal
+        isOpen={isAnnaleModalOpen}
+        onClose={() => setIsAnnaleModalOpen(false)}
+        onSuccess={(importedQuestions) => {
+          updateData('mcq', JSON.stringify(importedQuestions));
         }}
       />
     </div>

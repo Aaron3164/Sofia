@@ -628,6 +628,15 @@ function QcmGradeItem({ g, expandedQcm, setExpandedQcm, onDelete }: any) {
               return (
                 <div key={qIndex} style={{ padding: '1rem', borderRadius: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
                   <h5 style={{ marginBottom: '1rem', fontSize: '1rem' }}>{qIndex + 1}. {q.question}</h5>
+                  {((q.images && q.images.length > 0) || q.image) && (
+                    <div style={{ margin: '0.75rem 0 1rem 0', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
+                      {(q.images || [q.image]).map((imgSrc: string, iIdx: number) => (
+                        <div key={iIdx} style={{ borderRadius: '0.5rem', overflow: 'hidden', border: '1px solid var(--border-color)', maxHeight: '240px', backgroundColor: 'var(--bg-primary)' }}>
+                          <img src={imgSrc} alt="Illustration" style={{ maxHeight: '240px', maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {q.options.map((option: string, oIndex: number) => {
                       const isSelected = selected.includes(option);
