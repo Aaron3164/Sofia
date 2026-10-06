@@ -71,11 +71,11 @@ function appendWithSmartSpace(target: string, addition: string): string {
 }
 
 export async function extractTextFromPDF(
-  file: File, 
+  file: File | Blob | ArrayBuffer, 
   onProgress?: (current: number, total: number) => void
 ): Promise<string> {
   try {
-    const arrayBuffer = await file.arrayBuffer();
+    const arrayBuffer = file instanceof ArrayBuffer ? file : await (file as Blob).arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const numPages = pdf.numPages;
     const allPageTexts: string[] = new Array(numPages);
