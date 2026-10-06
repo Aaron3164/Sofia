@@ -483,6 +483,7 @@ Un tableau JSON d'objets, ou un objet avec la clé "questions" :
     ],
     "correctAnswers": ["A", "C"],
     "pageNumber": 1,
+    "hasFigure": false, // Mettre true si et seulement si l'énoncé fait explicitement référence à une figure, schéma, radio, photo, tracé ou image
     "explanation": "..." 
   }
 ]

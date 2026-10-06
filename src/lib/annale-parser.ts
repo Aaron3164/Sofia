@@ -24,6 +24,85 @@ export interface AnnaleParseResult {
 }
 
 /**
+ * Checks whether an extracted canvas image is a genuine medical/academic illustration
+ * (photo, schema, radiography, ECG, histology slide) or a layout artifact (solid black box,
+ * mask, table border, or solid background).
+ */
+function isValidDocumentIllustration(canvas: HTMLCanvasElement, imgObj: any): boolean {
+  if (imgObj?.isMask || imgObj?.mask) return false;
+
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Real academic figures / diagrams are at least 100x100px
+  if (w < 100 || h < 100) return false;
+
+  // Reject extreme aspect ratios (lines, thin banners, table borders)
+  const ratio = w / h;
+  if (ratio > 5.5 || ratio < 0.18) return false;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return false;
+
+  try {
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    const totalPixels = w * h;
+
+    // Sample up to 800 pixels evenly spaced
+    const step = Math.max(1, Math.floor(totalPixels / 800));
+    let rSum = 0, gSum = 0, bSum = 0;
+    let count = 0;
+
+    for (let i = 0; i < data.length; i += step * 4) {
+      rSum += data[i];
+      gSum += data[i + 1];
+      bSum += data[i + 2];
+      count++;
+    }
+
+    if (count === 0) return false;
+
+    const rAvg = rSum / count;
+    const gAvg = gSum / count;
+    const bAvg = bSum / count;
+
+    let varianceSum = 0;
+    let colorfulOrMidtones = 0;
+
+    for (let i = 0; i < data.length; i += step * 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const diff = Math.abs(r - rAvg) + Math.abs(g - gAvg) + Math.abs(b - bAvg);
+      varianceSum += diff;
+
+      // Count pixels that are NOT pure black (<15) and NOT pure white (>240)
+      if ((r > 15 || g > 15 || b > 15) && (r < 240 || g < 240 || b < 240)) {
+        colorfulOrMidtones++;
+      }
+    }
+
+    const avgVariance = varianceSum / count;
+
+    // If average variance is very low, it's a solid rectangle (solid black header, solid gray fill, etc.)
+    if (avgVariance < 16) {
+      return false;
+    }
+
+    // If virtually all pixels are pure solid black or pure white with no gradient/details
+    if ((colorfulOrMidtones / count) < 0.05 && avgVariance < 28) {
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * Extracts all embedded images from a PDF page using PDF.js operator lists and objects.
  */
 async function extractImagesFromPage(page: any, pageNumber: number): Promise<string[]> {
@@ -83,12 +162,12 @@ async function extractImagesFromPage(page: any, pageNumber: number): Promise<str
           }, 1500);
         });
 
-        if (!imgObj) continue;
+        if (!imgObj || imgObj.isMask || imgObj.mask) continue;
 
-        // Ignore tiny icon-like graphics or thin lines (< 60px)
+        // Ignore tiny icon-like graphics or thin lines (< 100px)
         const width = imgObj.width || 0;
         const height = imgObj.height || 0;
-        if (width < 60 || height < 60) continue;
+        if (width < 100 || height < 100) continue;
 
         const canvas = document.createElement('canvas');
         canvas.width = width;
@@ -136,6 +215,11 @@ async function extractImagesFromPage(page: any, pageNumber: number): Promise<str
             continue;
           }
         } else {
+          continue;
+        }
+
+        // Verify that this is a genuine illustration and not a solid black box or background banner
+        if (!isValidDocumentIllustration(canvas, imgObj)) {
           continue;
         }
 
@@ -395,10 +479,11 @@ export function parseAnnaleQuestionsFromText(
         finalCorrectAnswers = trailingGrid.get(curBlock.questionNumber) || [];
       }
 
-      // Attach images from the page where the question appears
+      // Attach images ONLY if question text explicitly refers to a figure or illustration
       const questionImages: string[] = [];
       const pageImgs = pageImagesCopy.get(curBlock.pageNumber) || [];
-      if (pageImgs.length > 0) {
+      const mentionsFigure = /(?:figure|sch[eé]ma|photo|clich[eé]|radiographie|radio|scanner|irm|ecg|trac[eé]|image|illustration|\bdoc(?:ument)?\b)/i.test(rawQuestionStem);
+      if (mentionsFigure && pageImgs.length > 0) {
         questionImages.push(...pageImgs);
         pageImagesCopy.delete(curBlock.pageNumber); // Consumed for this question
       }
@@ -510,7 +595,11 @@ export async function parseAnnalePDF(
         const pageNum = q.pageNumber || 1;
         const questionImages: string[] = [];
         const pageImgs = pageImagesCopy.get(pageNum) || [];
-        if (pageImgs.length > 0) {
+        const qText = String(q.question || '');
+        const mentionsFigure = q.hasFigure === true || 
+          /(?:figure|sch[eé]ma|photo|clich[eé]|radiographie|radio|scanner|irm|ecg|trac[eé]|image|illustration|\bdoc(?:ument)?\b)/i.test(qText);
+
+        if (mentionsFigure && pageImgs.length > 0) {
           questionImages.push(...pageImgs);
           pageImagesCopy.delete(pageNum);
         }
