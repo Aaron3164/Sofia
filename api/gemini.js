@@ -13,7 +13,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  let apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (apiKey) apiKey = apiKey.replace(/^["']|["']$/g, '');
   if (!apiKey) {
     return res.status(500).json({ error: 'La clé GEMINI_API_KEY est manquante dans les variables d\'environnement du serveur Vercel.' });
   }
@@ -49,7 +50,10 @@ export default async function handler(req, res) {
           config,
         });
 
-        return res.status(200).json({ text: response.text || '' });
+        return res.status(200).json({ 
+          text: response.text || '',
+          groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
+        });
       } catch (err) {
         lastError = err;
         const errMsg = String(err?.message || err);
