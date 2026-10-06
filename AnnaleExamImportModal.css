@@ -1,0 +1,522 @@
+/* ============================================================
+   SOF.IA — MODALE IMPORTATION ANNALES (PREMIUM LUXURY DESIGN)
+   ============================================================ */
+
+.annale-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: annaleFadeIn 0.2s ease-out;
+}
+
+@keyframes annaleFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.annale-modal-container {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl, 1.5rem);
+  width: 100%;
+  max-width: 960px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  animation: annaleScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes annaleScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Header */
+.annale-modal-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border-subtle, var(--border-color));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-elevated);
+}
+
+.annale-header-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.annale-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, var(--accent-light), rgba(234, 88, 12, 0.15));
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px var(--accent-glow, rgba(219, 39, 119, 0.15));
+}
+
+.annale-modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.annale-modal-header p {
+  margin: 0.2rem 0 0 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.annale-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.annale-close-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+/* Body */
+.annale-modal-body {
+  padding: 1.75rem 2rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Premium Dropzone */
+.annale-dropzone-wrapper {
+  position: relative;
+  border: 2px dashed var(--border-color);
+  border-radius: 1.25rem;
+  padding: 3.5rem 2rem;
+  text-align: center;
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  overflow: hidden;
+}
+
+.annale-dropzone-wrapper:hover,
+.annale-dropzone-wrapper.drag-active {
+  border-color: var(--accent-primary);
+  background: linear-gradient(180deg, var(--accent-light, rgba(219, 39, 119, 0.05)), var(--bg-primary));
+  box-shadow: 0 12px 32px var(--accent-glow, rgba(219, 39, 119, 0.12));
+  transform: translateY(-2px);
+}
+
+.annale-dropzone-icon-pulse {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary), #f43f5e);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px var(--accent-glow, rgba(219, 39, 119, 0.35));
+  transition: transform 0.25s ease;
+}
+
+.annale-dropzone-wrapper:hover .annale-dropzone-icon-pulse {
+  transform: scale(1.08);
+}
+
+.annale-dropzone-content h3 {
+  margin: 0 0 0.4rem 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.annale-dropzone-content p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.annale-dropzone-features {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.annale-dropzone-chip {
+  padding: 0.35rem 0.85rem;
+  border-radius: 2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Loading & Progress State */
+.annale-progress-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 1.25rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.annale-spinner-glow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.annale-progress-bar-container {
+  width: 100%;
+  max-width: 440px;
+  height: 8px;
+  background: var(--bg-elevated);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.annale-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), #f43f5e);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+  box-shadow: 0 0 12px var(--accent-glow, rgba(219, 39, 119, 0.5));
+}
+
+.annale-steps-indicator {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+  max-width: 360px;
+  width: 100%;
+}
+
+.annale-step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.annale-step-item.active {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.annale-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-color);
+}
+
+.annale-step-item.active .annale-step-dot {
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+/* Soft Notification Banner */
+.annale-soft-alert {
+  padding: 0.85rem 1.25rem;
+  border-radius: 0.85rem;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.88rem;
+}
+
+/* Badge bar & Review controls */
+.annale-review-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle, var(--border-color));
+}
+
+.annale-badge-list {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.annale-pill-badge {
+  padding: 0.35rem 0.85rem;
+  border-radius: 2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.annale-pill-badge.success {
+  background: rgba(5, 150, 105, 0.1);
+  border-color: rgba(5, 150, 105, 0.25);
+  color: var(--success);
+}
+
+.annale-pill-badge.accent {
+  background: var(--accent-light, rgba(219, 39, 119, 0.1));
+  border-color: var(--border-color);
+  color: var(--accent-primary);
+}
+
+/* Question Cards */
+.annale-question-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 1.15rem;
+  padding: 1.35rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: var(--shadow-xs);
+  transition: all 0.2s ease;
+}
+
+.annale-question-card:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-glow, rgba(219, 39, 119, 0.15));
+}
+
+.annale-question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.annale-q-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--accent-primary);
+}
+
+.annale-page-tag {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.annale-textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.annale-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+/* Image gallery inside question */
+.annale-image-gallery {
+  display: flex;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin: 0.25rem 0;
+}
+
+.annale-image-thumb {
+  position: relative;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  max-width: 200px;
+  max-height: 140px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease;
+}
+
+.annale-image-thumb:hover {
+  transform: translateY(-2px);
+}
+
+.annale-image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: zoom-in;
+}
+
+.annale-image-delete-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(15, 23, 42, 0.75);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.annale-image-delete-btn:hover {
+  background: var(--danger);
+}
+
+/* Option Row */
+.annale-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.annale-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.annale-option-letter-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.annale-option-letter-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.annale-option-letter-btn.is-correct {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+}
+
+.annale-option-input {
+  flex: 1;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  transition: all 0.15s ease;
+}
+
+.annale-option-input.is-correct {
+  border-color: rgba(5, 150, 105, 0.4);
+  background: rgba(5, 150, 105, 0.04);
+}
+
+.annale-option-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+/* Footer */
+.annale-modal-footer {
+  padding: 1.25rem 2rem;
+  border-top: 1px solid var(--border-subtle, var(--border-color));
+  background: var(--bg-elevated);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .annale-modal-container {
+    max-height: 94vh;
+  }
+  .annale-modal-header,
+  .annale-modal-body,
+  .annale-modal-footer {
+    padding: 1rem;
+  }
+}
