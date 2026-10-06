@@ -4,11 +4,14 @@ import { supabase } from '../../lib/supabase';
 import { explainMCQErrors } from '../../lib/gemini';
 import { BookOpen, Loader2, Sparkles, RotateCcw } from 'lucide-react';
 
-interface MCQ {
+export interface MCQ {
   question: string;
   options: string[];
   correctAnswers?: string[];
   correctAnswer?: string; // Fallback for older generations
+  image?: string;
+  images?: string[];
+  explanation?: string;
 }
 
 interface InteractiveMCQProps {
@@ -64,6 +67,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   });
   const [isLoadingCorrections, setIsLoadingCorrections] = useState(false);
   const [showDetailedPanel, setShowDetailedPanel] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   // Track changes and save to session
   useEffect(() => {
@@ -500,6 +504,39 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               {correctOpts.length > 1 ? "(Plusieurs réponses possibles)" : "(Une seule réponse possible)"}
             </p>
+
+            {/* Illustrations / Schémas attachés à la question */}
+            {((q.images && q.images.length > 0) || q.image) && (
+              <div style={{ margin: '0.75rem 0 1.25rem 0', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center' }}>
+                {(q.images || [q.image!]).map((imgSrc, imgIdx) => (
+                  <div
+                    key={imgIdx}
+                    onClick={() => setZoomedImage(imgSrc)}
+                    style={{
+                      cursor: 'zoom-in',
+                      borderRadius: '0.75rem',
+                      overflow: 'hidden',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      maxHeight: '320px',
+                      maxWidth: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: 'var(--shadow-sm)',
+                      transition: 'transform 0.2s ease'
+                    }}
+                    title="Cliquer pour agrandir l'illustration"
+                  >
+                    <img
+                      src={imgSrc}
+                      alt={`Illustration question ${qIndex + 1}`}
+                      style={{ maxWidth: '100%', maxHeight: '320px', objectFit: 'contain', display: 'block' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {q.options.map((option, oIndex) => {
@@ -648,6 +685,31 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               )}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Lightbox pour zoomer sur une illustration */}
+      {zoomedImage && (
+        <div 
+          onClick={() => setZoomedImage(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '2rem',
+            cursor: 'zoom-out'
+          }}
+        >
+          <img 
+            src={zoomedImage} 
+            alt="Zoom illustration" 
+            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: '0.5rem', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} 
+          />
         </div>
       )}
     </div>
