@@ -6,6 +6,7 @@ import { GlobalMigration } from './components/auth/GlobalMigration';
 import AuthPage from './pages/AuthPage';
 
 const Library = lazy(() => import('./pages/Library'));
+const ChatSofia = lazy(() => import('./pages/ChatSofia'));
 const PlanningCenter = lazy(() => import('./pages/PlanningCenter'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const SubjectDetail = lazy(() => import('./pages/SubjectDetail'));
@@ -46,6 +47,7 @@ function AppContent() {
       <GlobalMigration />
       <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Chargement en cours...</div>}>
         <Routes>
+          <Route path="/chat" element={<ChatSofia />} />
           <Route path="/:folderId?" element={<Library />} />
           <Route path="/subject/:id" element={<SubjectDetail />} />
           <Route path="/planning" element={<PlanningCenter />} />
