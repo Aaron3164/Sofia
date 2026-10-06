@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, deletePDFFromR2 } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 export type FileNode = {
@@ -140,15 +140,27 @@ export function useFileSystem() {
     // Optimistic update
     setNodes(prev => prev.filter(n => !idsToDelete.includes(n.id)));
 
+    // Clean up local storage and R2 PDFs for deleted courses
+    idsToDelete.forEach(deletedId => {
+      const storageKey = `aura_subject_${deletedId}`;
+      const savedDataStr = localStorage.getItem(storageKey);
+      if (savedDataStr) {
+        try {
+          const parsed = JSON.parse(savedDataStr);
+          if (parsed?.pdfUrl && (parsed.pdfUrl.includes('r2.cloudflarestorage.com') || parsed.pdfUrl.includes('.r2.dev'))) {
+            deletePDFFromR2(parsed.pdfUrl);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      localStorage.removeItem(storageKey);
+    });
+
     // Sync
     if (user) {
       const { error } = await supabase.from('nodes').delete().in('id', idsToDelete);
       if (error) console.error('Cloud delete failed:', error);
-    } else {
-      // Local cleanups only if not logged in
-      idsToDelete.forEach(deletedId => {
-        localStorage.removeItem(`aura_subject_${deletedId}`);
-      });
     }
   };
 
