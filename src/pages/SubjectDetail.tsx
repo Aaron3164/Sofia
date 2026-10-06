@@ -13,6 +13,8 @@ import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { Calendar } from 'lucide-react';
+import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
+import { isGoogleDriveUrl } from '../lib/google-drive';
 import './SubjectDetail.css';
 
 type GenerationTab = 'flashcards' | 'mcq' | 'explications' | 'resume';
@@ -28,6 +30,7 @@ export default function SubjectDetail() {
   const courseNode = getNode(id || null);
   const storageKey = `aura_subject_${id}`;
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   
   const [extractedContent, setExtractedContent] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
@@ -569,7 +572,7 @@ export default function SubjectDetail() {
           {pdfUrl || extractedContent ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ padding: '1.5rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '1rem', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '0.5rem', backgroundColor: '#ef444420', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '0.5rem', backgroundColor: isGoogleDriveUrl(pdfUrl) ? '#3b82f620' : '#ef444420', color: isGoogleDriveUrl(pdfUrl) ? '#3b82f6' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <FileText size={24} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -579,49 +582,85 @@ export default function SubjectDetail() {
                   >
                     {fileName || 'Document mémorisé'}
                   </p>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    ✅ Prêt pour l'étude
+                  <p style={{ fontSize: '0.8rem', color: isGoogleDriveUrl(pdfUrl) ? '#3b82f6' : 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    {isGoogleDriveUrl(pdfUrl) ? '☁️ Google Drive (0 Mo R2)' : '✅ Prêt pour l\'étude'}
                   </p>
                 </div>
               </div>
               
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button 
                   onClick={() => setActiveTab('source')}
                   className="btn btn-outline"
-                  style={{ flex: 1, fontSize: '0.85rem', padding: '0.5rem' }}
+                  style={{ flex: 1, minWidth: '90px', fontSize: '0.85rem', padding: '0.5rem' }}
                 >
                   Lire le PDF
                 </button>
-                <label htmlFor="pdf-upload" className="btn btn-outline" style={{ flex: 1, fontSize: '0.85rem', padding: '0.5rem', cursor: 'pointer', textAlign: 'center' }}>
+                <label htmlFor="pdf-upload" className="btn btn-outline" style={{ flex: 1, minWidth: '90px', fontSize: '0.85rem', padding: '0.5rem', cursor: 'pointer', textAlign: 'center' }}>
                   Remplacer
                 </label>
                 <input type="file" id="pdf-upload" accept=".pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
+                <button 
+                  onClick={() => setIsDriveModalOpen(true)}
+                  className="btn btn-outline"
+                  style={{ flex: 1, minWidth: '90px', fontSize: '0.85rem', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                  title="Choisir un document depuis Google Drive (0 Mo R2)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066da"/>
+                    <path d="M43.65 25 29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44C.4 49.9 0 51.45 0 53h27.5L43.65 25z" fill="#00ac47"/>
+                    <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 10.15 7.9 13.65z" fill="#ea4335"/>
+                    <path d="M43.65 25 57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.4-4.5 1.2L43.65 25z" fill="#00832d"/>
+                    <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2L59.8 53z" fill="#2684fc"/>
+                    <path d="M73.4 26.5 60.7 4.5C59.9 3.1 58.75 2 57.4 1.2L43.65 25l16.15 28h27.5c0-1.55-.4-3.1-1.2-4.5l-12.7-22z" fill="#ffba00"/>
+                  </svg>
+                  Drive
+                </button>
               </div>
             </div>
           ) : (
             <div 
               onDragOver={e => e.preventDefault()}
               onDrop={handleDrop}
-              style={{ border: '2px dashed var(--border-color)', borderRadius: '0.75rem', padding: '2rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', marginBottom: '1rem' }}
+              style={{ border: '2px dashed var(--border-color)', borderRadius: '0.75rem', padding: '1.75rem 1rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}
             >
-              <UploadCloud size={40} color="var(--text-secondary)" style={{ margin: '0 auto 1rem' }} />
-              <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>Glissez-déposez le PDF ici</p>
-              <input type="file" id="pdf-upload" accept=".pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
-              <label htmlFor="pdf-upload" className="btn btn-primary" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '1rem 2rem', alignItems: 'flex-start' }}>
-                {isUploading ? (
-                  <div style={{ fontSize: '0.85rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {cloudStatus === 'uploading' ? <RefreshCw className="animate-spin" size={14} /> : cloudStatus === 'done' ? '✅' : '❌'}
-                      <span>Cloud : {cloudStatus === 'uploading' ? 'Envoi...' : cloudStatus === 'done' ? 'Sauvegardé' : 'Erreur'}</span>
+              <UploadCloud size={40} color="var(--text-secondary)" />
+              <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)' }}>Glissez-déposez le PDF ici ou choisissez une source :</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', maxWidth: '270px' }}>
+                <input type="file" id="pdf-upload" accept=".pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
+                <label htmlFor="pdf-upload" className="btn btn-primary" style={{ cursor: 'pointer', textAlign: 'center', padding: '0.75rem 1rem', fontSize: '0.88rem' }}>
+                  {isUploading ? (
+                    <div style={{ fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                        {cloudStatus === 'uploading' ? <RefreshCw className="animate-spin" size={14} /> : cloudStatus === 'done' ? '✅' : '❌'}
+                        <span>Cloud : {cloudStatus === 'uploading' ? 'Envoi...' : cloudStatus === 'done' ? 'Sauvegardé' : 'Erreur'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', marginTop: '0.2rem' }}>
+                        {extractionProgress.current < extractionProgress.total && extractionProgress.total > 0 ? <RefreshCw className="animate-spin" size={14} /> : '✅'}
+                        <span>Lecture : {extractionProgress.current}/{extractionProgress.total} pages</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {extractionProgress.current < extractionProgress.total && extractionProgress.total > 0 ? <RefreshCw className="animate-spin" size={14} /> : '✅'}
-                      <span>Lecture : {extractionProgress.current}/{extractionProgress.total} pages</span>
-                    </div>
-                  </div>
-                ) : 'Uploader un PDF'}
-              </label>
+                  ) : 'Uploader un PDF (Local)'}
+                </label>
+
+                <button 
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setIsDriveModalOpen(true)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem 1rem', fontSize: '0.88rem', borderColor: 'rgba(66, 133, 244, 0.4)' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066da"/>
+                    <path d="M43.65 25 29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44C.4 49.9 0 51.45 0 53h27.5L43.65 25z" fill="#00ac47"/>
+                    <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 10.15 7.9 13.65z" fill="#ea4335"/>
+                    <path d="M43.65 25 57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.4-4.5 1.2L43.65 25z" fill="#00832d"/>
+                    <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2L59.8 53z" fill="#2684fc"/>
+                    <path d="M73.4 26.5 60.7 4.5C59.9 3.1 58.75 2 57.4 1.2L43.65 25l16.15 28h27.5c0-1.55-.4-3.1-1.2-4.5l-12.7-22z" fill="#ffba00"/>
+                  </svg>
+                  <span>Google Drive (0 Mo R2)</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -837,17 +876,33 @@ export default function SubjectDetail() {
 
             <div className="content-viewer">
               {/* PDF Source Tab */}
-              <div style={{ display: activeTab === 'source' ? 'block' : 'none', height: '100%' }}>
+              <div style={{ display: activeTab === 'source' ? 'block' : 'none', height: '100%', position: 'relative' }}>
                 {!pdfUrl ? (
                   <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
                     Aucun PDF disponible. Veuillez l'uploader à gauche.
                   </div>
                 ) : (
-                  <iframe 
-                    src={pdfUrl} 
-                    style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} 
-                    title="Source PDF"
-                  />
+                  <>
+                    {isGoogleDriveUrl(pdfUrl) && (
+                      <div style={{ position: 'absolute', top: '10px', right: '15px', zIndex: 10 }}>
+                        <a 
+                          href={pdfUrl.replace(/\/preview$/, '/view')} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="btn btn-outline shadow-sm"
+                          style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)', borderColor: 'rgba(255,255,255,0.15)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        >
+                          Ouvrir dans Google Drive ↗
+                        </a>
+                      </div>
+                    )}
+                    <iframe 
+                      src={pdfUrl} 
+                      allow="autoplay"
+                      style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} 
+                      title="Source PDF"
+                    />
+                  </>
                 )}
               </div>
 
@@ -894,6 +949,19 @@ export default function SubjectDetail() {
         </div>
 
       </div>
+
+      {/* Google Drive Import Modal */}
+      <GoogleDriveImportModal
+        isOpen={isDriveModalOpen}
+        onClose={() => setIsDriveModalOpen(false)}
+        currentCourseId={id}
+        onSuccess={({ fileName: importedName, pdfUrl: importedUrl, extractedContent: importedText }) => {
+          setFileName(importedName);
+          setPdfUrl(importedUrl);
+          setExtractedContent(importedText);
+          setActiveTab('source');
+        }}
+      />
     </div>
   );
 }
