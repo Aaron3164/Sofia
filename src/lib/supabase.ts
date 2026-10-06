@@ -65,3 +65,30 @@ export async function uploadPDF(file: File, subjectId: string): Promise<string |
   }
 }
 
+/**
+ * Deletes a PDF file from Cloudflare R2 given its public URL or storage key.
+ */
+export async function deletePDFFromR2(urlOrKey: string): Promise<boolean> {
+  if (!urlOrKey) return false;
+  try {
+    const res = await fetch('/api/r2-delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: urlOrKey }),
+    });
+    if (!res.ok) {
+      console.warn('[R2 Delete] Server returned status', res.status);
+      return false;
+    }
+    const data = await res.json();
+    console.log('[R2 Delete] Successfully deleted from Cloudflare R2:', data.deletedKey);
+    return true;
+  } catch (err) {
+    console.error('[R2 Delete Error]:', err);
+    return false;
+  }
+}
+
+
