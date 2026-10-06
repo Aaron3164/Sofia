@@ -153,6 +153,80 @@ export default defineConfig(({ mode }) => {
               }
             });
           });
+
+          server.middlewares.use('/api/r2-delete', async (req, res) => {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+            if (req.method === 'OPTIONS') {
+              res.statusCode = 200;
+              return res.end();
+            }
+
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.setHeader('Content-Type', 'application/json');
+              return res.end(JSON.stringify({ error: 'Method not allowed' }));
+            }
+
+            const accountId = env.R2_ACCOUNT_ID || env.VITE_R2_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || process.env.VITE_R2_ACCOUNT_ID;
+            const accessKeyId = env.R2_ACCESS_KEY_ID || env.VITE_R2_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || process.env.VITE_R2_ACCESS_KEY_ID;
+            const secretAccessKey = env.R2_SECRET_ACCESS_KEY || env.VITE_R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || process.env.VITE_R2_SECRET_ACCESS_KEY;
+            const bucketName = env.R2_BUCKET_NAME || env.VITE_R2_BUCKET_NAME || process.env.R2_BUCKET_NAME || process.env.VITE_R2_BUCKET_NAME;
+
+            if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              return res.end(JSON.stringify({ error: 'Cloudflare R2 non configuré' }));
+            }
+
+            let bodyStr = '';
+            req.on('data', (chunk) => {
+              bodyStr += chunk;
+            });
+            req.on('end', async () => {
+              try {
+                const { url, key: objectKey } = JSON.parse(bodyStr || '{}');
+                let targetKey = objectKey;
+                if (!targetKey && url) {
+                  try {
+                    const parsedUrl = new URL(url);
+                    targetKey = parsedUrl.pathname.replace(/^\//, '');
+                  } catch (e) {
+                    targetKey = url;
+                  }
+                }
+
+                if (!targetKey) {
+                  res.statusCode = 400;
+                  res.setHeader('Content-Type', 'application/json');
+                  return res.end(JSON.stringify({ error: 'url or key is required' }));
+                }
+
+                const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+                const s3 = new S3Client({
+                  region: 'auto',
+                  endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+                  credentials: { accessKeyId, secretAccessKey },
+                });
+
+                const command = new DeleteObjectCommand({
+                  Bucket: bucketName,
+                  Key: targetKey,
+                });
+
+                await s3.send(command);
+
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify({ success: true, deletedKey: targetKey }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify({ error: err?.message || String(err) }));
+              }
+            });
+          });
         }
       }
     ]
