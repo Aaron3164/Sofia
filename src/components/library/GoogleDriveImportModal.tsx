@@ -13,8 +13,7 @@ import {
   extractGoogleDriveFileId, 
   getGoogleDrivePreviewUrl, 
   fetchGoogleDrivePDFBuffer, 
-  openGoogleDrivePicker, 
-  getGoogleClientId
+  openGoogleDrivePicker
 } from '../../lib/google-drive';
 import { extractTextFromPDF } from '../../lib/pdf-extractor';
 import { useFileSystem } from '../../hooks/useFileSystem';
@@ -215,8 +214,6 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
       setIsProcessing(false);
     }
   };
-
-  const configuredClientId = getGoogleClientId();
 
   return (
     <div className="gdrive-modal-overlay" onClick={onClose}>
