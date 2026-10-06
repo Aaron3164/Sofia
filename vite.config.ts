@@ -227,6 +227,86 @@ export default defineConfig(({ mode }) => {
               }
             });
           });
+
+          server.middlewares.use('/api/drive-download', async (req, res) => {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+            if (req.method === 'OPTIONS') {
+              res.statusCode = 200;
+              return res.end();
+            }
+
+            const parsedReqUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+            const fileId = parsedReqUrl.searchParams.get('fileId');
+            const token = parsedReqUrl.searchParams.get('token') || req.headers.authorization?.replace(/^Bearer\s+/i, '');
+
+            if (!fileId) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              return res.end(JSON.stringify({ error: 'fileId est requis' }));
+            }
+
+            try {
+              let driveRes: any;
+              if (token) {
+                driveRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!driveRes.ok) {
+                  res.statusCode = driveRes.status;
+                  res.setHeader('Content-Type', 'application/json');
+                  return res.end(JSON.stringify({ error: `Google Drive API error: ${driveRes.statusText}` }));
+                }
+              } else {
+                const initialUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                driveRes = await fetch(initialUrl, {
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  }
+                });
+
+                const contentType = driveRes.headers.get('content-type') || '';
+                if (contentType.includes('text/html')) {
+                  const html = await driveRes.text();
+                  const confirmMatch = html.match(/confirm=([0-9A-Za-z_-]+)/);
+                  if (confirmMatch && confirmMatch[1]) {
+                    const confirmUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=${confirmMatch[1]}`;
+                    driveRes = await fetch(confirmUrl, {
+                      headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                      }
+                    });
+                  } else {
+                    res.statusCode = 403;
+                    res.setHeader('Content-Type', 'application/json');
+                    return res.end(JSON.stringify({
+                      error: "Impossible d'accéder au document Google Drive. Assurez-vous que le fichier est partagé avec 'Tous les utilisateurs disposant du lien' ou utilisez l'explorateur Google Drive connecté."
+                    }));
+                  }
+                }
+              }
+
+              if (!driveRes.ok) {
+                res.statusCode = driveRes.status;
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify({ error: "Erreur lors du téléchargement du PDF depuis Google Drive." }));
+              }
+
+              const arrayBuf = await driveRes.arrayBuffer();
+              const buffer = Buffer.from(arrayBuf);
+
+              res.setHeader('Content-Type', 'application/pdf');
+              res.setHeader('Content-Length', buffer.length.toString());
+              res.statusCode = 200;
+              return res.end(buffer);
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              return res.end(JSON.stringify({ error: err?.message || String(err) }));
+            }
+          });
         }
       }
     ]
