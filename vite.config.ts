@@ -54,7 +54,10 @@ export default defineConfig(({ mode }) => {
                     attempts++;
                     const response = await ai.models.generateContent({ model, contents, config });
                     res.setHeader('Content-Type', 'application/json');
-                    return res.end(JSON.stringify({ text: response.text || '' }));
+                    return res.end(JSON.stringify({ 
+                      text: response.text || '',
+                      groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
+                    }));
                   } catch (err: any) {
                     lastError = err;
                     const errMsg = String(err?.message || err);
