@@ -1,4 +1,5 @@
 import katex from 'katex';
+import DOMPurify from 'dompurify';
 
 /**
  * Robust Markdown table parser that converts markdown tables into styled HTML tables
@@ -155,5 +156,8 @@ export const mdToHtml = (md: string) => {
     return `<p style="margin-bottom: 0.75rem;">${trimmed}</p>`;
   }).filter(l => l !== '').join('\n');
 
-  return html;
+  // Sanitize the final HTML to prevent XSS (Cross-Site Scripting)
+  return DOMPurify.sanitize(html, {
+    ADD_ATTR: ['target', 'style'] // Allow inline styles (used by katex, tables, highlights)
+  });
 };
