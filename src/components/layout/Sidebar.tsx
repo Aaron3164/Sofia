@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { Sun, Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search } from 'lucide-react';
+import { Sun, Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search, Bot } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getDailyUsage } from '../../lib/gemini';
 import './Layout.css';
@@ -18,6 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const navItems = [
     { to: '/', label: 'Bibliothèque', icon: <Library size={17} />, exact: true },
+    { to: '/chat', label: 'Chat SofIA', icon: <Bot size={17} /> },
     { to: '/planning', label: 'Planification', icon: <Calendar size={17} /> },
     { to: '/flashcards', label: 'Flashcards', icon: <Zap size={17} /> },
     { to: '/statistics', label: 'Statistiques', icon: <BarChart3 size={17} /> },
