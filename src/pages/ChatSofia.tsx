@@ -10,13 +10,10 @@ import {
   Copy,
   Check,
   Pencil,
-  Sparkles,
   ExternalLink,
-  RotateCcw,
   Menu,
   FileText,
   Loader2,
-  ChevronRight,
   BookOpen,
   Scale,
   Stethoscope,
@@ -146,10 +143,7 @@ export default function ChatSofia() {
   // Delete a session
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const confirmed = await confirm({
-      title: 'Supprimer la discussion',
-      message: 'Voulez-vous vraiment supprimer cette conversation ? Cette action est irréversible.'
-    });
+    const confirmed = await confirm('Voulez-vous vraiment supprimer cette conversation ? Cette action est irréversible.');
 
     if (!confirmed) return;
 
@@ -191,10 +185,7 @@ export default function ChatSofia() {
       }
     } catch (err: any) {
       console.error('Error reading attached file:', err);
-      alert({
-        title: 'Erreur de lecture',
-        message: "Impossible de lire le fichier joint. Assurez-vous qu'il s'agit d'un PDF ou d'un fichier texte lisible."
-      });
+      alert("Impossible de lire le fichier joint. Assurez-vous qu'il s'agit d'un PDF ou d'un fichier texte lisible.");
     } finally {
       setIsAttaching(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
