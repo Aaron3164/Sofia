@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
+import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Sparkles, ArrowRight, GraduationCap } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { generateStudyMaterials } from '../lib/gemini';
 import { extractTextFromPDF } from '../lib/pdf-extractor';
@@ -833,11 +833,11 @@ export default function SubjectDetail() {
                   <button 
                     className="btn btn-outline"
                     onClick={() => setIsAnnaleModalOpen(true)}
-                    title="Importer une annale officielle au format PDF (mot pour mot, avec schémas & images, 0 token d'IA)"
-                    style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    title="Importer une annale officielle au format PDF (mot pour mot, avec schémas & images)"
+                    style={{ fontSize: '0.82rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                   >
-                    <UploadCloud size={15} />
-                    <span>📥 Importer une annale (PDF)</span>
+                    <FileText size={15} className="text-accent" />
+                    <span>Importer une annale (PDF)</span>
                   </button>
                 )}
 
@@ -939,41 +939,127 @@ export default function SubjectDetail() {
                   <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
                     {!content ? (
                       tab.id === 'mcq' ? (
-                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', padding: '2rem', textAlign: 'center' }}>
-                          <div style={{ maxWidth: '480px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>
-                              🎯 Préparez votre Examen Blanc
+                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', padding: '2.5rem 1.5rem', textAlign: 'center' }}>
+                          <div style={{ maxWidth: '520px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' }}>
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              padding: '0.35rem 0.85rem',
+                              borderRadius: '2rem',
+                              backgroundColor: 'rgba(219, 39, 119, 0.1)',
+                              color: 'var(--accent-primary)',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.04em',
+                              textTransform: 'uppercase'
+                            }}>
+                              <GraduationCap size={14} />
+                              <span>Entraînement & Évaluation</span>
+                            </div>
+                            <h3 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                              Préparez votre Examen Blanc
                             </h3>
-                            <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                              Choisissez comment vous entraîner sur ce cours :
+                            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                              Deux modes d'entraînement pour tester vos connaissances et suivre votre progression.
                             </p>
                           </div>
 
-                          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                            <button 
-                              className="btn btn-outline glass-panel hover-lift"
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 320px))', gap: '1.5rem', width: '100%', maxWidth: '680px', justifyContent: 'center' }}>
+                            {/* Card 1: Importer une Annale */}
+                            <div 
+                              className="glass-panel hover-lift"
                               onClick={() => setIsAnnaleModalOpen(true)}
-                              style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', width: '230px', borderRadius: '1rem', borderColor: 'var(--accent-primary)', textAlign: 'center' }}
+                              style={{ 
+                                padding: '1.75rem', 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'flex-start', 
+                                textAlign: 'left',
+                                gap: '1rem', 
+                                borderRadius: '1.25rem', 
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-secondary)',
+                                cursor: 'pointer',
+                                position: 'relative',
+                                transition: 'all 0.25s ease'
+                              }}
                             >
-                              <span style={{ fontSize: '1.75rem' }}>📥</span>
-                              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--accent-primary)' }}>Importer une Annale</span>
-                              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                Retranscription mot pour mot du PDF, 0 token, avec figures & corrigé
-                              </span>
-                            </button>
+                              <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '0.85rem',
+                                background: 'linear-gradient(135deg, rgba(219, 39, 119, 0.15), rgba(234, 88, 12, 0.15))',
+                                color: 'var(--accent-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <FileText size={24} />
+                              </div>
 
-                            <button 
-                              className="btn btn-outline glass-panel hover-lift"
+                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  Importer une Annale
+                                </h4>
+                                <p style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: '1.55' }}>
+                                  Déposez un sujet officiel (PDF). Sofia retranscrit mot pour mot, extrait les schémas et applique le corrigé.
+                                </p>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-primary)', fontSize: '0.85rem', fontWeight: 600 }}>
+                                <span>Sélectionner le PDF</span>
+                                <ArrowRight size={15} />
+                              </div>
+                            </div>
+
+                            {/* Card 2: Générer avec Sofia IA */}
+                            <div 
+                              className="glass-panel hover-lift"
                               onClick={handleGenerate}
-                              disabled={isGenerating || !extractedContent}
-                              style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', width: '230px', borderRadius: '1rem', opacity: !extractedContent ? 0.6 : 1, textAlign: 'center' }}
+                              style={{ 
+                                padding: '1.75rem', 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'flex-start', 
+                                textAlign: 'left',
+                                gap: '1rem', 
+                                borderRadius: '1.25rem', 
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-secondary)',
+                                cursor: !extractedContent || isGenerating ? 'not-allowed' : 'pointer',
+                                opacity: !extractedContent ? 0.6 : 1,
+                                position: 'relative',
+                                transition: 'all 0.25s ease'
+                              }}
                             >
-                              <span style={{ fontSize: '1.75rem' }}>✨</span>
-                              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Générer par Sofia IA</span>
-                              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                Création automatique de QCM à partir de votre cours
-                              </span>
-                            </button>
+                              <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '0.85rem',
+                                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
+                                color: '#6366f1',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                {isGenerating ? <RefreshCw className="animate-spin" size={24} /> : <Sparkles size={24} />}
+                              </div>
+
+                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  Générer par Sofia IA
+                                </h4>
+                                <p style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: '1.55' }}>
+                                  Sofia analyse votre cours complet et conçoit un entraînement sur-mesure ciblant les pièges fréquents.
+                                </p>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#6366f1', fontSize: '0.85rem', fontWeight: 600 }}>
+                                <span>{isGenerating ? 'Génération en cours...' : 'Créer le QCM'}</span>
+                                {!isGenerating && <ArrowRight size={15} />}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ) : (
