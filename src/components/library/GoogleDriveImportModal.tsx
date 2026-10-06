@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   X, 
-  Link as LinkIcon, 
-  FolderPlus, 
   AlertCircle, 
   Loader2, 
   ShieldCheck,
@@ -12,8 +10,7 @@ import {
 import { 
   extractGoogleDriveFileId, 
   getGoogleDrivePreviewUrl, 
-  fetchGoogleDrivePDFBuffer, 
-  openGoogleDrivePicker
+  fetchGoogleDrivePDFBuffer
 } from '../../lib/google-drive';
 import { extractTextFromPDF } from '../../lib/pdf-extractor';
 import { useFileSystem } from '../../hooks/useFileSystem';
@@ -40,9 +37,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
   const { user } = useAuth();
   const { addNode } = useFileSystem();
 
-  const [activeTab, setActiveTab] = useState<'picker' | 'link'>('picker');
-  
-  // Link Tab State
+  // Link State
   const [driveUrl, setDriveUrl] = useState('');
   const [courseTitle, setCourseTitle] = useState('');
   
@@ -158,63 +153,6 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
     }
   };
 
-  /**
-   * Importation via l'explorateur Google Picker
-   */
-  const handleOpenPicker = async () => {
-    setErrorMessage(null);
-    setIsProcessing(true);
-    setStatusMessage('Ouverture de l\'explorateur Google Drive...');
-
-    try {
-      const { files, accessToken } = await openGoogleDrivePicker({ multiSelect: !currentCourseId });
-      
-      if (!files || files.length === 0) {
-        setIsProcessing(false);
-        return;
-      }
-
-      let lastCourseId = '';
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setStatusMessage(`Traitement (${i + 1}/${files.length}) : ${file.name}...`);
-        setProgress({ current: 0, total: 0 });
-
-        // Téléchargement du buffer en mémoire avec le jeton d'accès
-        const buffer = await fetchGoogleDrivePDFBuffer(file.id, accessToken);
-        
-        // Extraction du texte pour l'IA
-        const text = await extractTextFromPDF(buffer, (current, total) => {
-          setProgress({ current, total });
-        }).catch(() => 'Document importé depuis Google Drive.');
-
-        // Enregistrement du cours
-        lastCourseId = await saveDriveCourse(file.id, file.name, text);
-      }
-
-      if (onSuccess && lastCourseId) {
-        onSuccess({
-          courseId: lastCourseId,
-          fileName: files[0].name,
-          pdfUrl: files[0].previewUrl,
-          extractedContent: 'Document importé'
-        });
-      } else if (!currentCourseId && lastCourseId) {
-        navigate(`/subject/${lastCourseId}`);
-      }
-
-      onClose();
-    } catch (err: any) {
-      console.error('Erreur Google Picker:', err);
-      if (!err.message?.includes('annulée')) {
-        setErrorMessage(err.message || 'Erreur lors de l\'ouverture du sélecteur Google Drive.');
-      }
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   return (
     <div className="gdrive-modal-overlay" onClick={onClose}>
       <div className="gdrive-modal" onClick={e => e.stopPropagation()}>
@@ -240,24 +178,6 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
           </div>
           <button className="gdrive-close-btn" onClick={onClose} aria-label="Fermer">
             <X size={18} />
-          </button>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="gdrive-tabs">
-          <button 
-            className={`gdrive-tab-btn ${activeTab === 'picker' ? 'active' : ''}`}
-            onClick={() => setActiveTab('picker')}
-            disabled={isProcessing}
-          >
-            <FolderPlus size={15} /> Parcourir mon Drive
-          </button>
-          <button 
-            className={`gdrive-tab-btn ${activeTab === 'link' ? 'active' : ''}`}
-            onClick={() => setActiveTab('link')}
-            disabled={isProcessing}
-          >
-            <LinkIcon size={15} /> Coller un Lien Direct
           </button>
         </div>
 
@@ -291,46 +211,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
                 Ce traitement est effectué temporairement en mémoire vive sans toucher à Cloudflare R2.
               </p>
             </div>
-          ) : activeTab === 'picker' ? (
-            /* Tab 1: Google Picker Explorer */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div className="gdrive-picker-cta">
-                <div className="gdrive-icon-badge" style={{ width: 56, height: 56 }}>
-                  <FolderPlus size={28} color="#4285f4" />
-                </div>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
-                    Accéder à mon Google Drive
-                  </h4>
-                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Parcourez vos dossiers et sélectionnez vos PDF sans quitter Sofia.
-                  </p>
-                </div>
-
-                <button 
-                  type="button" 
-                  className="btn btn-primary shadow-md"
-                  onClick={handleOpenPicker}
-                  style={{ padding: '0.75rem 1.75rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066da"/>
-                    <path d="M43.65 25 29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44C.4 49.9 0 51.45 0 53h27.5L43.65 25z" fill="#00ac47"/>
-                    <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 10.15 7.9 13.65z" fill="#ea4335"/>
-                    <path d="M43.65 25 57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.4-4.5 1.2L43.65 25z" fill="#00832d"/>
-                    <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2L59.8 53z" fill="#2684fc"/>
-                    <path d="M73.4 26.5 60.7 4.5C59.9 3.1 58.75 2 57.4 1.2L43.65 25l16.15 28h27.5c0-1.55-.4-3.1-1.2-4.5l-12.7-22z" fill="#ffba00"/>
-                  </svg>
-                  <span>Ouvrir l'explorateur Google Drive</span>
-                </button>
-              </div>
-
-              <div className="gdrive-tip-box">
-                <strong>✨ Zéro duplication :</strong> Les PDF restent hébergés sur votre Google Drive personnel. Sofia lit le contenu en mémoire pour nourrir l'IA (résumé, cartes, QCM) et affiche le document via le lecteur Drive officiel.
-              </div>
-            </div>
           ) : (
-            /* Tab 2: Lien Direct */
             <form onSubmit={handleImportByLink} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="gdrive-field">
                 <label>Lien de partage du fichier PDF Google Drive *</label>
