@@ -22,8 +22,9 @@ export interface Flashcard extends SpacedCardData {
 export const InteractiveFlashcard: React.FC<{ 
   data: string | Flashcard[], 
   onUpdate?: (data: Flashcard[]) => void,
-  courseId?: string
-}> = ({ data, onUpdate, courseId }) => {
+  courseId?: string,
+  mode?: 'standard' | 'spaced-repetition'
+}> = ({ data, onUpdate, courseId, mode = 'standard' }) => {
   const [currentIndex, setCurrentIndex] = useState(() => {
     if (courseId) {
       const saved = sessionStorage.getItem(`aura_flashcard_idx_${courseId}`);
@@ -258,16 +259,16 @@ export const InteractiveFlashcard: React.FC<{
       if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
         setIsFlipped(prev => !prev);
-      } else if (isFlipped && (e.key === '1' || e.key === '&' || e.code === 'Digit1' || e.code === 'Numpad1')) {
+      } else if (mode === 'spaced-repetition' && isFlipped && (e.key === '1' || e.key === '&' || e.code === 'Digit1' || e.code === 'Numpad1')) {
         e.preventDefault();
         handleRate(1);
-      } else if (isFlipped && (e.key === '2' || e.key === 'é' || e.code === 'Digit2' || e.code === 'Numpad2')) {
+      } else if (mode === 'spaced-repetition' && isFlipped && (e.key === '2' || e.key === 'é' || e.code === 'Digit2' || e.code === 'Numpad2')) {
         e.preventDefault();
         handleRate(2);
-      } else if (isFlipped && (e.key === '3' || e.key === '"' || e.code === 'Digit3' || e.code === 'Numpad3')) {
+      } else if (mode === 'spaced-repetition' && isFlipped && (e.key === '3' || e.key === '"' || e.code === 'Digit3' || e.code === 'Numpad3')) {
         e.preventDefault();
         handleRate(3);
-      } else if (isFlipped && (e.key === '4' || e.key === "'" || e.code === 'Digit4' || e.code === 'Numpad4')) {
+      } else if (mode === 'spaced-repetition' && isFlipped && (e.key === '4' || e.key === "'" || e.code === 'Digit4' || e.code === 'Numpad4')) {
         e.preventDefault();
         handleRate(4);
       } else if (e.key === 'ArrowRight') {
@@ -314,7 +315,7 @@ export const InteractiveFlashcard: React.FC<{
             Carte {currentIndex + 1} sur {cards.length}
           </span>
           {/* Spaced Repetition State Badge */}
-          {(() => {
+          {mode === 'spaced-repetition' && (() => {
             const state = currentCard.state || 'new';
             if (state === 'review') {
               return (
@@ -714,141 +715,151 @@ export const InteractiveFlashcard: React.FC<{
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: cardMaxWidth, marginTop: '1.75rem', gap: '0.85rem' }}>
           {isFlipped ? (
             <div style={{ display: 'flex', flexDirection: 'column', width: '100%', alignItems: 'center', gap: '0.75rem' }}>
-              {/* Anki SM-2 Grading Buttons Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', width: '100%' }}>
-                {/* 1. À revoir (Again) */}
-                <button
-                  className="hover-lift"
-                  onClick={() => handleRate(1)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0.85rem 0.5rem',
-                    borderRadius: '1rem',
-                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                    border: '1.5px solid rgba(239, 68, 68, 0.4)',
-                    color: '#ef4444',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  title="Touche 1 : À revoir"
-                >
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                    <span style={{ opacity: 0.6, marginRight: '0.25rem' }}>1</span> À revoir
-                  </span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, background: 'rgba(239, 68, 68, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '0.4rem' }}>
-                    {previews.again.label}
-                  </span>
-                </button>
+              {mode === 'spaced-repetition' ? (
+                <>
+                  {/* Anki SM-2 Grading Buttons Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', width: '100%' }}>
+                    {/* 1. À revoir (Again) */}
+                    <button
+                      className="hover-lift"
+                      onClick={() => handleRate(1)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.85rem 0.5rem',
+                        borderRadius: '1rem',
+                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                        border: '1.5px solid rgba(239, 68, 68, 0.4)',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                      title="Touche 1 : À revoir"
+                    >
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                        <span style={{ opacity: 0.6, marginRight: '0.25rem' }}>1</span> À revoir
+                      </span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, background: 'rgba(239, 68, 68, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '0.4rem' }}>
+                        {previews.again.label}
+                      </span>
+                    </button>
 
-                {/* 2. Difficile (Hard) */}
-                <button
-                  className="hover-lift"
-                  onClick={() => handleRate(2)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0.85rem 0.5rem',
-                    borderRadius: '1rem',
-                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                    border: '1.5px solid rgba(245, 158, 11, 0.4)',
-                    color: '#f59e0b',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  title="Touche 2 : Difficile"
-                >
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                    <span style={{ opacity: 0.6, marginRight: '0.25rem' }}>2</span> Difficile
-                  </span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, background: 'rgba(245, 158, 11, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '0.4rem' }}>
-                    {previews.hard.label}
-                  </span>
-                </button>
+                    {/* 2. Difficile (Hard) */}
+                    <button
+                      className="hover-lift"
+                      onClick={() => handleRate(2)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.85rem 0.5rem',
+                        borderRadius: '1rem',
+                        backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                        border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                        color: '#f59e0b',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                      title="Touche 2 : Difficile"
+                    >
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                        <span style={{ opacity: 0.6, marginRight: '0.25rem' }}>2</span> Difficile
+                      </span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, background: 'rgba(245, 158, 11, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '0.4rem' }}>
+                        {previews.hard.label}
+                      </span>
+                    </button>
 
-                {/* 3. Correct (Good) */}
-                <button
-                  className="hover-lift"
-                  onClick={() => handleRate(3)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0.85rem 0.5rem',
-                    borderRadius: '1rem',
-                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                    border: '1.5px solid rgba(16, 185, 129, 0.4)',
-                    color: '#10b981',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  title="Touche 3 : Correct"
-                >
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                    <span style={{ opacity: 0.6, marginRight: '0.25rem' }}>3</span> Correct
-                  </span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, background: 'rgba(16, 185, 129, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '0.4rem' }}>
-                    {previews.good.label}
-                  </span>
-                </button>
+                    {/* 3. Correct (Good) */}
+                    <button
+                      className="hover-lift"
+                      onClick={() => handleRate(3)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.85rem 0.5rem',
+                        borderRadius: '1rem',
+                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                        border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                        color: '#10b981',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                      title="Touche 3 : Correct"
+                    >
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                        <span style={{ opacity: 0.6, marginRight: '0.25rem' }}>3</span> Correct
+                      </span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, background: 'rgba(16, 185, 129, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '0.4rem' }}>
+                        {previews.good.label}
+                      </span>
+                    </button>
 
-                {/* 4. Facile (Easy) */}
-                <button
-                  className="hover-lift"
-                  onClick={() => handleRate(4)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0.85rem 0.5rem',
-                    borderRadius: '1rem',
-                    backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                    border: '1.5px solid rgba(99, 102, 241, 0.4)',
-                    color: '#6366f1',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  title="Touche 4 : Facile"
-                >
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                    <span style={{ opacity: 0.6, marginRight: '0.25rem' }}>4</span> Facile
-                  </span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, background: 'rgba(99, 102, 241, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '0.4rem' }}>
-                    {previews.easy.label}
-                  </span>
-                </button>
-              </div>
+                    {/* 4. Facile (Easy) */}
+                    <button
+                      className="hover-lift"
+                      onClick={() => handleRate(4)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.85rem 0.5rem',
+                        borderRadius: '1rem',
+                        backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                        border: '1.5px solid rgba(99, 102, 241, 0.4)',
+                        color: '#6366f1',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                      title="Touche 4 : Facile"
+                    >
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                        <span style={{ opacity: 0.6, marginRight: '0.25rem' }}>4</span> Facile
+                      </span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9, background: 'rgba(99, 102, 241, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '0.4rem' }}>
+                        {previews.easy.label}
+                      </span>
+                    </button>
+                  </div>
 
-              {/* Sub-navigation controls */}
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.25rem' }}>
-                <button 
-                  className="btn btn-outline" 
-                  onClick={handlePrev} 
-                  style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem' }}
-                >
-                  Précédente
-                </button>
-                <button 
-                  className="btn btn-outline" 
-                  onClick={() => setIsFlipped(false)} 
-                  style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem' }}
-                >
-                  Voir Question (Recto)
-                </button>
-                <button 
-                  className="btn btn-outline" 
-                  onClick={handleNext} 
-                  style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem' }}
-                >
-                  Suivante sans noter
-                </button>
-              </div>
+                  {/* Sub-navigation controls */}
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.25rem' }}>
+                    <button 
+                      className="btn btn-outline" 
+                      onClick={handlePrev} 
+                      style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem' }}
+                    >
+                      Précédente
+                    </button>
+                    <button 
+                      className="btn btn-outline" 
+                      onClick={() => setIsFlipped(false)} 
+                      style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem' }}
+                    >
+                      Voir Question (Recto)
+                    </button>
+                    <button 
+                      className="btn btn-outline" 
+                      onClick={handleNext} 
+                      style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem' }}
+                    >
+                      Suivante sans noter
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <button className="btn btn-outline" onClick={handlePrev}>Précédente</button>
+                  <button className="btn btn-outline" onClick={() => setIsFlipped(false)}>Voir Question (Recto)</button>
+                  <button className="btn btn-outline" onClick={handleNext}>Suivante</button>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
