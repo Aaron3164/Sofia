@@ -869,7 +869,7 @@ export const InteractiveFlashcard: React.FC<{
                 onClick={() => setIsFlipped(true)}
                 style={{ padding: '0.65rem 1.75rem', fontWeight: 600 }}
               >
-                Afficher la Réponse <span style={{ opacity: 0.7, fontSize: '0.85rem', marginLeft: '0.35rem' }}>(Espace)</span>
+                Afficher la Réponse
               </button>
               <button className="btn btn-outline" onClick={handleNext}>Suivante</button>
             </div>
