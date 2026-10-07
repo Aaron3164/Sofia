@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  X, Zap, CheckCircle2, Clock, RotateCcw, Award, Sparkles, BookOpen, 
-  ChevronRight, ArrowRight, Play, Check, AlertCircle, Layers
+  X, Zap, RotateCcw, Award, BookOpen, 
+  Play, Check, AlertCircle, Layers
 } from 'lucide-react';
 import { type FileNode } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';

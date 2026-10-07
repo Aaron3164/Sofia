@@ -6,7 +6,6 @@ import { compressImage, getImageFromClipboard } from '../../lib/image-utils';
 import { 
   calculateNextSchedule, 
   getSchedulePreviews, 
-  isCardDue, 
   type CardRating, 
   type SpacedCardData 
 } from '../../lib/spaced-repetition';
