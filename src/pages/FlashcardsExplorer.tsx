@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
-import { Search } from 'lucide-react';
+import { Search, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
+import { OccludedImageViewer, type OcclusionRect } from '../components/library/OccludedImageViewer';
 
 interface Flashcard {
   front: string;
   back: string;
+  image?: string;
+  imageSide?: 'front' | 'back' | 'both';
+  occlusions?: OcclusionRect[];
 }
 
 interface FlashcardSource {
@@ -23,6 +28,7 @@ export default function FlashcardsExplorer() {
   const [allCards, setAllCards] = useState<FlashcardSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
 
   const getFolderPath = (node: FileNode): string[] => {
     const path: string[] = [];
@@ -147,15 +153,24 @@ export default function FlashcardsExplorer() {
             Parcours et recherche parmi tes {allCards.length} flashcards disponibles.
           </p>
         </div>
-        <button 
-          onClick={() => loadAllCards()} 
-          disabled={isSyncing}
-          className="btn btn-outline"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          {isSyncing ? <div className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }}></div> : <div style={{ transform: 'rotate(0deg)' }}>🔄</div>}
-          {isSyncing ? 'Synchronisation...' : 'Actualiser'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button 
+            onClick={() => setIsRevisionModalOpen(true)}
+            className="btn btn-primary shadow-sm hover-lift"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+          >
+            <Zap size={16} /> Révision Globale (SM-2)
+          </button>
+          <button 
+            onClick={() => loadAllCards()} 
+            disabled={isSyncing}
+            className="btn btn-outline"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            {isSyncing ? <div className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }}></div> : <div style={{ transform: 'rotate(0deg)' }}>🔄</div>}
+            {isSyncing ? 'Synchronisation...' : 'Actualiser'}
+          </button>
+        </div>
       </header>
 
       <div style={{ marginBottom: '2rem', position: 'relative', maxWidth: '800px' }}>
@@ -206,12 +221,34 @@ export default function FlashcardsExplorer() {
                 {/* Card Front */}
                 <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px dashed var(--border-color)' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'block' }}>Question</span>
+                  {source.card.image && (source.card.imageSide === 'front' || source.card.imageSide === 'both' || !source.card.imageSide) && (
+                    <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'center' }}>
+                      <OccludedImageViewer
+                        imageUrl={source.card.image}
+                        occlusions={source.card.occlusions}
+                        isRevealed={false}
+                        maxHeight="160px"
+                        alt="Question"
+                      />
+                    </div>
+                  )}
                   <p style={{ fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '1.05rem' }}>{source.card.front}</p>
                 </div>
 
                 {/* Card Back */}
                 <div style={{ flex: 1 }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--success)', marginBottom: '0.5rem', display: 'block' }}>Réponse</span>
+                  {source.card.image && (source.card.imageSide === 'back' || source.card.imageSide === 'both') && (
+                    <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'center' }}>
+                      <OccludedImageViewer
+                        imageUrl={source.card.image}
+                        occlusions={source.card.occlusions}
+                        isRevealed={true}
+                        maxHeight="160px"
+                        alt="Réponse"
+                      />
+                    </div>
+                  )}
                   <p style={{ color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '0.95rem' }}>{source.card.back}</p>
                 </div>
               </div>
@@ -219,6 +256,20 @@ export default function FlashcardsExplorer() {
           </div>
         )}
       </div>
+
+      {/* Global Spaced Repetition Revision Modal */}
+      {isRevisionModalOpen && (
+        <FolderRevisionModal
+          isOpen={isRevisionModalOpen}
+          onClose={() => {
+            setIsRevisionModalOpen(false);
+            loadAllCards(); // reload cards when revision finishes
+          }}
+          folderId={null}
+          folderName="Toute la bibliothèque"
+          allNodes={nodes}
+        />
+      )}
     </div>
   );
 }

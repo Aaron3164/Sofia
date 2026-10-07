@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useDialog } from '../context/DialogContext';
 import { useAuth } from '../context/AuthContext';
-import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft } from 'lucide-react';
+import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft, Zap } from 'lucide-react';
 import { MoveNodeModal } from '../components/library/MoveNodeModal';
 import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
+import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
 import './Library.css';
 
 export default function Library() {
@@ -18,6 +19,7 @@ export default function Library() {
   const currentFolderId = folderId || null;
   const [nodeToMove, setNodeToMove] = useState<FileNode | null>(null);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+  const [revisionFolder, setRevisionFolder] = useState<{ id: string | null; name: string } | null>(null);
   
   const currentFolder = getNode(currentFolderId);
   const items = getChildren(currentFolderId);
@@ -127,6 +129,23 @@ export default function Library() {
         </div>
 
         <div className="action-buttons">
+          <button 
+            className="btn btn-outline shadow-sm hover-lift" 
+            onClick={() => setRevisionFolder({ id: currentFolderId, name: currentFolder ? currentFolder.name : 'Toute la bibliothèque' })}
+            title="Lancer une révision globale des cartes de ce dossier"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              borderColor: 'rgba(99, 102, 241, 0.45)', 
+              color: 'var(--accent-primary)',
+              background: 'rgba(99, 102, 241, 0.08)'
+            }}
+          >
+            <Zap size={16} />
+            <span className="desktop-only">{currentFolder ? 'Réviser le dossier' : 'Révision Globale'}</span>
+            <span className="mobile-only">Réviser</span>
+          </button>
           <button className="btn btn-outline shadow-sm" onClick={handleCreateFolder}>
             <Plus size={18} /> <span className="desktop-only">Dossier</span>
           </button>
@@ -200,6 +219,19 @@ export default function Library() {
                 </div>
                 
                 <div className="folder-actions" style={{ display: 'flex', gap: '0.4rem' }}>
+                  {item.type === 'folder' && (
+                    <button 
+                      className="icon-button" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRevisionFolder({ id: item.id, name: item.name });
+                      }} 
+                      title="Réviser les flashcards de ce dossier"
+                      style={{ color: 'var(--accent-primary)' }}
+                    >
+                      <Zap size={16} />
+                    </button>
+                  )}
                    <button className="icon-button" onClick={(e) => handleReorder(e, item, 'prev')} title="Déplacer vers la gauche" disabled={items.indexOf(item) === 0} style={{ opacity: items.indexOf(item) === 0 ? 0.3 : 1 }}>
                     <ChevronLeft size={16} />
                   </button>
@@ -223,6 +255,17 @@ export default function Library() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Folder Global Revision Modal */}
+      {revisionFolder && (
+        <FolderRevisionModal
+          isOpen={!!revisionFolder}
+          onClose={() => setRevisionFolder(null)}
+          folderId={revisionFolder.id}
+          folderName={revisionFolder.name}
+          allNodes={nodes}
+        />
       )}
     </div>
   );
