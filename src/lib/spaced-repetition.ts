@@ -229,7 +229,7 @@ export function calculateNextSchedule(
 /**
  * Calcule à l'avance les textes des intervalles pour les 4 boutons de notation.
  */
-export function getSchedulePreviews(card: SpacedCardData, now: Date = new Date()): SchedulePreviews {
+export function getSchedulePreviews(card: SpacedCardData): SchedulePreviews {
   const state: CardState = card.state || 'new';
   const step = card.step ?? 0;
   const currentInterval = card.interval ?? 0;
