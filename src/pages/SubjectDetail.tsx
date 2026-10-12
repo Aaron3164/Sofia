@@ -433,8 +433,9 @@ export default function SubjectDetail() {
 
         if (profile) await saveToCloud({ generations: newGenerations });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating materials:', error);
+      alert(error?.message || 'Erreur lors de la génération avec Sofia.');
     } finally {
       setIsGenerating(false);
     }
