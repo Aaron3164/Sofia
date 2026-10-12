@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, Loader2, Pencil } from 'lucide-react';
-import { askQuestion, generateChatTitle } from '../../lib/gemini';
+import { askQuestion, generateChatTitle, getDailyUsage } from '../../lib/gemini';
 import { mdToHtml } from '../../lib/markdown';
 import { extractTextFromPDF } from '../../lib/pdf-extractor';
 import { WysiwygEditor } from './WysiwygEditor';
@@ -29,6 +29,7 @@ interface InteractiveQAProps {
   onUpdate: (newData: string) => void;
   documentContext: string;
   preferences?: AIPreferences;
+  plan?: string;
 }
 
 const QAAiMessageItem: React.FC<{
@@ -72,11 +73,25 @@ const QAAiMessageItem: React.FC<{
   );
 };
 
-export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, documentContext, preferences }) => {
+export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, documentContext, preferences, plan }) => {
   const [inputValue, setInputValue] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [conversations, setConversations] = useState<QAConversation[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+
+  // Quota tracking
+  const [dailyUsage, setDailyUsage] = useState<number>(0);
+  const maxGenerations = plan === 'premium' ? 50 : 5;
+  const isQuotaReached = dailyUsage >= maxGenerations;
+
+  useEffect(() => {
+    const refreshUsage = () => {
+      getDailyUsage().then(count => setDailyUsage(count));
+    };
+    refreshUsage();
+    window.addEventListener('ai-usage-updated', refreshUsage);
+    return () => window.removeEventListener('ai-usage-updated', refreshUsage);
+  }, []);
 
   // Annale attachment state
   const [draftAnnale, setDraftAnnale] = useState<QAAnnaleAttachment | null>(null);
@@ -212,6 +227,11 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
 
   const handleSend = async () => {
     if (!inputValue.trim() || !documentContext) return;
+
+    if (isQuotaReached) {
+      alert(`Limite quotidienne atteinte (${dailyUsage}/${maxGenerations}). ${plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
+      return;
+    }
 
     const newQuestion: QAMessage = { role: 'user', text: inputValue.trim() };
     const isNewChat = !activeChatId || !activeConversation;
@@ -502,13 +522,14 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
           onKeyDown={handleKeyDown}
           placeholder={activeAnnale ? "Demande une correction ou pose une question sur ce sujet..." : "Pose ta question à Sofia..."}
           style={{ flex: 1, padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-          disabled={isAsking || isExtractingPdf}
+          disabled={isAsking || isExtractingPdf || isQuotaReached}
         />
         <button 
           className="btn btn-primary shadow-sm" 
           onClick={handleSend}
-          disabled={isAsking || isExtractingPdf || !inputValue.trim()}
+          disabled={isAsking || isExtractingPdf || !inputValue.trim() || isQuotaReached}
           style={{ padding: '0 1.5rem', borderRadius: '0.5rem' }}
+          title={isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : undefined}
         >
           <Send size={20} />
         </button>
