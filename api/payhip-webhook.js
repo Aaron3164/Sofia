@@ -84,6 +84,21 @@ export default async function handler(req, res) {
     const body = await parseBody(req);
     console.log('[Payhip Webhook] Incoming Payload:', JSON.stringify(body, null, 2));
 
+    // Security: Verify Payhip Signature
+    const payhipApiKey = process.env.PAYHIP_API_KEY;
+    if (payhipApiKey) {
+      const crypto = await import('crypto');
+      const expectedSignature = crypto.createHash('sha256').update(payhipApiKey.trim()).digest('hex');
+      const providedSignature = body.signature || req.headers['x-payhip-signature'];
+
+      if (!providedSignature || providedSignature !== expectedSignature) {
+        console.warn('[Payhip Webhook] Signature invalide ou manquante. Rejet de la requête.');
+        return res.status(401).json({ error: 'Signature Payhip non autorisée ou invalide' });
+      }
+    } else {
+      console.warn('[Payhip Webhook] Attention: PAYHIP_API_KEY non configurée sur le serveur. La signature n\'a pas pu être validée.');
+    }
+
     let rawEmail = body.email || body.buyer_email || body.customer_email || body.payer_email || body.user_email || body.custom || '';
     if (typeof rawEmail !== 'string') rawEmail = String(rawEmail);
 
