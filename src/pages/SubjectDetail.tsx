@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Sparkles, ArrowRight, GraduationCap } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
-import { generateStudyMaterials } from '../lib/gemini';
+import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
 import { extractTextFromPDF } from '../lib/pdf-extractor';
 import { InteractiveMCQ } from '../components/library/InteractiveMCQ';
 import { InteractiveFlashcard } from '../components/library/InteractiveFlashcard';
@@ -30,6 +30,9 @@ export default function SubjectDetail() {
   
   const courseNode = getNode(id || null);
   const storageKey = `aura_subject_${id}`;
+  const [dailyUsage, setDailyUsage] = React.useState<number>(0);
+  const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
+  const isQuotaReached = dailyUsage >= maxGenerations;
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [isAnnaleModalOpen, setIsAnnaleModalOpen] = useState(false);
@@ -78,6 +81,18 @@ export default function SubjectDetail() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen]);
+
+  // Fetch daily AI usage on mount and listen for updates
+  useEffect(() => {
+    const refreshUsage = () => {
+      if (profile) {
+        getDailyUsage().then(count => setDailyUsage(count));
+      }
+    };
+    refreshUsage();
+    window.addEventListener('ai-usage-updated', refreshUsage);
+    return () => window.removeEventListener('ai-usage-updated', refreshUsage);
+  }, [profile]);
 
   // Load data from Supabase or LocalStorage
   useEffect(() => {
@@ -399,6 +414,10 @@ export default function SubjectDetail() {
   };
 
   const handleGenerate = async () => {
+    if (isQuotaReached) {
+      await alert(`Limite quotidienne atteinte (${dailyUsage}/${maxGenerations}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
+      return;
+    }
     if (!extractedContent) {
       await alert("Veuillez d'abord ajouter ou glisser-déposer un PDF pour ce cours (dans la zone \"Document Source\" à gauche).");
       return;
@@ -846,10 +865,11 @@ export default function SubjectDetail() {
                   <button 
                     className="btn btn-primary" 
                     onClick={handleGenerate}
-                    disabled={isGenerating}
-                    style={!extractedContent ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+                    disabled={isGenerating || isQuotaReached}
+                    style={(!extractedContent || isQuotaReached) ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+                    title={isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : undefined}
                   >
-                    {isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <span>Générer</span>}
+                    {isGenerating ? <RefreshCw className="animate-spin" size={16} /> : isQuotaReached ? <span>Limite atteinte</span> : <span>Générer</span>}
                   </button>
                 )}
               </div>
@@ -927,7 +947,8 @@ export default function SubjectDetail() {
                   data={generations.explications} 
                   onUpdate={d => updateData('explications', d)} 
                   documentContext={extractedContent}
-                  preferences={profile?.preferences} 
+                  preferences={profile?.preferences}
+                  plan={profile?.plan}
                 />
               </div>
 
@@ -1017,7 +1038,7 @@ export default function SubjectDetail() {
                             {/* Card 2: Générer avec Sofia IA */}
                             <div 
                               className="glass-panel hover-lift"
-                              onClick={handleGenerate}
+                              onClick={!isQuotaReached ? handleGenerate : undefined}
                               style={{ 
                                 padding: '1.75rem', 
                                 display: 'flex', 
@@ -1028,18 +1049,19 @@ export default function SubjectDetail() {
                                 borderRadius: '1.25rem', 
                                 border: '1px solid var(--border-color)',
                                 backgroundColor: 'var(--bg-secondary)',
-                                cursor: !extractedContent || isGenerating ? 'not-allowed' : 'pointer',
-                                opacity: !extractedContent ? 0.6 : 1,
+                                cursor: !extractedContent || isGenerating || isQuotaReached ? 'not-allowed' : 'pointer',
+                                opacity: !extractedContent || isQuotaReached ? 0.6 : 1,
                                 position: 'relative',
                                 transition: 'all 0.25s ease'
                               }}
+                              title={isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : undefined}
                             >
                               <div style={{
                                 width: '48px',
                                 height: '48px',
                                 borderRadius: '0.85rem',
-                                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
-                                color: '#6366f1',
+                                background: isQuotaReached ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1))' : 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
+                                color: isQuotaReached ? 'var(--danger)' : '#6366f1',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center'
@@ -1049,16 +1071,19 @@ export default function SubjectDetail() {
 
                               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                 <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                  Générer par Sofia IA
+                                  {isQuotaReached ? 'Limite quotidienne atteinte' : 'Générer par Sofia IA'}
                                 </h4>
                                 <p style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: '1.55' }}>
-                                  Sofia analyse votre cours complet et conçoit un entraînement sur-mesure ciblant les pièges fréquents.
+                                  {isQuotaReached 
+                                    ? `Vous avez utilisé ${dailyUsage}/${maxGenerations} générations aujourd'hui.${profile?.plan !== 'premium' ? ' Passez Premium pour 50/jour !' : ' Revenez demain !'}`
+                                    : 'Sofia analyse votre cours complet et conçoit un entraînement sur-mesure ciblant les pièges fréquents.'
+                                  }
                                 </p>
                               </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#6366f1', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <span>{isGenerating ? 'Génération en cours...' : 'Créer le QCM'}</span>
-                                {!isGenerating && <ArrowRight size={15} />}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: isQuotaReached ? 'var(--danger)' : '#6366f1', fontSize: '0.85rem', fontWeight: 600 }}>
+                                <span>{isGenerating ? 'Génération en cours...' : isQuotaReached ? `${dailyUsage}/${maxGenerations} utilisées` : 'Créer le QCM'}</span>
+                                {!isGenerating && !isQuotaReached && <ArrowRight size={15} />}
                               </div>
                             </div>
                           </div>

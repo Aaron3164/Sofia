@@ -26,6 +26,7 @@ import { useDialog } from '../context/DialogContext';
 import {
   askChatSofia,
   generateChatTitle,
+  getDailyUsage,
   type SofiaChatMessage,
   type SofiaChatSession
 } from '../lib/gemini';
@@ -96,6 +97,22 @@ export default function ChatSofia() {
   // Attached file
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const [isAttaching, setIsAttaching] = useState(false);
+
+  // Quota tracking
+  const [dailyUsage, setDailyUsage] = useState<number>(0);
+  const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
+  const isQuotaReached = dailyUsage >= maxGenerations;
+
+  useEffect(() => {
+    const refreshUsage = () => {
+      if (user) {
+        getDailyUsage().then(count => setDailyUsage(count));
+      }
+    };
+    refreshUsage();
+    window.addEventListener('ai-usage-updated', refreshUsage);
+    return () => window.removeEventListener('ai-usage-updated', refreshUsage);
+  }, [user]);
 
   // Copy state & Edit state
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -196,6 +213,21 @@ export default function ChatSofia() {
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputText).trim();
     if (!query || isLoading) return;
+
+    if (isQuotaReached) {
+      const errorMessage: SofiaChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `⚠️ **Limite quotidienne atteinte** (${dailyUsage}/${maxGenerations}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au Plan Premium pour 50 générations/jour !'}`,
+        createdAt: Date.now()
+      };
+      // Show error in current or new session
+      if (activeSessionId && currentSession) {
+        setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, { id: crypto.randomUUID(), role: 'user' as const, content: query, createdAt: Date.now() }, errorMessage] } : s));
+      }
+      setInputText('');
+      return;
+    }
 
     const userMessage: SofiaChatMessage = {
       id: crypto.randomUUID(),
@@ -436,7 +468,8 @@ export default function ChatSofia() {
                   <div
                     key={idx}
                     className="chat-starter-card"
-                    onClick={() => handleSendMessage(prompt.text)}
+                    onClick={() => !isQuotaReached && handleSendMessage(prompt.text)}
+                    style={isQuotaReached ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                   >
                     <div className="chat-starter-icon">{prompt.icon}</div>
                     <div>
@@ -631,8 +664,8 @@ export default function ChatSofia() {
               <button
                 className="chat-send-btn"
                 onClick={() => handleSendMessage()}
-                disabled={!inputText.trim() || isLoading}
-                title="Envoyer le message (Entrée)"
+                disabled={!inputText.trim() || isLoading || isQuotaReached}
+                title={isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : 'Envoyer le message (Entrée)'}
               >
                 {isLoading ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
               </button>
@@ -640,7 +673,14 @@ export default function ChatSofia() {
           </div>
 
           <div className="chat-disclaimer">
-            SofIA peut générer des réponses inexactes. Vérifiez toujours les informations critiques avec vos sources universitaires.
+            {isQuotaReached ? (
+              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                ⚠️ Limite quotidienne atteinte ({dailyUsage}/{maxGenerations}).{' '}
+                {profile?.plan !== 'premium' ? 'Passez Premium pour 50 générations/jour !' : 'Revenez demain !'}
+              </span>
+            ) : (
+              <>SofIA peut générer des réponses inexactes. Vérifiez toujours les informations critiques avec vos sources universitaires.</>
+            )}
           </div>
         </div>
       </div>
