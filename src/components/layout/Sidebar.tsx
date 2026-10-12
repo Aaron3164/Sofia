@@ -118,18 +118,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </div>
             </NavLink>
 
-            {profile?.plan !== 'premium' && usage !== null && (
+            {usage !== null && (
               <div className="usage-bar-container">
                 <div className="usage-bar-header">
-                  <span>Générations IA</span>
-                  <span style={{ color: usage >= 4 ? 'var(--danger)' : 'var(--text-muted)' }}>{usage} / 5</span>
+                  <span>Générations IA (Aujourd'hui)</span>
+                  <span style={{ color: usage >= (profile?.plan === 'premium' ? 45 : 4) ? 'var(--danger)' : 'var(--text-muted)' }}>
+                    {usage} / {profile?.plan === 'premium' ? 50 : 5}
+                  </span>
                 </div>
                 <div className="usage-bar-track">
                   <div
                     className="usage-bar-fill"
                     style={{
-                      width: `${Math.min((usage / 5) * 100, 100)}%`,
-                      background: usage >= 18 ? 'var(--danger)' : undefined,
+                      width: `${Math.min((usage / (profile?.plan === 'premium' ? 50 : 5)) * 100, 100)}%`,
+                      background: usage >= (profile?.plan === 'premium' ? 45 : 4) ? 'var(--danger)' : undefined,
                     }}
                   />
                 </div>
@@ -137,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             )}
 
             {profile?.plan === 'premium' && (
-              <div className="premium-badge">✦ Accès Illimité</div>
+              <div className="premium-badge">✦ Forfait Premium Actif</div>
             )}
           </>
         )}
