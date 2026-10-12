@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { GoogleGenAI } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -34,6 +35,29 @@ export default defineConfig(({ mode }) => {
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
               return res.end(JSON.stringify({ error: 'La clé GEMINI_API_KEY est manquante dans .env' }));
+            }
+
+            // Quota verification in development
+            const authHeader = req.headers['authorization'];
+            const token = authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+            const sbUrl = env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+            const sbKey = env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+            if (token && sbUrl && sbKey) {
+              const supabase = createClient(sbUrl, sbKey, {
+                global: { headers: { Authorization: `Bearer ${token}` } }
+              });
+              const { data: quotaAllowed, error: quotaError } = await supabase.rpc('check_and_increment_ai_usage');
+              if (quotaError) {
+                console.warn('[Vite Dev Gemini Proxy] Quota RPC error:', quotaError.message);
+              } else if (quotaAllowed === false) {
+                res.statusCode = 429;
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify({
+                  error: 'QUOTA_EXCEEDED',
+                  message: 'Limite quotidienne de générations IA atteinte (5/jour en gratuit, 50/jour en Premium).'
+                }));
+              }
             }
 
             let bodyStr = '';
