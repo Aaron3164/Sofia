@@ -37,6 +37,10 @@ async function callGeminiProxy(
   });
 
   const data = await response.json();
+
+  // Met à jour la barre de quota dans la Sidebar en temps réel
+  window.dispatchEvent(new CustomEvent('ai-usage-updated'));
+
   if (!response.ok || data.error) {
     if (data.error === 'QUOTA_EXCEEDED' || response.status === 429) {
       throw new Error(data.message || 'Limite de générations par jour atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
@@ -54,36 +58,32 @@ async function callGeminiProxy(
  * Fetches the current daily AI usage for the logged-in user.
  */
 export async function getDailyUsage(): Promise<number> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData?.session?.user?.id;
+  if (!userId) return 0;
+
   const { data, error } = await supabase
     .from('ai_usage')
-    .select('count')
-    .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+    .select('count, updated_at')
+    .eq('user_id', userId)
     .single();
     
   if (error || !data) return 0;
-  return data.count;
+
+  // Vérifie si le décompte enregistré date bien d'aujourd'hui
+  const lastDate = new Date(data.updated_at).toDateString();
+  const today = new Date().toDateString();
+  if (lastDate !== today) return 0;
+
+  return data.count || 0;
 }
 
 /**
  * Checks if the user has reached their daily AI generation limit (5 for free, 50 for premium).
+ * Délégué au proxy /api/gemini pour éviter la double incrémentation et garantir la sécurité serveur.
  */
-async function ensureQuota() {
-  const { data, error } = await supabase.rpc('check_and_increment_ai_usage');
-  
-  if (error) {
-    console.error('Error checking AI quota:', error);
-    // If the tool is missing, we allow the generation to avoid blocking the user
-    // but we log it.
-    if (error.message.includes('does not exist')) {
-      console.warn('RPC check_and_increment_ai_usage not found. Skipping quota check.');
-      return;
-    }
-    throw new Error('Erreur technique lors de la vérification du quota.');
-  }
-
-  if (!data) {
-    throw new Error('Limite de générations par jour atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
-  }
+export async function ensureQuota() {
+  return;
 }
 
 function getSystemInstruction(prefs?: AIPreferences) {
