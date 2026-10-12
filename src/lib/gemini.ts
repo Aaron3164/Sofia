@@ -62,25 +62,17 @@ export async function getDailyUsage(): Promise<number> {
   const userId = sessionData?.session?.user?.id;
   if (!userId) return 0;
 
+  const today = new Date().toISOString().split('T')[0];
+
   const { data, error } = await supabase
     .from('ai_usage')
-    .select('*')
+    .select('generation_count')
     .eq('user_id', userId)
+    .eq('usage_date', today)
     .maybeSingle();
     
   if (error || !data) return 0;
-
-  // Compatible avec les colonnes existantes (generation_count / usage_date ou count / updated_at)
-  const count = data.generation_count ?? data.count ?? 0;
-  const dateVal = data.usage_date ?? data.updated_at;
-
-  if (dateVal) {
-    const today = new Date().toISOString().split('T')[0];
-    const recDate = typeof dateVal === 'string' ? dateVal.substring(0, 10) : new Date(dateVal).toISOString().split('T')[0];
-    if (recDate !== today) return 0;
-  }
-
-  return count;
+  return data.generation_count || 0;
 }
 
 /**
