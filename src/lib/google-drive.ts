@@ -49,7 +49,7 @@ export function setGoogleClientId(clientId: string): void {
 export function getGoogleApiKey(): string {
   const local = localStorage.getItem(STORAGE_KEY_API_KEY);
   if (local && local.trim()) return local.trim();
-  const envVal = import.meta.env.VITE_GOOGLE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+  const envVal = import.meta.env.VITE_GOOGLE_API_KEY;
   return envVal ? String(envVal).trim() : '';
 }
 

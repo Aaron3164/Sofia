@@ -19,11 +19,17 @@ export async function uploadPDF(file: File, subjectId: string): Promise<string |
     const processedFile = await compressPDF(file);
 
     // 2. Request presigned upload URL from backend
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token || '';
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const presignRes = await fetch('/api/r2-presign', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         filename: processedFile.name,
         contentType: processedFile.type || 'application/pdf',
@@ -71,11 +77,17 @@ export async function uploadPDF(file: File, subjectId: string): Promise<string |
 export async function deletePDFFromR2(urlOrKey: string): Promise<boolean> {
   if (!urlOrKey) return false;
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token || '';
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch('/api/r2-delete', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ url: urlOrKey }),
     });
     if (!res.ok) {
