@@ -38,7 +38,10 @@ async function callGeminiProxy(
 
   const data = await response.json();
   if (!response.ok || data.error) {
-    throw new Error(data.error || 'Erreur lors de la génération avec Gemini.');
+    if (data.error === 'QUOTA_EXCEEDED' || response.status === 429) {
+      throw new Error(data.message || 'Limite de générations par jour atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
+    }
+    throw new Error(data.message || data.error || 'Erreur lors de la génération avec Gemini.');
   }
 
   return { 
