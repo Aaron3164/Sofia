@@ -26,11 +26,35 @@ export default async function handler(req, res) {
   const token = authHeader.replace('Bearer ', '').trim();
 
   if (supabaseUrl && supabaseAnonKey) {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // Client initialized with user's access token so auth.uid() is populated in Supabase RPC
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    });
+
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Session invalide ou expirée. Veuillez vous reconnecter.' });
+    }
+
+    // 2. Strict Server-Side Quota Verification & Increment
+    const { data: quotaAllowed, error: quotaError } = await supabase.rpc('check_and_increment_ai_usage');
+
+    if (quotaError) {
+      console.error('[Gemini Proxy] Erreur RPC quota:', quotaError.message);
+      // Only skip if the function does not exist in DB yet
+      if (!quotaError.message.includes('does not exist')) {
+        return res.status(500).json({ error: 'Erreur lors de la vérification de vos quotas IA.' });
+      }
+    } else if (quotaAllowed === false) {
+      return res.status(429).json({ 
+        error: 'QUOTA_EXCEEDED',
+        message: 'Limite quotidienne de générations IA atteinte (5/jour en gratuit, 50/jour en Premium). Revenez demain ou passez Premium !'
+      });
     }
   }
 
