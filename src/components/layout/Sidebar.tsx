@@ -25,9 +25,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   ];
 
   React.useEffect(() => {
-    if (user) {
-      getDailyUsage().then(setUsage);
-    }
+    const refreshUsage = () => {
+      if (user) {
+        getDailyUsage().then(setUsage);
+      }
+    };
+
+    refreshUsage();
+
+    window.addEventListener('ai-usage-updated', refreshUsage);
+    return () => {
+      window.removeEventListener('ai-usage-updated', refreshUsage);
+    };
   }, [user]);
 
   const handleToggleTheme = async () => {
