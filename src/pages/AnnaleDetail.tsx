@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, GraduationCap, MessageSquare, Trash2, 
-  Maximize2, Minimize2, Sparkles, Folder, CheckCircle2 
+  Maximize2, Minimize2, Folder 
 } from 'lucide-react';
 import { useFileSystem } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,7 @@ import './SubjectDetail.css';
 export default function AnnaleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { alert, confirm } = useDialog();
+  const { confirm } = useDialog();
   const { getNode, deleteNode, nodes } = useFileSystem();
   const { profile, user } = useAuth();
 
@@ -175,10 +175,7 @@ export default function AnnaleDetail() {
 
   // Handle Delete
   const handleDelete = async () => {
-    const isConfirmed = await confirm(
-      'Voulez-vous vraiment supprimer définitivement cette annale ?',
-      'Supprimer l\'annale'
-    );
+    const isConfirmed = await confirm('Voulez-vous vraiment supprimer définitivement cette annale ?');
     if (!isConfirmed) return;
 
     if (id) {
