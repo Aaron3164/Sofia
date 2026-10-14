@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useDialog } from '../context/DialogContext';
 import { useAuth } from '../context/AuthContext';
-import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft, Zap } from 'lucide-react';
+import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft, Zap, GraduationCap } from 'lucide-react';
 import { MoveNodeModal } from '../components/library/MoveNodeModal';
-import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
+import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportModal';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
+import { supabase } from '../lib/supabase';
 import './Library.css';
 
 export default function Library() {
@@ -18,7 +19,7 @@ export default function Library() {
   
   const currentFolderId = folderId || null;
   const [nodeToMove, setNodeToMove] = useState<FileNode | null>(null);
-  const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+  const [isAnnaleModalOpen, setIsAnnaleModalOpen] = useState(false);
   const [revisionFolder, setRevisionFolder] = useState<{ id: string | null; name: string } | null>(null);
   
   const currentFolder = getNode(currentFolderId);
@@ -100,8 +101,48 @@ export default function Library() {
     if (nodeToMove) return;
     if (item.type === 'folder') {
       navigateToFolder(item.id);
+    } else if (item.name.startsWith('🎓')) {
+      navigate(`/annale/${item.id}`);
     } else {
       navigate(`/subject/${item.id}`);
+    }
+  };
+
+  const handleAnnaleSuccess = async (annaleTitle: string, questions: any[]) => {
+    try {
+      const nodeName = `🎓 ${annaleTitle}`;
+      const newNode = await addNode(nodeName, 'course', currentFolderId);
+
+      const textContent = questions.map(q => `${q.question}\n${(q.options || []).join('\n')}`).join('\n\n');
+
+      if (profile?.id) {
+        await supabase.from('course_data').upsert({
+          course_id: newNode.id,
+          user_id: profile.id,
+          extracted_content: textContent,
+          generations: {
+            is_annale: true,
+            questions: questions,
+            annale_folder_id: currentFolderId
+          },
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      localStorage.setItem(`aura_subject_${newNode.id}`, JSON.stringify({
+        extractedContent: textContent,
+        generations: {
+          is_annale: true,
+          questions: questions,
+          mcq: JSON.stringify(questions)
+        }
+      }));
+
+      setIsAnnaleModalOpen(false);
+      navigate(`/annale/${newNode.id}`);
+    } catch (err) {
+      console.error('Erreur lors de la création de l\'annale:', err);
+      alert('Erreur lors de la création de l\'annale.');
     }
   };
 
@@ -151,20 +192,13 @@ export default function Library() {
           </button>
           <button 
             className="btn btn-outline shadow-sm" 
-            onClick={() => setIsDriveModalOpen(true)}
-            title="Importer un PDF depuis Google Drive sans consommer d'espace de stockage R2"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+            onClick={() => setIsAnnaleModalOpen(true)}
+            title="Importer une annale officielle au format PDF pour ce dossier"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', borderColor: 'rgba(219, 39, 119, 0.4)', color: 'var(--accent-primary)' }}
           >
-            <svg width="17" height="17" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066da"/>
-              <path d="M43.65 25 29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44C.4 49.9 0 51.45 0 53h27.5L43.65 25z" fill="#00ac47"/>
-              <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 10.15 7.9 13.65z" fill="#ea4335"/>
-              <path d="M43.65 25 57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.4-4.5 1.2L43.65 25z" fill="#00832d"/>
-              <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2L59.8 53z" fill="#2684fc"/>
-              <path d="M73.4 26.5 60.7 4.5C59.9 3.1 58.75 2 57.4 1.2L43.65 25l16.15 28h27.5c0-1.55-.4-3.1-1.2-4.5l-12.7-22z" fill="#ffba00"/>
-            </svg>
-            <span className="desktop-only">Importer Drive</span>
-            <span className="mobile-only">Drive</span>
+            <GraduationCap size={18} />
+            <span className="desktop-only">Importer une annale</span>
+            <span className="mobile-only">Annale</span>
           </button>
           <button className="btn btn-primary shadow-md" onClick={handleCreateCourse}>
             <Plus size={18} /> <span className="desktop-only">Nouveau Cours</span>
@@ -173,11 +207,12 @@ export default function Library() {
         </div>
       </header>
 
-      {/* Google Drive Import Modal */}
-      <GoogleDriveImportModal
-        isOpen={isDriveModalOpen}
-        onClose={() => setIsDriveModalOpen(false)}
-        currentFolderId={currentFolderId}
+      {/* Annale Exam Import Modal */}
+      <AnnaleExamImportModal
+        isOpen={isAnnaleModalOpen}
+        onClose={() => setIsAnnaleModalOpen(false)}
+        onSuccess={handleAnnaleSuccess}
+        folderName={currentFolder?.name}
       />
 
       {/* Interactive Move Modal */}
@@ -203,57 +238,87 @@ export default function Library() {
         </div>
       ) : (
         <div className="folder-grid">
-          {items.map(item => (
-            <div 
-              key={item.id} 
-              className="folder-card hover-lift glass-panel"
-              onClick={() => handleItemClick(item)}
-              style={item.type === 'course' ? { border: '1px solid var(--accent-primary)' } : {}}
-            >
-              <div className="folder-header">
-                <div 
-                  className="folder-icon-wrapper shadow-sm"
-                  style={{ backgroundColor: item.type === 'folder' ? `${item.color}20` : 'var(--bg-elevated)', color: item.type === 'folder' ? item.color : 'var(--accent-primary)' }}
-                >
-                  {item.type === 'folder' ? <Folder size={28} /> : <FileText size={28} />}
-                </div>
-                
-                <div className="folder-actions" style={{ display: 'flex', gap: '0.4rem' }}>
-                  {item.type === 'folder' && (
-                    <button 
-                      className="icon-button" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRevisionFolder({ id: item.id, name: item.name });
-                      }} 
-                      title="Réviser les flashcards de ce dossier"
-                      style={{ color: 'var(--accent-primary)' }}
-                    >
-                      <Zap size={16} />
+          {items.map(item => {
+            const isAnnale = item.type === 'course' && item.name.startsWith('🎓');
+            const cleanName = isAnnale ? item.name.replace(/^🎓\s*/, '') : item.name;
+
+            return (
+              <div 
+                key={item.id} 
+                className="folder-card hover-lift glass-panel"
+                onClick={() => handleItemClick(item)}
+                style={
+                  isAnnale 
+                    ? { border: '1px solid rgba(219, 39, 119, 0.4)', background: 'linear-gradient(145deg, var(--bg-surface), rgba(219, 39, 119, 0.05))' }
+                    : item.type === 'course' 
+                    ? { border: '1px solid var(--accent-primary)' } 
+                    : {}
+                }
+              >
+                <div className="folder-header">
+                  <div 
+                    className="folder-icon-wrapper shadow-sm"
+                    style={{ 
+                      backgroundColor: isAnnale ? 'rgba(219, 39, 119, 0.15)' : item.type === 'folder' ? `${item.color}20` : 'var(--bg-elevated)', 
+                      color: isAnnale ? 'var(--accent-primary)' : item.type === 'folder' ? item.color : 'var(--accent-primary)' 
+                    }}
+                  >
+                    {item.type === 'folder' ? <Folder size={28} /> : isAnnale ? <GraduationCap size={28} /> : <FileText size={28} />}
+                  </div>
+                  
+                  <div className="folder-actions" style={{ display: 'flex', gap: '0.4rem' }}>
+                    {item.type === 'folder' && (
+                      <button 
+                        className="icon-button" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRevisionFolder({ id: item.id, name: item.name });
+                        }} 
+                        title="Réviser les flashcards de ce dossier"
+                        style={{ color: 'var(--accent-primary)' }}
+                      >
+                        <Zap size={16} />
+                      </button>
+                    )}
+                     <button className="icon-button" onClick={(e) => handleReorder(e, item, 'prev')} title="Déplacer vers la gauche" disabled={items.indexOf(item) === 0} style={{ opacity: items.indexOf(item) === 0 ? 0.3 : 1 }}>
+                      <ChevronLeft size={16} />
                     </button>
-                  )}
-                   <button className="icon-button" onClick={(e) => handleReorder(e, item, 'prev')} title="Déplacer vers la gauche" disabled={items.indexOf(item) === 0} style={{ opacity: items.indexOf(item) === 0 ? 0.3 : 1 }}>
-                    <ChevronLeft size={16} />
-                  </button>
-                  <button className="icon-button" onClick={(e) => handleReorder(e, item, 'next')} title="Déplacer vers la droite" disabled={items.indexOf(item) === items.length - 1} style={{ opacity: items.indexOf(item) === items.length - 1 ? 0.3 : 1 }}>
-                    <ChevronRight size={16} />
-                  </button>
-                   <button className="icon-button" onClick={(e) => handleRename(e, item)} title="Renommer">
-                    <Edit3 size={16} />
-                  </button>
-                  <button className="icon-button" onClick={(e) => handleMove(e, item)} title="Déplacer">
-                    <Move size={16} />
-                  </button>
-                  <button className="icon-button delete-btn" onClick={(e) => handleDelete(e, item.id)} title="Supprimer">
-                    <Trash2 size={16} />
-                  </button>
+                    <button className="icon-button" onClick={(e) => handleReorder(e, item, 'next')} title="Déplacer vers la droite" disabled={items.indexOf(item) === items.length - 1} style={{ opacity: items.indexOf(item) === items.length - 1 ? 0.3 : 1 }}>
+                      <ChevronRight size={16} />
+                    </button>
+                     <button className="icon-button" onClick={(e) => handleRename(e, item)} title="Renommer">
+                      <Edit3 size={16} />
+                    </button>
+                    <button className="icon-button" onClick={(e) => handleMove(e, item)} title="Déplacer">
+                      <Move size={16} />
+                    </button>
+                    <button className="icon-button delete-btn" onClick={(e) => handleDelete(e, item.id)} title="Supprimer">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="folder-info">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                    <h3 style={{ margin: 0 }}>{cleanName}</h3>
+                    {isAnnale && (
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '0.5rem',
+                        backgroundColor: 'rgba(219, 39, 119, 0.15)',
+                        color: 'var(--accent-primary)',
+                        flexShrink: 0
+                      }}>
+                        Annale
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="folder-info">
-                <h3>{item.name}</h3>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

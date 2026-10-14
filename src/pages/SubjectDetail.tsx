@@ -14,7 +14,6 @@ import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { Calendar } from 'lucide-react';
 import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
-import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportModal';
 import { isGoogleDriveUrl } from '../lib/google-drive';
 import './SubjectDetail.css';
 
@@ -35,7 +34,6 @@ export default function SubjectDetail() {
   const isQuotaReached = dailyUsage >= maxGenerations;
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
-  const [isAnnaleModalOpen, setIsAnnaleModalOpen] = useState(false);
   
   const [extractedContent, setExtractedContent] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
@@ -91,6 +89,13 @@ export default function SubjectDetail() {
     window.addEventListener('ai-usage-updated', refreshUsage);
     return () => window.removeEventListener('ai-usage-updated', refreshUsage);
   }, [profile]);
+
+  // Auto-redirect if this node is an Annale
+  useEffect(() => {
+    if (courseNode && courseNode.name.startsWith('🎓')) {
+      navigate(`/annale/${id}`, { replace: true });
+    }
+  }, [courseNode, id, navigate]);
 
   // Load data from Supabase or LocalStorage
   useEffect(() => {
@@ -847,17 +852,7 @@ export default function SubjectDetail() {
                     />
                   </div>
                 )}
-                {activeTab === 'mcq' && (
-                  <button 
-                    className="btn btn-outline"
-                    onClick={() => setIsAnnaleModalOpen(true)}
-                    title="Importer une annale officielle au format PDF (mot pour mot, avec schémas & images)"
-                    style={{ fontSize: '0.82rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
-                  >
-                    <FileText size={15} className="text-accent" />
-                    <span>Importer une annale (PDF)</span>
-                  </button>
-                )}
+
 
                 {activeTab !== 'explications' && activeTab !== 'source' && (
                   <button 
@@ -958,139 +953,9 @@ export default function SubjectDetail() {
                 return (
                   <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
                     {!content ? (
-                      tab.id === 'mcq' ? (
-                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', padding: '2.5rem 1.5rem', textAlign: 'center' }}>
-                          <div style={{ maxWidth: '520px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' }}>
-                            <div style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.4rem',
-                              padding: '0.35rem 0.85rem',
-                              borderRadius: '2rem',
-                              backgroundColor: 'rgba(219, 39, 119, 0.1)',
-                              color: 'var(--accent-primary)',
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              letterSpacing: '0.04em',
-                              textTransform: 'uppercase'
-                            }}>
-                              <GraduationCap size={14} />
-                              <span>Entraînement & Évaluation</span>
-                            </div>
-                            <h3 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                              Préparez votre Examen Blanc
-                            </h3>
-                            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                              Deux modes d'entraînement pour tester vos connaissances et suivre votre progression.
-                            </p>
-                          </div>
-
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 320px))', gap: '1.5rem', width: '100%', maxWidth: '680px', justifyContent: 'center' }}>
-                            {/* Card 1: Importer une Annale */}
-                            <div 
-                              className="glass-panel hover-lift"
-                              onClick={() => setIsAnnaleModalOpen(true)}
-                              style={{ 
-                                padding: '1.75rem', 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                alignItems: 'flex-start', 
-                                textAlign: 'left',
-                                gap: '1rem', 
-                                borderRadius: '1.25rem', 
-                                border: '1px solid var(--border-color)',
-                                backgroundColor: 'var(--bg-secondary)',
-                                cursor: 'pointer',
-                                position: 'relative',
-                                transition: 'all 0.25s ease'
-                              }}
-                            >
-                              <div style={{
-                                width: '48px',
-                                height: '48px',
-                                borderRadius: '0.85rem',
-                                background: 'linear-gradient(135deg, rgba(219, 39, 119, 0.15), rgba(234, 88, 12, 0.15))',
-                                color: 'var(--accent-primary)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}>
-                                <FileText size={24} />
-                              </div>
-
-                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                  Importer une Annale
-                                </h4>
-                                <p style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: '1.55' }}>
-                                  Déposez un sujet officiel (PDF). Sofia retranscrit mot pour mot, extrait les schémas et applique le corrigé.
-                                </p>
-                              </div>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-primary)', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <span>Sélectionner le PDF</span>
-                                <ArrowRight size={15} />
-                              </div>
-                            </div>
-
-                            {/* Card 2: Générer avec Sofia IA */}
-                            <div 
-                              className="glass-panel hover-lift"
-                              onClick={!isQuotaReached ? handleGenerate : undefined}
-                              style={{ 
-                                padding: '1.75rem', 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                alignItems: 'flex-start', 
-                                textAlign: 'left',
-                                gap: '1rem', 
-                                borderRadius: '1.25rem', 
-                                border: '1px solid var(--border-color)',
-                                backgroundColor: 'var(--bg-secondary)',
-                                cursor: !extractedContent || isGenerating || isQuotaReached ? 'not-allowed' : 'pointer',
-                                opacity: !extractedContent || isQuotaReached ? 0.6 : 1,
-                                position: 'relative',
-                                transition: 'all 0.25s ease'
-                              }}
-                              title={isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : undefined}
-                            >
-                              <div style={{
-                                width: '48px',
-                                height: '48px',
-                                borderRadius: '0.85rem',
-                                background: isQuotaReached ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1))' : 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
-                                color: isQuotaReached ? 'var(--danger)' : '#6366f1',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}>
-                                {isGenerating ? <RefreshCw className="animate-spin" size={24} /> : <Sparkles size={24} />}
-                              </div>
-
-                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                  {isQuotaReached ? 'Limite quotidienne atteinte' : 'Générer par Sofia IA'}
-                                </h4>
-                                <p style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: '1.55' }}>
-                                  {isQuotaReached 
-                                    ? `Vous avez utilisé ${dailyUsage}/${maxGenerations} générations aujourd'hui.${profile?.plan !== 'premium' ? ' Passez Premium pour 50/jour !' : ' Revenez demain !'}`
-                                    : 'Sofia analyse votre cours complet et conçoit un entraînement sur-mesure ciblant les pièges fréquents.'
-                                  }
-                                </p>
-                              </div>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: isQuotaReached ? 'var(--danger)' : '#6366f1', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <span>{isGenerating ? 'Génération en cours...' : isQuotaReached ? `${dailyUsage}/${maxGenerations} utilisées` : 'Créer le QCM'}</span>
-                                {!isGenerating && !isQuotaReached && <ArrowRight size={15} />}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                          Cliquez sur "Générer" pour traiter le document.
-                        </div>
-                      )
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                        Cliquez sur "Générer" pour traiter le document.
+                      </div>
                     ) : (
                       <>
                         {tab.id === 'flashcards' && <InteractiveFlashcard data={content} onUpdate={(d) => updateData('flashcards', d)} courseId={id} />}
@@ -1124,15 +989,6 @@ export default function SubjectDetail() {
           setPdfUrl(importedUrl);
           setExtractedContent(importedText);
           setActiveTab('source');
-        }}
-      />
-
-      {/* Annale Exam Import Modal */}
-      <AnnaleExamImportModal
-        isOpen={isAnnaleModalOpen}
-        onClose={() => setIsAnnaleModalOpen(false)}
-        onSuccess={(importedQuestions) => {
-          updateData('mcq', JSON.stringify(importedQuestions));
         }}
       />
     </div>
