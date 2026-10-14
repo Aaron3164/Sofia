@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   FileText, UploadCloud, X, Check, AlertCircle, Plus, Trash2, 
-  Image as ImageIcon, ArrowRight, RefreshCw, KeyRound 
+  Image as ImageIcon, ArrowRight, RefreshCw, KeyRound, Sparkles, GraduationCap 
 } from 'lucide-react';
 import { parseAnnalePDF, parseCorrectionGridText, type ExtractedQuestion, type AnnaleParseResult } from '../../lib/annale-parser';
 import { compressImage, getImageFromClipboard } from '../../lib/image-utils';
@@ -10,15 +10,18 @@ import './AnnaleExamImportModal.css';
 interface AnnaleExamImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (questions: ExtractedQuestion[]) => void;
+  onSuccess: (annaleTitle: string, questions: ExtractedQuestion[]) => void;
+  folderName?: string;
 }
 
 export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  folderName,
 }) => {
   const [step, setStep] = useState<'upload' | 'review'>('upload');
+  const [annaleTitle, setAnnaleTitle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -57,11 +60,13 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
       );
 
       if (result.questions.length === 0) {
-        setError("Aucune question n'a pu être détectée automatiquement. Le document ne semble pas contenir de format QCM habituel ou est une image scannée sans texte.");
+        setError("Aucune question n'a pu être extraite. Le document ne semble pas contenir de texte lisible ou est une image scannée sans couche de texte.");
         setIsLoading(false);
         return;
       }
 
+      const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/^[_\-\s]+|[_\-\s]+$/g, '');
+      setAnnaleTitle(cleanTitle || 'Annale Officielle');
       setQuestions(result.questions);
       setUnassignedImages(result.unassignedImages);
       setStep('review');
@@ -184,7 +189,7 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
 
   const handleFinalStart = () => {
     if (questions.length === 0) return;
-    onSuccess(questions);
+    onSuccess(annaleTitle.trim() || 'Annale Officielle', questions);
     onClose();
   };
 
@@ -197,19 +202,19 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
         
         {/* Header */}
         <div className="annale-modal-header">
-          <div>
-            <h2>
-              <FileText size={22} className="text-accent" />
-              <span>Importation d'une Annale (QCM)</span>
-            </h2>
-            <p>
-              Retranscription fidèle mot pour mot • 0 token IA • Extraction des schémas & images
-            </p>
+          <div className="annale-header-info">
+            <div className="annale-header-icon">
+              <GraduationCap size={22} />
+            </div>
+            <div>
+              <h2>Importer une Annale (QCM)</h2>
+              <p>Retranscription mot pour mot • Assistance IA • Schémas & figures inclus</p>
+            </div>
           </div>
           <button 
             onClick={onClose}
-            className="icon-button"
-            style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}
+            className="annale-close-btn"
+            title="Fermer"
           >
             <X size={20} />
           </button>
@@ -218,25 +223,17 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
         {/* Body */}
         <div className="annale-modal-body">
           {error && (
-            <div style={{
-              padding: '1rem',
-              borderRadius: '0.75rem',
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid var(--danger)',
-              color: 'var(--danger)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              fontSize: '0.9rem'
-            }}>
-              <AlertCircle size={20} />
-              <span>{error}</span>
+            <div className="annale-soft-alert">
+              <AlertCircle size={20} style={{ flexShrink: 0 }} />
+              <div>
+                <strong>Impossible de traiter ce fichier :</strong> {error}
+              </div>
             </div>
           )}
 
           {step === 'upload' && !isLoading && (
             <div 
-              className="annale-dropzone"
+              className="annale-dropzone-wrapper"
               onDragOver={e => e.preventDefault()}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
@@ -250,58 +247,70 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                   if (e.target.files?.[0]) handleFile(e.target.files[0]);
                 }}
               />
-              <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                color: 'var(--accent-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+              
+              <div className="annale-dropzone-icon-pulse">
                 <UploadCloud size={32} />
               </div>
 
-              <div>
-                <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.15rem' }}>
-                  Glissez-déposez votre sujet d'annale (PDF)
-                </h3>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  Ou cliquez pour sélectionner un fichier depuis votre ordinateur
-                </p>
+              <div className="annale-dropzone-content">
+                <h3>Glissez votre sujet d'annale PDF ici</h3>
+                <p>ou cliquez pour sélectionner un fichier sur votre ordinateur</p>
               </div>
 
-              <div style={{
-                fontSize: '0.78rem',
-                color: 'var(--text-secondary)',
-                backgroundColor: 'var(--bg-elevated)',
-                padding: '0.4rem 0.85rem',
-                borderRadius: '2rem',
-                border: '1px solid var(--border-color)',
-                marginTop: '0.5rem'
-              }}>
-                ✨ Sofia détecte automatiquement les questions, les options A/B/C/D/E, le corrigé et les images
+              <div className="annale-dropzone-features">
+                <span className="annale-dropzone-chip">
+                  <Sparkles size={13} className="text-accent" />
+                  Format mot pour mot
+                </span>
+                <span className="annale-dropzone-chip">
+                  <span>🖼️</span>
+                  Extraction des schémas & radios
+                </span>
+                <span className="annale-dropzone-chip">
+                  <span>✅</span>
+                  Détection des corrigés (cases cochées)
+                </span>
               </div>
             </div>
           )}
 
           {isLoading && (
-            <div className="annale-progress-box">
-              <RefreshCw className="animate-spin text-accent" size={36} />
-              <div>
-                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>{loadingText || 'Analyse du document...'}</h4>
+            <div className="annale-progress-card">
+              <div className="annale-spinner-glow">
+                <RefreshCw className="animate-spin text-accent" size={40} />
+              </div>
+
+              <div style={{ maxWidth: '420px', width: '100%' }}>
+                <h4 style={{ margin: '0 0 0.4rem 0', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {loadingText || 'Analyse de votre annale...'}
+                </h4>
                 {progress.total > 0 && (
                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Page {progress.current} sur {progress.total}
+                    Traitement de la page {progress.current} sur {progress.total}
                   </p>
                 )}
               </div>
-              <div className="annale-progress-bar-bg">
+
+              <div className="annale-progress-bar-container">
                 <div 
                   className="annale-progress-bar-fill" 
-                  style={{ width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 30}%` }}
+                  style={{ width: `${progress.total > 0 ? Math.max(15, (progress.current / progress.total) * 100) : 35}%` }}
                 />
+              </div>
+
+              <div className="annale-steps-indicator">
+                <div className={`annale-step-item ${progress.current > 0 ? 'active' : ''}`}>
+                  <div className="annale-step-dot" />
+                  <span>1. Extraction du texte et des schémas du PDF</span>
+                </div>
+                <div className={`annale-step-item ${loadingText.includes('Sofia') ? 'active' : ''}`}>
+                  <div className="annale-step-dot" />
+                  <span>2. Structuration mot pour mot et analyse des corrigés par Sofia IA</span>
+                </div>
+                <div className="annale-step-item">
+                  <div className="annale-step-dot" />
+                  <span>3. Préparation de votre examen blanc interactif</span>
+                </div>
               </div>
             </div>
           )}
@@ -309,38 +318,76 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
           {step === 'review' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
+              {/* Annale Title Input */}
+              <div style={{
+                padding: '1rem 1.25rem',
+                borderRadius: '0.85rem',
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem'
+              }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <GraduationCap size={16} className="text-accent" />
+                  <span>Titre de l'annale :</span>
+                </label>
+                <input 
+                  type="text"
+                  value={annaleTitle}
+                  onChange={e => setAnnaleTitle(e.target.value)}
+                  placeholder="Ex: Partiel 2024 - Droit des Contrats"
+                  style={{
+                    padding: '0.65rem 0.9rem',
+                    borderRadius: '0.6rem',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-elevated)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.95rem',
+                    fontWeight: 600,
+                    outline: 'none'
+                  }}
+                />
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  Ce fichier sera créé et rattaché à votre dossier {folderName ? <strong>« {folderName} »</strong> : 'actuel'}.
+                </span>
+              </div>
+
               {/* Badge overview & top controls */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div className="annale-badge-bar">
-                  <span className="annale-badge badge-accent">
-                    📋 {questions.length} questions
+              <div className="annale-review-bar">
+                <div className="annale-badge-list">
+                  <span className="annale-pill-badge accent">
+                    <FileText size={14} />
+                    {questions.length} questions
                   </span>
-                  <span className={`annale-badge ${questionsWithAnswersCount === questions.length ? 'badge-success' : ''}`}>
-                    {questionsWithAnswersCount === questions.length ? '✅' : '⚠️'} {questionsWithAnswersCount}/{questions.length} corrigées
+                  <span className={`annale-pill-badge ${questionsWithAnswersCount === questions.length ? 'success' : ''}`}>
+                    <Check size={14} />
+                    {questionsWithAnswersCount}/{questions.length} corrigées
                   </span>
                   {totalImagesCount > 0 && (
-                    <span className="annale-badge">
-                      🖼️ {totalImagesCount} image{totalImagesCount > 1 ? 's' : ''}
+                    <span className="annale-pill-badge">
+                      <ImageIcon size={14} />
+                      {totalImagesCount} schéma{totalImagesCount > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
                   <button 
                     className="btn btn-outline" 
                     onClick={() => setShowGridInput(!showGridInput)}
-                    style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
+                    style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                   >
-                    <KeyRound size={15} style={{ marginRight: '0.35rem' }} />
-                    Coller une grille de réponses
+                    <KeyRound size={14} />
+                    <span>Coller une grille</span>
                   </button>
                   <button 
                     className="btn btn-outline" 
                     onClick={handleAddQuestion}
-                    style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
+                    style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                   >
-                    <Plus size={15} style={{ marginRight: '0.35rem' }} />
-                    Ajouter une question
+                    <Plus size={14} />
+                    <span>Ajouter une question</span>
                   </button>
                 </div>
               </div>
@@ -349,16 +396,18 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
               {showGridInput && (
                 <div style={{
                   padding: '1.25rem',
-                  borderRadius: '0.75rem',
-                  backgroundColor: 'var(--bg-elevated)',
+                  borderRadius: '1rem',
+                  backgroundColor: 'var(--bg-primary)',
                   border: '1px solid var(--accent-primary)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.75rem'
+                  gap: '0.75rem',
+                  boxShadow: 'var(--shadow-sm)'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                      🔑 Coller la grille de correction officielle
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <KeyRound size={16} className="text-accent" />
+                      Coller la grille de correction officielle
                     </span>
                     <button 
                       onClick={() => setShowGridInput(false)}
@@ -375,50 +424,44 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                     onChange={e => setGridInputText(e.target.value)}
                     placeholder="1: AC&#10;2: BD&#10;3: ACE..."
                     rows={4}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--border-color)',
-                      backgroundColor: 'var(--bg-secondary)',
-                      color: 'var(--text-primary)',
-                      fontFamily: 'monospace',
-                      fontSize: '0.85rem'
-                    }}
+                    className="annale-textarea"
+                    style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                    <button className="btn btn-primary" onClick={handleApplyGrid} style={{ fontSize: '0.82rem', padding: '0.4rem 0.9rem' }}>
+                    <button className="btn btn-primary" onClick={handleApplyGrid} style={{ fontSize: '0.82rem', padding: '0.45rem 1rem' }}>
                       Appliquer aux questions
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Unassigned images alert/drawer if any */}
+              {/* Unassigned images gallery if any */}
               {unassignedImages.length > 0 && (
                 <div style={{
-                  padding: '1rem',
-                  borderRadius: '0.75rem',
-                  backgroundColor: 'var(--bg-elevated)',
+                  padding: '1.25rem',
+                  borderRadius: '1rem',
+                  backgroundColor: 'var(--bg-primary)',
                   border: '1px solid var(--border-color)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.75rem'
                 }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    🖼️ {unassignedImages.length} image(s) supplémentaire(s) extraite(s) :
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <ImageIcon size={16} className="text-accent" />
+                    <span>{unassignedImages.length} schéma(s) extrait(s) à assigner :</span>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap' }}>
                     {unassignedImages.map(img => (
-                      <div key={img.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'center' }}>
+                      <div key={img.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
                         <div 
                           onClick={() => setZoomedImage(img.url)}
-                          style={{ width: '80px', height: '60px', borderRadius: '0.4rem', overflow: 'hidden', border: '1px solid var(--border-color)', cursor: 'pointer' }}
+                          className="annale-image-thumb"
+                          style={{ width: '90px', height: '65px' }}
                         >
-                          <img src={img.url} alt="Extraite" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={img.url} alt="Extraite" />
                         </div>
                         <select 
-                          style={{ fontSize: '0.75rem', padding: '0.2rem', borderRadius: '0.3rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                          style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '0.4rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
                           onChange={e => {
                             const qIdx = parseInt(e.target.value, 10);
                             if (!isNaN(qIdx)) handleAssignUnassignedImage(img, qIdx);
@@ -454,17 +497,16 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                     >
                       {/* Question Header & Stem */}
                       <div className="annale-question-header">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>
+                        <div className="annale-q-badge">
                           <span>Question {q.questionNumber || qIndex + 1}</span>
                           {q.pageNumber && (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                            <span className="annale-page-tag">
                               (Page {q.pageNumber})
                             </span>
                           )}
                         </div>
                         <button 
                           onClick={() => handleDeleteQuestion(qIndex)}
-                          className="icon-button"
                           style={{ color: 'var(--danger)', padding: '0.3rem', background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.6 }}
                           title="Supprimer cette question"
                         >
@@ -477,24 +519,14 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                         onChange={e => handleQuestionTextChange(qIndex, e.target.value)}
                         rows={2}
                         placeholder="Énoncé de la question..."
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          borderRadius: '0.5rem',
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'var(--bg-elevated)',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.92rem',
-                          lineHeight: '1.5',
-                          resize: 'vertical'
-                        }}
+                        className="annale-textarea"
                       />
 
                       {/* Attached Images */}
                       {q.images && q.images.length > 0 && (
                         <div className="annale-image-gallery">
                           {q.images.map((imgSrc, imgIdx) => (
-                            <div key={imgIdx} className="annale-image-item">
+                            <div key={imgIdx} className="annale-image-thumb">
                               <img 
                                 src={imgSrc} 
                                 alt={`Question ${qIndex + 1} illustration`} 
@@ -502,11 +534,11 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                                 title="Agrandir l'image"
                               />
                               <button 
-                                className="annale-image-delete"
+                                className="annale-image-delete-btn"
                                 onClick={() => handleRemoveImageFromQuestion(qIndex, imgIdx)}
                                 title="Supprimer cette image"
                               >
-                                <X size={14} />
+                                <X size={13} />
                               </button>
                             </div>
                           ))}
@@ -514,14 +546,14 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                       )}
 
                       {/* Add Image Button / Paste Tip */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <label 
                           htmlFor={`img-upload-${qIndex}`}
                           className="btn btn-outline"
-                          style={{ fontSize: '0.78rem', padding: '0.35rem 0.65rem', cursor: 'pointer' }}
+                          style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                         >
-                          <ImageIcon size={14} style={{ marginRight: '0.35rem' }} />
-                          {q.images && q.images.length > 0 ? 'Ajouter une autre image' : 'Ajouter une image'}
+                          <ImageIcon size={14} />
+                          <span>{q.images && q.images.length > 0 ? 'Ajouter un schéma' : 'Ajouter un schéma'}</span>
                         </label>
                         <input 
                           type="file" 
@@ -534,17 +566,17 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                             }
                           }}
                         />
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                          💡 Astuce : vous pouvez aussi faire <code>Ctrl+V</code> pour coller une capture
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          💡 Vous pouvez aussi coller une capture avec <code>Ctrl+V</code>
                         </span>
                       </div>
 
                       {/* Options & Correct Answer Selection */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <div className="annale-options-list">
                         <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
                           <span>Propositions (Cliquez sur la lettre pour cocher la bonne réponse) :</span>
                           <span style={{ color: 'var(--success)' }}>
-                            {q.correctAnswers?.length || 0} sélectionnée{(q.correctAnswers?.length || 0) > 1 ? 's' : ''}
+                            {q.correctAnswers?.length || 0} bonne{ (q.correctAnswers?.length || 0) > 1 ? 's' : '' } réponse{ (q.correctAnswers?.length || 0) > 1 ? 's' : '' }
                           </span>
                         </div>
 
@@ -566,15 +598,7 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                                 type="text"
                                 value={option}
                                 onChange={e => handleOptionTextChange(qIndex, optIdx, e.target.value)}
-                                style={{
-                                  flex: 1,
-                                  padding: '0.65rem 0.85rem',
-                                  borderRadius: '0.5rem',
-                                  border: `1px solid ${isCorrect ? 'var(--success)' : 'var(--border-color)'}`,
-                                  backgroundColor: isCorrect ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-elevated)',
-                                  color: 'var(--text-primary)',
-                                  fontSize: '0.88rem'
-                                }}
+                                className={`annale-option-input ${isCorrect ? 'is-correct' : ''}`}
                               />
                             </div>
                           );
@@ -605,16 +629,16 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                 className="btn btn-primary" 
                 onClick={handleFinalStart}
                 disabled={questions.length === 0}
-                style={{ fontSize: '0.95rem', padding: '0.65rem 1.4rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                style={{ fontSize: '0.92rem', padding: '0.65rem 1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
               >
-                <span>Lancer l'entraînement ({questions.length} QCM)</span>
+                <span>Créer l'annale ({questions.length} QCM)</span>
                 <ArrowRight size={18} />
               </button>
             </>
           ) : (
             <>
               <div />
-              <button className="btn btn-outline" onClick={onClose}>
+              <button className="btn btn-outline" onClick={onClose} style={{ fontSize: '0.88rem' }}>
                 Annuler
               </button>
             </>
@@ -631,7 +655,7 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
             position: 'fixed',
             inset: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(6px)',
+            backdropFilter: 'blur(8px)',
             zIndex: 1100,
             display: 'flex',
             alignItems: 'center',
@@ -643,7 +667,7 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
           <img 
             src={zoomedImage} 
             alt="Zoom illustration" 
-            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: '0.5rem' }}
+            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: '0.75rem', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} 
           />
         </div>
       )}
