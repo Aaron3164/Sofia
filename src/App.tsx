@@ -10,6 +10,7 @@ const ChatSofia = lazy(() => import('./pages/ChatSofia'));
 const PlanningCenter = lazy(() => import('./pages/PlanningCenter'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const SubjectDetail = lazy(() => import('./pages/SubjectDetail'));
+const AnnaleDetail = lazy(() => import('./pages/AnnaleDetail'));
 const Statistics = lazy(() => import('./pages/StatsPage'));
 const FlashcardsExplorer = lazy(() => import('./pages/FlashcardsExplorer'));
 
@@ -50,6 +51,7 @@ function AppContent() {
           <Route path="/chat" element={<ChatSofia />} />
           <Route path="/:folderId?" element={<Library />} />
           <Route path="/subject/:id" element={<SubjectDetail />} />
+          <Route path="/annale/:id" element={<AnnaleDetail />} />
           <Route path="/planning" element={<PlanningCenter />} />
           <Route path="/statistics" element={<Statistics />} />
           <Route path="/flashcards" element={<FlashcardsExplorer />} />
