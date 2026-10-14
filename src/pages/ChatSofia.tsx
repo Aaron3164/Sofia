@@ -105,9 +105,7 @@ export default function ChatSofia() {
 
   useEffect(() => {
     const refreshUsage = () => {
-      if (user) {
-        getDailyUsage().then(count => setDailyUsage(count));
-      }
+      getDailyUsage().then(count => setDailyUsage(count));
     };
     refreshUsage();
     window.addEventListener('ai-usage-updated', refreshUsage);

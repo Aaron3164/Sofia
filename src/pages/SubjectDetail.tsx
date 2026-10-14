@@ -85,9 +85,7 @@ export default function SubjectDetail() {
   // Fetch daily AI usage on mount and listen for updates
   useEffect(() => {
     const refreshUsage = () => {
-      if (profile) {
-        getDailyUsage().then(count => setDailyUsage(count));
-      }
+      getDailyUsage().then(count => setDailyUsage(count));
     };
     refreshUsage();
     window.addEventListener('ai-usage-updated', refreshUsage);
