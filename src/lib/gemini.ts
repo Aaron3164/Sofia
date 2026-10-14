@@ -15,6 +15,9 @@ async function callGeminiProxy(
   contents: string[] | any[],
   config?: Record<string, any>
 ): Promise<{ text: string; groundingMetadata?: any }> {
+  // Vérification stricte du quota côté client avant tout appel
+  await ensureQuota();
+
   // Get current user session for secure backend authorization
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token || '';
@@ -43,7 +46,7 @@ async function callGeminiProxy(
 
   if (!response.ok || data.error) {
     if (data.error === 'QUOTA_EXCEEDED' || response.status === 429) {
-      throw new Error(data.message || 'Limite de générations par jour atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
+      throw new Error(data.message || 'Limite quotidienne de générations atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
     }
     throw new Error(data.message || data.error || 'Erreur lors de la génération avec Gemini.');
   }
@@ -56,31 +59,71 @@ async function callGeminiProxy(
 
 /**
  * Fetches the current daily AI usage for the logged-in user.
+ * Supports both database structures:
+ * - (user_id, count, updated_at) from original schema
+ * - (user_id, usage_date, generation_count) from updated schema
  */
 export async function getDailyUsage(): Promise<number> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData?.session?.user?.id;
-  if (!userId) return 0;
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id;
+    if (!userId) return 0;
 
-  const today = new Date().toISOString().split('T')[0];
+    // Calcul de la date du jour (supporte date locale et UTC pour éviter les décalages de fuseau)
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const utcDate = now.toISOString().split('T')[0];
+    const datesToCheck = Array.from(new Set([localDate, utcDate]));
 
-  const { data, error } = await supabase
-    .from('ai_usage')
-    .select('generation_count')
-    .eq('user_id', userId)
-    .eq('usage_date', today)
-    .maybeSingle();
-    
-  if (error || !data) return 0;
-  return data.generation_count || 0;
+    // Requête ciblée sur la clé primaire (user_id, usage_date)
+    const { data, error } = await supabase
+      .from('ai_usage')
+      .select('generation_count')
+      .eq('user_id', userId)
+      .in('usage_date', datesToCheck)
+      .order('usage_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data && typeof data.generation_count === 'number') {
+      return data.generation_count;
+    }
+
+    return 0;
+  } catch (err) {
+    console.error('[Quota] Erreur getDailyUsage:', err);
+    return 0;
+  }
 }
 
 /**
  * Checks if the user has reached their daily AI generation limit (5 for free, 50 for premium).
- * Délégué au proxy /api/gemini pour éviter la double incrémentation et garantir la sécurité serveur.
+ * Throws immediately if reached to block client-side execution.
  */
-export async function ensureQuota() {
-  return;
+export async function ensureQuota(): Promise<void> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id;
+    if (!userId) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
+    const usage = await getDailyUsage();
+
+    if (usage >= maxGenerations) {
+      throw new Error(`Limite quotidienne de générations IA atteinte (${usage}/${maxGenerations} pour le plan ${profile?.plan || 'gratuit'}). Revenez demain ou passez Premium !`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('Limite quotidienne')) {
+      throw err;
+    }
+    // Si c'est une simple erreur réseau de lecture, on ne bloque pas inutilement
+  }
 }
 
 function getSystemInstruction(prefs?: AIPreferences) {
