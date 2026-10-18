@@ -112,7 +112,7 @@ export default function AuthPage() {
     } catch (err: any) {
       const msg = err.message || '';
       if (msg.toLowerCase().includes('rate limit')) {
-        setError('Trop de demandes d\'e-mails en peu de temps. Par sécurité, Supabase impose une pause d\'environ 60 secondes. Veuillez patienter 1 minute avant de réessayer.');
+        setError('Trop de demandes d\'e-mails en ce moment, veuillez réessayer ultérieurement.');
       } else if (msg.toLowerCase().includes('invalid login credentials')) {
         setError('Identifiants incorrects. Vérifiez votre adresse e-mail et votre mot de passe.');
       } else if (msg.toLowerCase().includes('user already registered')) {
