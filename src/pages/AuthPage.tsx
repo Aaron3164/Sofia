@@ -20,6 +20,7 @@ export default function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tokens, setTokens] = useState<{ accessToken?: string; refreshToken?: string } | null>(null);
 
   // Check if URL contains reset password recovery tokens / hash / code
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function AuthPage() {
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         if (accessToken && refreshToken) {
+          setTokens({ accessToken, refreshToken });
           try {
             await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           } catch (e: any) {
@@ -57,8 +59,8 @@ export default function AuthPage() {
     handleRecovery();
 
     // Also listen for PASSWORD_RECOVERY event from Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (session && isResetMode)) {
         setShowAuth(true);
         setIsResetMode(true);
       }
@@ -89,7 +91,14 @@ export default function AuthPage() {
           setIsSubmitting(false);
           return;
         }
+        // Ensure session is set if tokens are available
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session && tokens?.accessToken && tokens?.refreshToken) {
+          await supabase.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+        }
+
         await updatePassword(newPassword);
+
         setResetSuccess(true);
         await alert('Votre mot de passe a été mis à jour avec succès !');
         setIsResetMode(false);
@@ -112,7 +121,7 @@ export default function AuthPage() {
     } catch (err: any) {
       const msg = err.message || '';
       if (msg.toLowerCase().includes('rate limit')) {
-        setError('Trop de demandes d\'e-mails en ce moment, veuillez réessayer ultérieurement.');
+        setError('Trop de demandes d\'e-mails en peu de temps. Par sécurité, Supabase impose une pause d\'environ 60 secondes. Veuillez patienter 1 minute avant de réessayer.');
       } else if (msg.toLowerCase().includes('invalid login credentials')) {
         setError('Identifiants incorrects. Vérifiez votre adresse e-mail et votre mot de passe.');
       } else if (msg.toLowerCase().includes('user already registered')) {
