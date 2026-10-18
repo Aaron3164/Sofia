@@ -1,0 +1,224 @@
+/* ============================================================
+   SOF.IA — AI Progress Card & Indicator Component
+   Ultra-sleek, premium gradient animations with live countdown
+   ============================================================ */
+
+.ai-progress-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 2rem;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  border-radius: var(--radius-xl, 1.5rem);
+  background: var(--bg-surface, var(--bg-secondary));
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg, 0 20px 48px rgba(0, 0, 0, 0.1));
+  position: relative;
+  overflow: hidden;
+  animation: aiCardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-progress-card.overlay-mode {
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(219, 39, 119, 0.3);
+  backdrop-filter: blur(16px);
+}
+
+.ai-progress-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(219, 39, 119, 0.08) 0%, rgba(99, 102, 241, 0.04) 40%, transparent 70%);
+  pointer-events: none;
+  animation: aiGlowPulse 4s ease-in-out infinite alternate;
+}
+
+/* ── Icon Aura ─────────────────────────────── */
+.ai-progress-icon-wrapper {
+  width: 68px;
+  height: 68px;
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, rgba(219, 39, 119, 0.15), rgba(99, 102, 241, 0.15));
+  border: 1px solid rgba(219, 39, 119, 0.25);
+  color: var(--accent-primary, #db2777);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  position: relative;
+  box-shadow: 0 8px 24px -4px rgba(219, 39, 119, 0.25);
+}
+
+.ai-progress-icon-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 1.5rem;
+  border: 2px dashed rgba(219, 39, 119, 0.35);
+  animation: aiRotateSlow 12s linear infinite;
+}
+
+/* ── Typography ────────────────────────────── */
+.ai-progress-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.ai-progress-subtitle {
+  margin: 0 0 1.75rem 0;
+  font-size: 0.925rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 460px;
+}
+
+/* ── Progress Track & Fill ─────────────────── */
+.ai-progress-track-wrapper {
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 1rem;
+}
+
+.ai-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ai-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ec4899 0%, #db2777 40%, #8b5cf6 80%, #6366f1 100%);
+  background-size: 200% 100%;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  animation: aiGradientShift 2.5s ease infinite;
+}
+
+.ai-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: aiShimmer 1.8s infinite;
+}
+
+/* ── Live Metrics (Percent + Countdown) ────── */
+.ai-progress-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 0.6rem;
+  font-size: 0.84rem;
+}
+
+.ai-progress-percent-badge {
+  font-weight: 800;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-primary, #db2777);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ai-progress-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  background: var(--bg-elevated);
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Dynamic Status Step ──────────────────── */
+.ai-progress-current-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(219, 39, 119, 0.08);
+  border: 1px solid rgba(219, 39, 119, 0.18);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  max-width: 480px;
+  animation: aiFadeStep 0.2s ease-in-out;
+}
+
+.ai-progress-step-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-primary, #db2777);
+  box-shadow: 0 0 8px var(--accent-primary, #db2777);
+  animation: aiDotPulse 1.5s infinite;
+}
+
+/* ── Keyframe Animations ──────────────────── */
+@keyframes aiCardFadeIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes aiGlowPulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes aiRotateSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes aiGradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes aiShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes aiDotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.6; }
+}
+
+@keyframes aiFadeStep {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
