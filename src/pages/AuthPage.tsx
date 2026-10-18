@@ -1,17 +1,33 @@
-import React, { useState } from 'react';
-import { Crown, ShieldCheck, Mail, Lock, ArrowRight, Brain, Zap, Calendar, Sparkles, ArrowLeft, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Crown, ShieldCheck, Mail, Lock, ArrowRight, Brain, Zap, Calendar, Sparkles, ArrowLeft, CheckCircle, KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import LandingPage from './LandingPage';
 
 export default function AuthPage() {
-  const { signIn, signUp, loading } = useAuth();
+  const { signIn, signUp, resetPassword, updatePassword, loading } = useAuth();
   const { alert } = useDialog();
   const [showAuth, setShowAuth] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Check if URL contains reset password recovery tokens/hash
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=recovery') || hash.includes('reset-password') || hash.includes('access_token'))) {
+      setShowAuth(true);
+      setIsResetMode(true);
+    }
+  }, []);
 
   if (!showAuth) {
     return <LandingPage onGetStarted={() => setShowAuth(true)} />;
@@ -20,8 +36,34 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
     try {
-      if (isSignUp) {
+      if (isResetMode) {
+        if (newPassword.length < 6) {
+          setError('Le mot de passe doit contenir au moins 6 caractères.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          setError('Les mots de passe ne correspondent pas.');
+          setIsSubmitting(false);
+          return;
+        }
+        await updatePassword(newPassword);
+        setResetSuccess(true);
+        await alert('Votre mot de passe a été mis à jour avec succès !');
+        setIsResetMode(false);
+        setIsForgotPassword(false);
+        window.location.hash = '';
+      } else if (isForgotPassword) {
+        if (!email.trim()) {
+          setError('Veuillez renseigner votre adresse e-mail.');
+          setIsSubmitting(false);
+          return;
+        }
+        await resetPassword(email.trim());
+        setResetSent(true);
+      } else if (isSignUp) {
         await signUp(email, password);
         await alert('Compte créé ! Veuillez vérifier votre e-mail (si activé) ou vous connecter.');
       } else {
@@ -29,6 +71,8 @@ export default function AuthPage() {
       }
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -104,12 +148,49 @@ export default function AuthPage() {
               Sof.IA
             </div>
             <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.3rem', fontWeight: 800, color: '#3b0764', marginBottom: '0.35rem' }}>
-              {isSignUp ? 'Créer un compte' : 'Bon retour parmi nous'}
+              {isResetMode
+                ? 'Nouveau mot de passe'
+                : isForgotPassword
+                ? 'Mot de passe oublié'
+                : isSignUp
+                ? 'Créer un compte'
+                : 'Bon retour parmi nous'}
             </h1>
             <p style={{ fontSize: '0.85rem', color: 'rgba(59, 7, 100, 0.65)' }}>
-              {isSignUp ? 'Commence à réviser intelligemment' : 'Connecte-toi à ton espace Sof.IA'}
+              {isResetMode
+                ? 'Choisis un nouveau mot de passe sécurisé'
+                : isForgotPassword
+                ? 'Reçois un lien de réinitialisation sécurisé par e-mail'
+                : isSignUp
+                ? 'Commence à réviser intelligemment'
+                : 'Connecte-toi à ton espace Sof.IA'}
             </p>
           </div>
+
+          {/* Success messages */}
+          {resetSent && (
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)',
+              color: '#065f46', padding: '0.9rem 1rem', borderRadius: '0.75rem', fontSize: '0.88rem',
+              display: 'flex', alignItems: 'flex-start', gap: '0.6rem', lineHeight: 1.5,
+            }}>
+              <CheckCircle size={18} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong>E-mail envoyé !</strong> Vérifie ta boîte de réception (et tes spams) pour réinitialiser ton mot de passe.
+              </div>
+            </div>
+          )}
+
+          {resetSuccess && (
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)',
+              color: '#065f46', padding: '0.9rem 1rem', borderRadius: '0.75rem', fontSize: '0.88rem',
+              display: 'flex', alignItems: 'center', gap: '0.6rem',
+            }}>
+              <CheckCircle size={18} color="#10b981" />
+              <span>Mot de passe réinitialisé ! Tu peux maintenant te connecter.</span>
+            </div>
+          )}
 
           {/* Error */}
           {error && (
@@ -123,61 +204,142 @@ export default function AuthPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#3b0764' }}>
-                Adresse e-mail
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Mail style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(112, 26, 117, 0.4)' }} size={15} />
-                <input
-                  type="email" required value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="nom@exemple.com"
-                  style={{
-                    width: '100%', padding: '0.8rem 0.875rem 0.8rem 2.5rem',
-                    borderRadius: '0.75rem',
-                    border: '1.5px solid rgba(219, 39, 119, 0.18)',
-                    background: 'rgba(255, 255, 255, 0.85)',
-                    color: '#3b0764', fontSize: '0.9rem',
-                    fontWeight: 500,
-                    outline: 'none', fontFamily: "'Inter', sans-serif",
-                    transition: 'all 0.2s',
-                  }}
-                  onFocus={e => { e.target.style.borderColor = '#db2777'; e.target.style.boxShadow = '0 0 0 3px rgba(219, 39, 119, 0.12)'; }}
-                  onBlur={e => { e.target.style.borderColor = 'rgba(219, 39, 119, 0.18)'; e.target.style.boxShadow = 'none'; }}
-                />
-              </div>
-            </div>
+            {isResetMode ? (
+              <>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#3b0764' }}>
+                    Nouveau mot de passe
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(112, 26, 117, 0.4)' }} size={15} />
+                    <input
+                      type="password" required value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Minimum 6 caractères"
+                      style={{
+                        width: '100%', padding: '0.8rem 0.875rem 0.8rem 2.5rem',
+                        borderRadius: '0.75rem',
+                        border: '1.5px solid rgba(219, 39, 119, 0.18)',
+                        background: 'rgba(255, 255, 255, 0.85)',
+                        color: '#3b0764', fontSize: '0.9rem',
+                        fontWeight: 500,
+                        outline: 'none', fontFamily: "'Inter', sans-serif",
+                        transition: 'all 0.2s',
+                      }}
+                      onFocus={e => { e.target.style.borderColor = '#db2777'; e.target.style.boxShadow = '0 0 0 3px rgba(219, 39, 119, 0.12)'; }}
+                      onBlur={e => { e.target.style.borderColor = 'rgba(219, 39, 119, 0.18)'; e.target.style.boxShadow = 'none'; }}
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#3b0764' }}>
-                Mot de passe
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(112, 26, 117, 0.4)' }} size={15} />
-                <input
-                  type="password" required value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  style={{
-                    width: '100%', padding: '0.8rem 0.875rem 0.8rem 2.5rem',
-                    borderRadius: '0.75rem',
-                    border: '1.5px solid rgba(219, 39, 119, 0.18)',
-                    background: 'rgba(255, 255, 255, 0.85)',
-                    color: '#3b0764', fontSize: '0.9rem',
-                    fontWeight: 500,
-                    outline: 'none', fontFamily: "'Inter', sans-serif",
-                    transition: 'all 0.2s',
-                  }}
-                  onFocus={e => { e.target.style.borderColor = '#db2777'; e.target.style.boxShadow = '0 0 0 3px rgba(219, 39, 119, 0.12)'; }}
-                  onBlur={e => { e.target.style.borderColor = 'rgba(219, 39, 119, 0.18)'; e.target.style.boxShadow = 'none'; }}
-                />
-              </div>
-            </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#3b0764' }}>
+                    Confirmer le mot de passe
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(112, 26, 117, 0.4)' }} size={15} />
+                    <input
+                      type="password" required value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Répétez le mot de passe"
+                      style={{
+                        width: '100%', padding: '0.8rem 0.875rem 0.8rem 2.5rem',
+                        borderRadius: '0.75rem',
+                        border: '1.5px solid rgba(219, 39, 119, 0.18)',
+                        background: 'rgba(255, 255, 255, 0.85)',
+                        color: '#3b0764', fontSize: '0.9rem',
+                        fontWeight: 500,
+                        outline: 'none', fontFamily: "'Inter', sans-serif",
+                        transition: 'all 0.2s',
+                      }}
+                      onFocus={e => { e.target.style.borderColor = '#db2777'; e.target.style.boxShadow = '0 0 0 3px rgba(219, 39, 119, 0.12)'; }}
+                      onBlur={e => { e.target.style.borderColor = 'rgba(219, 39, 119, 0.18)'; e.target.style.boxShadow = 'none'; }}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#3b0764' }}>
+                    Adresse e-mail
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <Mail style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(112, 26, 117, 0.4)' }} size={15} />
+                    <input
+                      type="email" required value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="nom@exemple.com"
+                      style={{
+                        width: '100%', padding: '0.8rem 0.875rem 0.8rem 2.5rem',
+                        borderRadius: '0.75rem',
+                        border: '1.5px solid rgba(219, 39, 119, 0.18)',
+                        background: 'rgba(255, 255, 255, 0.85)',
+                        color: '#3b0764', fontSize: '0.9rem',
+                        fontWeight: 500,
+                        outline: 'none', fontFamily: "'Inter', sans-serif",
+                        transition: 'all 0.2s',
+                      }}
+                      onFocus={e => { e.target.style.borderColor = '#db2777'; e.target.style.boxShadow = '0 0 0 3px rgba(219, 39, 119, 0.12)'; }}
+                      onBlur={e => { e.target.style.borderColor = 'rgba(219, 39, 119, 0.18)'; e.target.style.boxShadow = 'none'; }}
+                    />
+                  </div>
+                </div>
+
+                {!isForgotPassword && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#3b0764' }}>
+                        Mot de passe
+                      </label>
+                      {!isSignUp && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsForgotPassword(true);
+                            setError(null);
+                            setResetSent(false);
+                          }}
+                          style={{
+                            background: 'none', border: 'none', color: '#db2777',
+                            fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                            padding: 0, fontFamily: "'Inter', sans-serif",
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                          onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                        >
+                          Mot de passe oublié ?
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                      <Lock style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(112, 26, 117, 0.4)' }} size={15} />
+                      <input
+                        type="password" required value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        style={{
+                          width: '100%', padding: '0.8rem 0.875rem 0.8rem 2.5rem',
+                          borderRadius: '0.75rem',
+                          border: '1.5px solid rgba(219, 39, 119, 0.18)',
+                          background: 'rgba(255, 255, 255, 0.85)',
+                          color: '#3b0764', fontSize: '0.9rem',
+                          fontWeight: 500,
+                          outline: 'none', fontFamily: "'Inter', sans-serif",
+                          transition: 'all 0.2s',
+                        }}
+                        onFocus={e => { e.target.style.borderColor = '#db2777'; e.target.style.boxShadow = '0 0 0 3px rgba(219, 39, 119, 0.12)'; }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(219, 39, 119, 0.18)'; e.target.style.boxShadow = 'none'; }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting || loading}
               style={{
                 padding: '0.9rem',
                 borderRadius: '0.75rem',
@@ -186,32 +348,75 @@ export default function AuthPage() {
                 color: 'white',
                 fontSize: '0.95rem',
                 fontWeight: 700,
-                cursor: 'pointer',
+                cursor: (isSubmitting || loading) ? 'not-allowed' : 'pointer',
                 fontFamily: "'Inter', sans-serif",
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
                 boxShadow: '0 4px 20px rgba(219, 39, 119, 0.35)',
                 transition: 'all 0.2s ease',
                 marginTop: '0.25rem',
-                opacity: loading ? 0.7 : 1,
+                opacity: (isSubmitting || loading) ? 0.7 : 1,
               }}
-              onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 8px 32px rgba(219, 39, 119, 0.45)'; }}
+              onMouseEnter={e => { if (!isSubmitting && !loading) e.currentTarget.style.boxShadow = '0 8px 32px rgba(219, 39, 119, 0.45)'; }}
               onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(219, 39, 119, 0.35)'; }}
             >
-              {loading ? 'Chargement...' : isSignUp ? 'Créer mon compte' : 'Se connecter'}
-              {!loading && <ArrowRight size={16} />}
+              {(isSubmitting || loading)
+                ? 'Chargement...'
+                : isResetMode
+                ? 'Enregistrer le nouveau mot de passe'
+                : isForgotPassword
+                ? 'Envoyer le lien de réinitialisation'
+                : isSignUp
+                ? 'Créer mon compte'
+                : 'Se connecter'}
+              {!isSubmitting && !loading && (
+                isResetMode ? <KeyRound size={16} /> : isForgotPassword ? <Mail size={16} /> : <ArrowRight size={16} />
+              )}
             </button>
           </form>
 
-          {/* Toggle */}
-          <div style={{ textAlign: 'center' }}>
-            <button
-              onClick={() => setIsSignUp(!isSignUp)}
-              style={{ background: 'none', border: 'none', color: '#db2777', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, fontFamily: "'Inter', sans-serif", transition: '0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#be185d'}
-              onMouseLeave={e => e.currentTarget.style.color = '#db2777'}
-            >
-              {isSignUp ? 'Déjà un compte ? Se connecter →' : "Pas encore de compte ? S'inscrire →"}
-            </button>
+          {/* Toggle / Back options */}
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {isForgotPassword ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setError(null);
+                  setResetSent(false);
+                }}
+                style={{ background: 'none', border: 'none', color: '#db2777', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, fontFamily: "'Inter', sans-serif", transition: '0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#be185d'}
+                onMouseLeave={e => e.currentTarget.style.color = '#db2777'}
+              >
+                ← Revenir à la connexion
+              </button>
+            ) : isResetMode ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsResetMode(false);
+                  setError(null);
+                }}
+                style={{ background: 'none', border: 'none', color: '#db2777', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, fontFamily: "'Inter', sans-serif", transition: '0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#be185d'}
+                onMouseLeave={e => e.currentTarget.style.color = '#db2777'}
+              >
+                ← Revenir à la connexion
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError(null);
+                }}
+                style={{ background: 'none', border: 'none', color: '#db2777', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, fontFamily: "'Inter', sans-serif", transition: '0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#be185d'}
+                onMouseLeave={e => e.currentTarget.style.color = '#db2777'}
+              >
+                {isSignUp ? 'Déjà un compte ? Se connecter →' : "Pas encore de compte ? S'inscrire →"}
+              </button>
+            )}
           </div>
 
           {/* Trust badges */}
