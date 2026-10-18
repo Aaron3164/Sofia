@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { parseAnnalePDF, parseCorrectionGridText, type ExtractedQuestion, type AnnaleParseResult } from '../../lib/annale-parser';
 import { compressImage, getImageFromClipboard } from '../../lib/image-utils';
+import { AIProgressCard } from '../common/AIProgressCard';
 import './AnnaleExamImportModal.css';
 
 interface AnnaleExamImportModalProps {
@@ -275,44 +276,64 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
           )}
 
           {isLoading && (
-            <div className="annale-progress-card">
-              <div className="annale-spinner-glow">
-                <RefreshCw className="animate-spin text-accent" size={40} />
-              </div>
-
-              <div style={{ maxWidth: '420px', width: '100%' }}>
-                <h4 style={{ margin: '0 0 0.4rem 0', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {loadingText || 'Analyse de votre annale...'}
-                </h4>
-                {progress.total > 0 && (
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Traitement de la page {progress.current} sur {progress.total}
-                  </p>
-                )}
-              </div>
-
-              <div className="annale-progress-bar-container">
-                <div 
-                  className="annale-progress-bar-fill" 
-                  style={{ width: `${progress.total > 0 ? Math.max(15, (progress.current / progress.total) * 100) : 35}%` }}
+            loadingText.includes('Sofia') || (progress.current > 0 && progress.current === progress.total) ? (
+              <div style={{ padding: '1rem 0' }}>
+                <AIProgressCard
+                  title="Structuration intelligente par Sofia IA"
+                  subtitle="Analyse mot pour mot, détection des corrigés et association des schémas"
+                  estimatedDuration={13}
+                  steps={[
+                    { atPercent: 0, label: "Lecture approfondie du texte extrait..." },
+                    { atPercent: 25, label: "Identification des énoncés et propositions..." },
+                    { atPercent: 50, label: "Détection des cases cochées et grilles de correction..." },
+                    { atPercent: 75, label: "Association des figures et illustrations..." },
+                    { atPercent: 92, label: "Mise en forme de l'examen interactif..." }
+                  ]}
                 />
               </div>
+            ) : (
+              <div className="annale-progress-card">
+                <div className="annale-spinner-glow">
+                  <RefreshCw className="animate-spin text-accent" size={40} />
+                </div>
 
-              <div className="annale-steps-indicator">
-                <div className={`annale-step-item ${progress.current > 0 ? 'active' : ''}`}>
-                  <div className="annale-step-dot" />
-                  <span>1. Extraction du texte et des schémas du PDF</span>
+                <div style={{ maxWidth: '420px', width: '100%' }}>
+                  <h4 style={{ margin: '0 0 0.4rem 0', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {loadingText || 'Extraction du document PDF...'}
+                  </h4>
+                  {progress.total > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      <span>Traitement de la page {progress.current} sur {progress.total}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>
+                        {Math.round((progress.current / progress.total) * 100)}%
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className={`annale-step-item ${loadingText.includes('Sofia') ? 'active' : ''}`}>
-                  <div className="annale-step-dot" />
-                  <span>2. Structuration mot pour mot et analyse des corrigés par Sofia IA</span>
+
+                <div className="annale-progress-bar-container">
+                  <div 
+                    className="annale-progress-bar-fill" 
+                    style={{ width: `${progress.total > 0 ? Math.max(10, (progress.current / progress.total) * 100) : 30}%` }}
+                  />
                 </div>
-                <div className="annale-step-item">
-                  <div className="annale-step-dot" />
-                  <span>3. Préparation de votre examen blanc interactif</span>
+
+                <div className="annale-steps-indicator">
+                  <div className="annale-step-item active">
+                    <div className="annale-step-dot" />
+                    <span>1. Extraction du texte et des schémas du PDF</span>
+                  </div>
+                  <div className="annale-step-item">
+                    <div className="annale-step-dot" />
+                    <span>2. Structuration mot pour mot et analyse des corrigés par Sofia IA</span>
+                  </div>
+                  <div className="annale-step-item">
+                    <div className="annale-step-dot" />
+                    <span>3. Préparation de votre examen blanc interactif</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           )}
 
           {step === 'review' && (

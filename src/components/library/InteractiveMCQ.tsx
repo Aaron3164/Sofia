@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { explainMCQErrors } from '../../lib/gemini';
 import { BookOpen, Loader2, Sparkles, RotateCcw } from 'lucide-react';
+import { AIProgressCard } from '../common/AIProgressCard';
 
 export interface MCQ {
   question: string;
@@ -671,7 +672,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               {isLoadingCorrections ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  <span>Sofia analyse le cours...</span>
+                  <span>Analyse en cours...</span>
                 </>
               ) : (
                 <>
@@ -685,6 +686,23 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               )}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Barre de progression pendant l'explication IA des erreurs */}
+      {showResults && isLoadingCorrections && (
+        <div style={{ marginTop: '1.5rem', width: '100%' }}>
+          <AIProgressCard
+            title="Analyse pédagogique en cours..."
+            subtitle="Sofia examine vos erreurs et recherche les extraits pertinents de votre cours"
+            estimatedDuration={9}
+            steps={[
+              { atPercent: 0, label: "Identification des questions à corriger..." },
+              { atPercent: 25, label: "Recherche des notions clés dans votre cours..." },
+              { atPercent: 60, label: "Rédaction des explications pédagogiques ciblées..." },
+              { atPercent: 88, label: "Mise en page des justifications..." },
+            ]}
+          />
         </div>
       )}
 
