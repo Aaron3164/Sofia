@@ -5,6 +5,7 @@ import { globalSearch } from '../../lib/gemini';
 import { useFileSystem, type FileNode } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { AIProgressCard } from '../common/AIProgressCard';
 
 interface MatchedCourse {
   courseId: string;
@@ -626,11 +627,19 @@ export const GlobalSearchModal: React.FC = () => {
             /* AI Synthesis View */
             <div>
               {isSearchingAI ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3.5rem 1rem', gap: '1rem', color: 'var(--text-secondary)' }}>
-                  <Loader2 size={36} className="spin" color="var(--accent-primary)" />
-                  <p style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-primary)' }}>
-                    Sofia analyse tous vos cours, cela peut prendre quelques secondes...
-                  </p>
+                <div style={{ padding: '1.5rem 0' }}>
+                  <AIProgressCard
+                    title="Synthèse globale par Sofia IA"
+                    subtitle={`Croisement et analyse de tous vos cours pour "${query}"`}
+                    estimatedDuration={11}
+                    steps={[
+                      { atPercent: 0, label: "Collecte des extraits de tous vos cours..." },
+                      { atPercent: 30, label: "Croisement des définitions et notions..." },
+                      { atPercent: 65, label: "Rédaction de la synthèse thématique..." },
+                      { atPercent: 88, label: "Attribution des sources [Cours: ...]..." },
+                      { atPercent: 96, label: "Finalisation du résumé global..." }
+                    ]}
+                  />
                 </div>
               ) : aiResults ? (
                 <div className="flashcard-content" style={{ color: 'var(--text-primary)', lineHeight: 1.7, fontSize: '0.96rem' }}>
