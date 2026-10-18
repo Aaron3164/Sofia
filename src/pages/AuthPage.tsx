@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import LandingPage from './LandingPage';
 
 export default function AuthPage() {
-  const { signIn, signUp, resetPassword, updatePassword, loading } = useAuth();
+  const { signIn, signUp, resetPassword, loading } = useAuth();
   const { alert } = useDialog();
   const [showAuth, setShowAuth] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -91,13 +91,31 @@ export default function AuthPage() {
           setIsSubmitting(false);
           return;
         }
-        // Ensure session is set if tokens are available
-        const { data: sessionData } = await supabase.auth.getSession();
+        // Ensure session is set or retrieved
+        let { data: sessionData } = await supabase.auth.getSession();
+        
         if (!sessionData.session && tokens?.accessToken && tokens?.refreshToken) {
-          await supabase.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+          const res = await supabase.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+          sessionData = res.data;
         }
 
-        await updatePassword(newPassword);
+        if (!sessionData.session) {
+          // Try checking url hash directly one more time
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+          const at = hashParams.get('access_token');
+          const rt = hashParams.get('refresh_token');
+          if (at && rt) {
+            const res = await supabase.auth.setSession({ access_token: at, refresh_token: rt });
+            sessionData = res.data;
+          }
+        }
+
+        if (!sessionData.session) {
+          throw new Error('Auth session missing! Impossible de valider la session de réinitialisation.');
+        }
+
+        const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+        if (updateError) throw updateError;
 
         setResetSuccess(true);
         await alert('Votre mot de passe a été mis à jour avec succès !');
@@ -119,6 +137,7 @@ export default function AuthPage() {
         await signIn(email, password);
       }
     } catch (err: any) {
+      console.error('[AuthPage] Submit error:', err);
       const msg = err.message || '';
       if (msg.toLowerCase().includes('rate limit')) {
         setError('Trop de demandes d\'e-mails en peu de temps. Par sécurité, Supabase impose une pause d\'environ 60 secondes. Veuillez patienter 1 minute avant de réessayer.');
@@ -127,7 +146,7 @@ export default function AuthPage() {
       } else if (msg.toLowerCase().includes('user already registered')) {
         setError('Un compte existe déjà avec cette adresse e-mail.');
       } else if (msg.toLowerCase().includes('auth session missing')) {
-        setError('Le lien de réinitialisation a expiré ou est invalide. Veuillez demander un nouveau lien.');
+        setError('Session de réinitialisation absente (Auth session missing). Le token du lien n\'a pas pu être validé par Supabase.');
       } else {
         setError(msg || 'Une erreur est survenue.');
       }
