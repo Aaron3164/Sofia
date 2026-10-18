@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
+import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
 import { extractTextFromPDF } from '../lib/pdf-extractor';
@@ -12,9 +12,9 @@ import { useFileSystem } from '../hooks/useFileSystem';
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
-import { Calendar } from 'lucide-react';
 import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
 import { isGoogleDriveUrl } from '../lib/google-drive';
+import { AIProgressCard } from '../components/common/AIProgressCard';
 import './SubjectDetail.css';
 
 type GenerationTab = 'flashcards' | 'mcq' | 'explications' | 'resume';
@@ -862,7 +862,7 @@ export default function SubjectDetail() {
                     style={(!extractedContent || isQuotaReached) ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
                     title={isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : undefined}
                   >
-                    {isGenerating ? <RefreshCw className="animate-spin" size={16} /> : isQuotaReached ? <span>Limite atteinte</span> : <span>Générer</span>}
+                    {isGenerating ? <><RefreshCw className="animate-spin" size={16} /> <span>Génération...</span></> : isQuotaReached ? <span>Limite atteinte</span> : <span>Générer</span>}
                   </button>
                 )}
               </div>
@@ -952,7 +952,53 @@ export default function SubjectDetail() {
 
                 return (
                   <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
-                    {!content ? (
+                    {isGenerating ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '380px', padding: '1.5rem' }}>
+                        <AIProgressCard
+                          active={isGenerating}
+                          title={
+                            tab.id === 'flashcards' 
+                              ? `Génération de vos ${flashcardCount} Flashcards...` 
+                              : tab.id === 'mcq'
+                              ? "Génération de votre Examen Blanc (QCM)..."
+                              : "Génération de votre Fiche de Révision..."
+                          }
+                          subtitle={
+                            tab.id === 'flashcards'
+                              ? "Sofia extrait les concepts clés et structure vos fiches de répétition espacée."
+                              : tab.id === 'mcq'
+                              ? "Sofia analyse votre cours et conçoit un entraînement sur-mesure ciblant les pièges."
+                              : "Sofia synthétise votre cours en un résumé clair, hiérarchisé et visuellement structuré."
+                          }
+                          estimatedDuration={tab.id === 'flashcards' ? 16 : tab.id === 'mcq' ? 15 : 13}
+                          steps={
+                            tab.id === 'flashcards'
+                              ? [
+                                  { percent: 0, label: "Lecture approfondie du document de cours..." },
+                                  { percent: 25, label: "Extraction des concepts clés et définitions..." },
+                                  { percent: 50, label: "Formulation des recto-verso et moyens mnémotechniques..." },
+                                  { percent: 75, label: "Optimisation pour la répétition espacée..." },
+                                  { percent: 92, label: "Mise en page de vos flashcards..." }
+                                ]
+                              : tab.id === 'mcq'
+                              ? [
+                                  { percent: 0, label: "Analyse des notions clés et de la structure du cours..." },
+                                  { percent: 25, label: "Sélection des pièges fréquents d'examen..." },
+                                  { percent: 50, label: "Rédaction des questions et options de réponses..." },
+                                  { percent: 75, label: "Vérification des corrigés et des explications..." },
+                                  { percent: 92, label: "Finalisation de votre examen interactif..." }
+                                ]
+                              : [
+                                  { percent: 0, label: "Lecture et découpage thématique du document..." },
+                                  { percent: 30, label: "Extraction des plans de cours et concepts majeurs..." },
+                                  { percent: 60, label: "Mise en page avec titres, gras et surlignage..." },
+                                  { percent: 85, label: "Relecture pédagogique par Sofia..." },
+                                  { percent: 95, label: "Finalisation de votre fiche de révision..." }
+                                ]
+                          }
+                        />
+                      </div>
+                    ) : !content ? (
                       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
                         Cliquez sur "Générer" pour traiter le document.
                       </div>
