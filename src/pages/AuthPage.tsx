@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Crown, ShieldCheck, Mail, Lock, ArrowRight, Brain, Zap, Calendar, Sparkles, ArrowLeft, CheckCircle, KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
+import { supabase } from '../lib/supabase';
 import LandingPage from './LandingPage';
 
 export default function AuthPage() {
@@ -20,13 +21,52 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Check if URL contains reset password recovery tokens/hash
+  // Check if URL contains reset password recovery tokens / hash / code
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && (hash.includes('type=recovery') || hash.includes('reset-password') || hash.includes('access_token'))) {
-      setShowAuth(true);
-      setIsResetMode(true);
-    }
+    const handleRecovery = async () => {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      const urlParams = new URLSearchParams(search);
+      const code = urlParams.get('code');
+
+      if (code) {
+        setShowAuth(true);
+        setIsResetMode(true);
+        try {
+          await supabase.auth.exchangeCodeForSession(code);
+        } catch (e: any) {
+          console.warn('[AuthPage] exchangeCodeForSession error:', e);
+        }
+      } else if (hash && (hash.includes('type=recovery') || hash.includes('reset-password') || hash.includes('access_token'))) {
+        setShowAuth(true);
+        setIsResetMode(true);
+        // If hash contains access_token and refresh_token, set session
+        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        if (accessToken && refreshToken) {
+          try {
+            await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          } catch (e: any) {
+            console.warn('[AuthPage] setSession error:', e);
+          }
+        }
+      }
+    };
+
+    handleRecovery();
+
+    // Also listen for PASSWORD_RECOVERY event from Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowAuth(true);
+        setIsResetMode(true);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (!showAuth) {
