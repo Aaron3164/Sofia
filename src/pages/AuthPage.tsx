@@ -110,7 +110,18 @@ export default function AuthPage() {
         await signIn(email, password);
       }
     } catch (err: any) {
-      setError(err.message || 'Une erreur est survenue.');
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('rate limit')) {
+        setError('Trop de demandes d\'e-mails en peu de temps. Par sécurité, Supabase impose une pause d\'environ 60 secondes. Veuillez patienter 1 minute avant de réessayer.');
+      } else if (msg.toLowerCase().includes('invalid login credentials')) {
+        setError('Identifiants incorrects. Vérifiez votre adresse e-mail et votre mot de passe.');
+      } else if (msg.toLowerCase().includes('user already registered')) {
+        setError('Un compte existe déjà avec cette adresse e-mail.');
+      } else if (msg.toLowerCase().includes('auth session missing')) {
+        setError('Le lien de réinitialisation a expiré ou est invalide. Veuillez demander un nouveau lien.');
+      } else {
+        setError(msg || 'Une erreur est survenue.');
+      }
     } finally {
       setIsSubmitting(false);
     }
