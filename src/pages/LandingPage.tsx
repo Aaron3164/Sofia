@@ -15,6 +15,14 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
 
+  // Guarantee that the landing page always loads cleanly at the very top (no browser scroll restoration jumps)
+  React.useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+  }, []);
+
   const features = [
     {
       icon: <Zap size={24} color="#f472b6" />,

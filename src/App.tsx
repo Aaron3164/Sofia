@@ -30,10 +30,10 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-primary)' }}>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#160a22', color: '#ffffff' }}>
         <div style={{ textAlign: 'center' }}>
-          <div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid var(--accent-primary)', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 1.5rem' }}></div>
-          <p style={{ color: 'var(--text-secondary)' }}>Initialisation de votre espace Sof.IA...</p>
+          <div className="animate-spin" style={{ width: '40px', height: '40px', border: '3px solid rgba(244, 114, 182, 0.25)', borderTopColor: '#f472b6', borderRadius: '50%', margin: '0 auto 1.5rem' }}></div>
+          <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '0.95rem' }}>Initialisation de votre espace Sof.IA...</p>
         </div>
       </div>
     );
