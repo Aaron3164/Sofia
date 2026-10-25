@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { 
   ArrowRight, Sparkles, Brain, Zap, CheckCircle, Clock, Search, 
   Shield, Star, ChevronRight, Layers, FileText, Award, Check
@@ -14,67 +14,46 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
 
-  // 3D Parallax Tilt effect on interactive preview card
-  const mockupRef = useRef<HTMLDivElement>(null);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!mockupRef.current) return;
-    const rect = mockupRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -6; // max 6deg
-    const rotateY = ((x - centerX) / centerX) * 6;  // max 6deg
-
-    mockupRef.current.style.transform = `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
-  };
-
-  const handleMouseLeave = () => {
-    if (!mockupRef.current) return;
-    mockupRef.current.style.transform = 'perspective(1200px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
-  };
-
   const features = [
     {
-      icon: <Zap size={24} color="#a855f7" />,
-      bg: 'rgba(168, 85, 247, 0.12)',
-      border: 'rgba(168, 85, 247, 0.25)',
+      icon: <Zap size={24} color="#db2777" />,
+      bg: 'rgba(219, 39, 119, 0.08)',
+      border: 'rgba(219, 39, 119, 0.2)',
       title: 'Flashcards de Haute Précision',
       desc: 'Extraction chirurgicale des notions clés depuis vos polycopiés et PDF. Fiches recto-verso optimisées pour la mémorisation active.',
     },
     {
-      icon: <Brain size={24} color="#38bdf8" />,
-      bg: 'rgba(56, 189, 248, 0.12)',
-      border: 'rgba(56, 189, 248, 0.25)',
+      icon: <Brain size={24} color="#ea580c" />,
+      bg: 'rgba(234, 88, 12, 0.08)',
+      border: 'rgba(234, 88, 12, 0.2)',
       title: 'Examens Blancs & Pièges ECNi',
       desc: 'Génération de QCM à choix multiples et cas cliniques sans jamais recycler les mêmes énoncés. Détecte et cible vos lacunes.',
     },
     {
-      icon: <Search size={24} color="#ec4899" />,
-      bg: 'rgba(236, 72, 153, 0.12)',
-      border: 'rgba(236, 72, 153, 0.25)',
+      icon: <Search size={24} color="#db2777" />,
+      bg: 'rgba(219, 39, 119, 0.08)',
+      border: 'rgba(219, 39, 119, 0.2)',
       title: 'Recherche Globale Transversale',
       desc: 'Interrogez l\'ensemble de vos semestres et cours en 1 seconde. Synthèse croisée rédigée avec citations des cours d\'origine.',
     },
     {
-      icon: <Award size={24} color="#eab308" />,
-      bg: 'rgba(234, 179, 8, 0.12)',
-      border: 'rgba(234, 179, 8, 0.25)',
+      icon: <Award size={24} color="#ea580c" />,
+      bg: 'rgba(234, 88, 12, 0.08)',
+      border: 'rgba(234, 88, 12, 0.2)',
       title: 'Import & Analyse d\'Annales Officielles',
       desc: 'Reconnaissance mot pour mot des sujets d\'examen et de leurs corrigés officiels. Association automatique des schémas et images.',
     },
     {
-      icon: <Clock size={24} color="#10b981" />,
-      bg: 'rgba(16, 185, 129, 0.12)',
-      border: 'rgba(16, 185, 129, 0.25)',
+      icon: <Clock size={24} color="#059669" />,
+      bg: 'rgba(5, 150, 105, 0.08)',
+      border: 'rgba(5, 150, 105, 0.2)',
       title: 'Répétition Espacée Intelligente',
       desc: 'Planning automatique basé sur la courbe de l\'oubli d\'Ebbinghaus et l\'algorithme de Leitner. Révisez exactement ce qu\'il faut, quand il faut.',
     },
     {
-      icon: <Layers size={24} color="#818cf8" />,
-      bg: 'rgba(129, 140, 248, 0.12)',
-      border: 'rgba(129, 140, 248, 0.25)',
+      icon: <Layers size={24} color="#7c3aed" />,
+      bg: 'rgba(124, 58, 237, 0.08)',
+      border: 'rgba(124, 58, 237, 0.2)',
       title: 'Bibliothèque Cloud Structurée',
       desc: 'Classement de vos dossiers par spécialité ou matière. Synchronisation cloud instantanée et consultation fluide sur tous vos appareils.',
     },
@@ -82,7 +61,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
   return (
     <div className="lp-container">
-      {/* ── 3D AMBIENT BACKGROUND GLOW ── */}
+      {/* ── AURORE AMBIENT BACKGROUND GLOW ── */}
       <div className="lp-bg-glow">
         <div className="lp-glow-orb lp-glow-1" />
         <div className="lp-glow-orb lp-glow-2" />
@@ -128,25 +107,25 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             Commencer gratuitement <ArrowRight size={18} />
           </button>
           <a href="#demo" className="lp-btn-secondary">
-            Explorer le produit en 3D
+            Découvrir la démonstration
           </a>
         </div>
 
         <div className="lp-trust-row">
           <div className="lp-trust-item">
-            <CheckCircle size={14} color="#10b981" />
+            <CheckCircle size={14} color="#059669" />
             <span>Essai gratuit sans CB</span>
           </div>
           <div className="lp-trust-divider" />
           <div className="lp-trust-item">
-            <Shield size={14} color="#a855f7" />
+            <Shield size={14} color="#db2777" />
             <span>Données privées & chiffrées</span>
           </div>
           <div className="lp-trust-divider" />
           <div className="lp-trust-item">
             <div style={{ display: 'flex', gap: '2px' }}>
               {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} size={12} fill="#eab308" color="#eab308" />
+                <Star key={i} size={12} fill="#ea580c" color="#ea580c" />
               ))}
             </div>
             <span>4.9/5 par les étudiants de santé & droit</span>
@@ -154,14 +133,9 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── 3D PERSPECTIVE PRODUCT SHOWCASE ── */}
+      {/* ── APPLE HIG PRODUCT DEMO (Clean & Purposeful) ── */}
       <section id="demo" className="lp-mockup-wrapper">
-        <div 
-          ref={mockupRef}
-          className="lp-mockup-3d"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-        >
+        <div className="lp-mockup-apple">
           {/* Header Bar */}
           <div className="lp-mockup-header">
             <div className="lp-mockup-dots">
@@ -170,7 +144,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               <span className="lp-mockup-dot lp-dot-green" />
             </div>
             <div className="lp-mockup-title">
-              <Sparkles size={13} color="#c084fc" />
+              <Sparkles size={13} color="#db2777" />
               <span>Sof.IA Studio — Cardiologie_Item_231.pdf</span>
             </div>
             <div style={{ width: '40px' }} />
@@ -182,7 +156,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               className={`lp-mockup-tab-btn ${activeTab === 'flashcard' ? 'active' : ''}`}
               onClick={() => { setActiveTab('flashcard'); setIsFlipped(false); }}
             >
-              <Zap size={14} /> Flashcards Répétition Espacée
+              <Zap size={14} /> Flashcards Spaced Repetition
             </button>
             <button 
               className={`lp-mockup-tab-btn ${activeTab === 'mcq' ? 'active' : ''}`}
@@ -207,54 +181,48 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           {/* Body Viewer */}
           <div className="lp-mockup-body">
             {activeTab === 'flashcard' && (
-              <div 
-                className="lp-card-3d-scene" 
-                onClick={() => setIsFlipped(!isFlipped)}
-                title="Cliquez pour retourner la carte"
-              >
-                <div className={`lp-card-3d ${isFlipped ? 'flipped' : ''}`}>
-                  {/* Front */}
-                  <div className="lp-card-side lp-card-front">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="lp-card-tag lp-tag-purple">Question Recto</span>
-                      <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Item 231 · Électrocardiogramme</span>
-                    </div>
-                    <div className="lp-card-content">
-                      Quels sont les 3 critères diagnostiques majeurs d'un syndrome coronarien avec sus-décalage (STEMI) sur l'ECG ?
-                    </div>
-                    <div className="lp-card-instruction">
-                      <span>💡 Cliquez sur la carte ou appuyez pour retourner</span>
-                      <span style={{ color: '#c084fc', fontWeight: 600 }}>Voir la réponse →</span>
-                    </div>
-                  </div>
+              <div className="lp-flashcard-box">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="lp-card-tag lp-tag-rose">
+                    {isFlipped ? 'Verso · Explication & Corrigé' : 'Recto · Question Essentielle'}
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 600 }}>Item 231 · Électrocardiogramme</span>
+                </div>
 
-                  {/* Back */}
-                  <div className="lp-card-side lp-card-back">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="lp-card-tag lp-tag-cyan">Explication Verso</span>
-                      <span style={{ fontSize: '0.8rem', color: '#38bdf8' }}>Formulation Sofia IA</span>
-                    </div>
-                    <div className="lp-card-content" style={{ fontSize: '1.05rem', lineHeight: '1.6' }}>
-                      <p style={{ margin: '0 0 0.5rem 0' }}>1. <strong>Sus-décalage du segment ST</strong> persistant ≥ 1 mm dans au moins 2 dérivations contiguës.</p>
-                      <p style={{ margin: '0 0 0.5rem 0' }}>2. <strong>Image en miroir</strong> (sous-décalage réciproque) dans le territoire opposé.</p>
-                      <p style={{ margin: 0 }}>3. <strong>Onde de Pardee</strong> englobant le segment ST et l'onde T.</p>
-                    </div>
-                    <div className="lp-card-instruction">
-                      <span>Répétition espacée programmée dans : <strong style={{ color: '#34d399' }}>+4 jours</strong></span>
-                      <span style={{ color: '#38bdf8' }}>← Revenir à la question</span>
-                    </div>
+                <div className="lp-card-question">
+                  Quels sont les 3 critères diagnostiques majeurs d'un syndrome coronarien avec sus-décalage (STEMI) sur l'ECG ?
+                </div>
+
+                {isFlipped && (
+                  <div className="lp-card-answer-box">
+                    <p style={{ margin: '0 0 0.5rem 0' }}>1. <strong>Sus-décalage persistant du segment ST</strong> ≥ 1 mm dans au moins 2 dérivations contiguës.</p>
+                    <p style={{ margin: '0 0 0.5rem 0' }}>2. <strong>Image en miroir</strong> (sous-décalage réciproque) dans le territoire opposé.</p>
+                    <p style={{ margin: 0 }}>3. <strong>Onde de Pardee</strong> englobant le segment ST et l'onde T.</p>
                   </div>
+                )}
+
+                <div className="lp-flashcard-footer">
+                  <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+                    {isFlipped ? 'Prochaine révision : +4 jours' : 'Mémorisation active optimisée'}
+                  </span>
+                  <button 
+                    onClick={() => setIsFlipped(!isFlipped)} 
+                    className="lp-btn-flip"
+                  >
+                    <Sparkles size={14} />
+                    {isFlipped ? 'Masquer la réponse' : 'Afficher la réponse'}
+                  </button>
                 </div>
               </div>
             )}
 
             {activeTab === 'mcq' && (
               <div className="lp-mcq-demo">
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <span className="lp-card-tag lp-tag-purple">QCM Entraînement Concours</span>
-                  <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Difficulté : Avancée</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                  <span className="lp-card-tag lp-tag-orange">QCM Entraînement Concours</span>
+                  <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 600 }}>Difficulté : Avancée</span>
                 </div>
-                <h4 style={{ color: '#f8fafc', fontSize: '1.08rem', fontWeight: 700, margin: '0 0 1rem 0', lineHeight: 1.5 }}>
+                <h4 style={{ color: '#3b0764', fontSize: '1.08rem', fontWeight: 750, margin: '0 0 1rem 0', lineHeight: 1.5 }}>
                   Concernant la prise en charge immédiate d'une embolie pulmonaire à haut risque, quelle est la mesure thérapeutique prioritaire ?
                 </h4>
                 <div>
@@ -274,16 +242,16 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       >
                         <div style={{
                           width: '18px', height: '18px', borderRadius: '4px',
-                          border: isSelected ? '2px solid #a855f7' : '2px solid #475569',
+                          border: isSelected ? '2px solid #db2777' : '2px solid #d1d5db',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          backgroundColor: isSelected ? '#a855f7' : 'transparent',
+                          backgroundColor: isSelected ? '#db2777' : 'transparent',
                           flexShrink: 0
                         }}>
                           {isSelected && <Check size={12} color="white" />}
                         </div>
                         <span style={{ flex: 1 }}>{opt}</span>
                         {isSelected && isCorrect && (
-                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4ade80' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669' }}>
                             ✓ Bonne réponse !
                           </span>
                         )}
@@ -295,44 +263,44 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             )}
 
             {activeTab === 'resume' && (
-              <div style={{ maxWidth: '640px', width: '100%', textAlign: 'left', background: 'rgba(255, 255, 255, 0.03)', padding: '2rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#c084fc', marginBottom: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
+              <div style={{ maxWidth: '640px', width: '100%', textAlign: 'left', background: 'rgba(255, 255, 255, 0.88)', padding: '2.2rem', borderRadius: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.95)', boxShadow: '0 12px 36px rgba(219, 39, 119, 0.07)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#db2777', marginBottom: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
                   <FileText size={16} /> Synthèse Pédagogique Structurée
                 </div>
-                <h3 style={{ color: '#ffffff', fontSize: '1.25rem', margin: '0 0 1rem 0' }}>Fiche Récapitulative : Insuffisance Cardiaque</h3>
-                <p style={{ color: '#cbd5e1', fontSize: '0.92rem', lineHeight: '1.7', margin: '0 0 1rem 0' }}>
+                <h3 style={{ color: '#3b0764', fontSize: '1.25rem', fontWeight: 800, margin: '0 0 1rem 0' }}>Fiche Récapitulative : Insuffisance Cardiaque</h3>
+                <p style={{ color: 'rgba(59, 7, 100, 0.82)', fontSize: '0.92rem', lineHeight: '1.7', margin: '0 0 1rem 0' }}>
                   • <strong>Définition :</strong> Incapacité du myocarde à assurer un débit sanguin suffisant aux besoins métaboliques périphériques.<br />
                   • <strong>Biomarqueurs clés :</strong> Dosage du BNP (&gt; 35 pg/mL) ou NT-proBNP (&gt; 125 pg/mL) pour éliminer le diagnostic en urgence.<br />
                   • <strong>Traitement de fond (Les 4 Piliers) :</strong> Bêta-bloquants, IEC/ARA2 ou ARNI (Sacubitril/Valsartan), Anti-aldostérone, et Inhibiteurs SGLT2.
                 </p>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 600 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#ea580c', fontSize: '0.8rem', fontWeight: 650 }}>
                   <Sparkles size={13} /> Généré et sourcé automatiquement d'après votre polycopié
                 </div>
               </div>
             )}
 
             {activeTab === 'annale' && (
-              <div style={{ maxWidth: '640px', width: '100%', textAlign: 'left', background: 'rgba(255, 255, 255, 0.03)', padding: '2rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', marginBottom: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
+              <div style={{ maxWidth: '640px', width: '100%', textAlign: 'left', background: 'rgba(255, 255, 255, 0.88)', padding: '2.2rem', borderRadius: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.95)', boxShadow: '0 12px 36px rgba(219, 39, 119, 0.07)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#ea580c', marginBottom: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
                   <Award size={16} /> Module Annales & Concours
                 </div>
-                <h3 style={{ color: '#ffffff', fontSize: '1.25rem', margin: '0 0 1rem 0' }}>Extraction Mot Pour Mot d'Annales PDF</h3>
-                <p style={{ color: '#cbd5e1', fontSize: '0.92rem', lineHeight: '1.7', margin: '0 0 1.25rem 0' }}>
+                <h3 style={{ color: '#3b0764', fontSize: '1.25rem', fontWeight: 800, margin: '0 0 1rem 0' }}>Extraction Mot Pour Mot d'Annales PDF</h3>
+                <p style={{ color: 'rgba(59, 7, 100, 0.82)', fontSize: '0.92rem', lineHeight: '1.7', margin: '0 0 1.25rem 0' }}>
                   Glissez n'importe quel sujet d'annale officiel (ECNi, Barreau, partiels universitaires). 
                   Sof.IA détecte automatiquement :
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.86rem', color: '#e2e8f0' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.86rem', color: '#3b0764' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <CheckCircle size={15} color="#4ade80" /> Cases à cocher & grilles
+                    <CheckCircle size={15} color="#059669" /> Cases à cocher & grilles
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <CheckCircle size={15} color="#4ade80" /> Clichés radio & schémas
+                    <CheckCircle size={15} color="#059669" /> Clichés radio & schémas
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <CheckCircle size={15} color="#4ade80" /> Explication détaillée par item
+                    <CheckCircle size={15} color="#059669" /> Explication détaillée par item
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <CheckCircle size={15} color="#4ade80" /> Entraînement chronométré
+                    <CheckCircle size={15} color="#059669" /> Entraînement chronométré
                   </div>
                 </div>
               </div>
