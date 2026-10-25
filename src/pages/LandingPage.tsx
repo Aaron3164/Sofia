@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { 
-  ArrowRight, Sparkles, Brain, Zap, CheckCircle, Clock, Search, 
-  Shield, Star, ChevronRight, Layers, FileText, Award, Check, RotateCw
+  Sparkles, ArrowRight, Brain, Zap, Clock, Search, 
+  Layers, Award, CheckCircle, ChevronRight, FileText, Check
 } from 'lucide-react';
 import './LandingPage.css';
 
@@ -10,6 +10,7 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onGetStarted }: LandingPageProps) {
+  const [email, setEmail] = useState('');
   const [activeTab, setActiveTab] = useState<'flashcard' | 'mcq' | 'resume' | 'annale'>('flashcard');
   const [isFlipped, setIsFlipped] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -17,13 +18,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   const features = [
     {
       icon: <Zap size={24} color="#f472b6" />,
-      bg: 'rgba(236, 72, 153, 0.15)',
-      border: 'rgba(236, 72, 153, 0.3)',
+      bg: 'rgba(244, 114, 182, 0.15)',
+      border: 'rgba(244, 114, 182, 0.3)',
       title: 'Flashcards de Haute Précision',
       desc: 'Extraction chirurgicale des notions clés depuis vos polycopiés et PDF. Fiches recto-verso optimisées pour la mémorisation active.',
     },
     {
-      icon: <Brain size={24} color="#fdba74" />,
+      icon: <Brain size={24} color="#fb923c" />,
       bg: 'rgba(251, 146, 60, 0.15)',
       border: 'rgba(251, 146, 60, 0.3)',
       title: 'Examens Blancs & Pièges ECNi',
@@ -31,13 +32,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     },
     {
       icon: <Search size={24} color="#f472b6" />,
-      bg: 'rgba(236, 72, 153, 0.15)',
-      border: 'rgba(236, 72, 153, 0.3)',
+      bg: 'rgba(244, 114, 182, 0.15)',
+      border: 'rgba(244, 114, 182, 0.3)',
       title: 'Recherche Globale Transversale',
       desc: 'Interrogez l\'ensemble de vos semestres et cours en 1 seconde. Synthèse croisée rédigée avec citations des cours d\'origine.',
     },
     {
-      icon: <Award size={24} color="#fdba74" />,
+      icon: <Award size={24} color="#fb923c" />,
       bg: 'rgba(251, 146, 60, 0.15)',
       border: 'rgba(251, 146, 60, 0.3)',
       title: 'Import & Analyse d\'Annales Officielles',
@@ -59,204 +60,238 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     },
   ];
 
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email.trim()) {
+      onGetStarted();
+    }
+  };
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="lp-container">
-      {/* ── DEEP AURORE AMBIENT GLOW & GRID ── */}
-      <div className="lp-bg-glow">
-        <div className="lp-glow-orb lp-glow-1" />
-        <div className="lp-glow-orb lp-glow-2" />
-        <div className="lp-glow-orb lp-glow-3" />
-        <div className="lp-grid-overlay" />
+    <div className="ms-page-container">
+      {/* ── CINEMATIC DYNAMIC AURORE BACKGROUND ── */}
+      <div className="ms-cinematic-bg">
+        <img 
+          src="/aurora-cinematic.jpg" 
+          alt="Voile cinématique Aurore Boréale" 
+          className="ms-aurora-image"
+        />
+        <div className="ms-aurora-overlay" />
       </div>
 
-      {/* ── NAVBAR (Apple Liquid Glass) ── */}
-      <nav className="lp-nav">
-        <div className="lp-logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <span>Sof.IA</span>
-          <span className="lp-logo-badge">Élite 2.0</span>
-        </div>
-        <div className="lp-nav-links">
-          <a href="#demo" className="lp-nav-link">Démonstration</a>
-          <a href="#features" className="lp-nav-link">Fonctionnalités</a>
-          <a href="#pricing" className="lp-nav-link">Tarifs</a>
-          <button onClick={onGetStarted} className="lp-btn-login">
-            Connexion
-          </button>
+      {/* ── NAVIGATION BAR (Liquid Glass) ── */}
+      <nav className="ms-nav">
+        <div className="ms-nav-inner liquid-glass">
+          <div className="ms-nav-left">
+            <div className="ms-logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <Sparkles size={20} color="#f472b6" />
+              <span>Sof.IA</span>
+            </div>
+            <div className="ms-nav-links">
+              <button onClick={() => scrollToSection('demo')} className="ms-nav-link">
+                Démonstration
+              </button>
+              <button onClick={() => scrollToSection('features')} className="ms-nav-link">
+                Fonctionnalités
+              </button>
+              <button onClick={() => scrollToSection('pricing')} className="ms-nav-link">
+                Tarifs
+              </button>
+            </div>
+          </div>
+          <div className="ms-nav-right">
+            <button onClick={onGetStarted} className="ms-btn-signup">
+              Inscription
+            </button>
+            <button onClick={onGetStarted} className="ms-btn-login liquid-glass">
+              Connexion
+            </button>
+          </div>
         </div>
       </nav>
 
-      {/* ── HERO SECTION ── */}
-      <section className="lp-hero">
-        <div className="lp-pill">
-          <span className="lp-pill-dot" />
-          <span>Conçu pour la Médecine, le Droit et les Concours d'Élite</span>
-        </div>
-
-        <h1 className="lp-hero-title">
-          <span className="lp-title-gradient">Révisez 3× plus vite.</span><br />
-          <span className="lp-title-sub">Maîtrisez <span className="lp-title-serif">chaque détail.</span></span>
+      {/* ── HERO SECTION (Instrument Serif + Liquid Glass Bar) ── */}
+      <section className="ms-hero-section">
+        <h1 className="ms-heading">
+          Conçu pour les <span className="ms-heading-italic">esprits exigeants</span>
         </h1>
 
-        <p className="lp-hero-desc">
-          Sof.IA transforme vos centaines de pages de cours en Flashcards actives, 
-          QCM corrigés et fiches de synthèse à haute rétention. L'IA qui comprend la complexité de vos études.
-        </p>
+        <div className="ms-hero-box">
+          {/* Email input bar with liquid-glass */}
+          <form onSubmit={handleEmailSubmit} className="ms-email-bar liquid-glass">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Entrez votre e-mail"
+              className="ms-email-input"
+            />
+            <button type="submit" aria-label="Continuer" className="ms-email-btn">
+              <ArrowRight size={20} />
+            </button>
+          </form>
 
-        <div className="lp-hero-actions">
-          <button onClick={onGetStarted} className="lp-btn-primary">
-            Commencer gratuitement <ArrowRight size={18} />
-          </button>
-          <a href="#demo" className="lp-btn-secondary">
-            Tester la démonstration
-          </a>
-        </div>
+          {/* Subtitle */}
+          <p className="ms-subtitle">
+            Sof.IA transforme vos centaines de pages de cours en Flashcards actives, 
+            QCM corrigés et fiches de synthèse à haute rétention.
+          </p>
 
-        <div className="lp-trust-row">
-          <div className="lp-trust-item">
-            <CheckCircle size={15} color="#34d399" />
-            <span>Essai gratuit sans CB</span>
-          </div>
-          <div className="lp-trust-divider" />
-          <div className="lp-trust-item">
-            <Shield size={15} color="#f472b6" />
-            <span>Données privées & chiffrées</span>
-          </div>
-          <div className="lp-trust-divider" />
-          <div className="lp-trust-item">
-            <div style={{ display: 'flex', gap: '2px' }}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} size={13} fill="#fb923c" color="#fb923c" />
-              ))}
-            </div>
-            <span>4.9/5 par les étudiants de santé & droit</span>
+          <div className="ms-action-row">
+            <button 
+              type="button" 
+              onClick={() => scrollToSection('demo')} 
+              className="ms-manifesto-btn liquid-glass"
+            >
+              Voir la démonstration
+            </button>
           </div>
         </div>
       </section>
 
-      {/* ── EDITORIAL SHOWCASE (MotionSites Dual Panel + Apple HIG Demo) ── */}
-      <section id="demo" className="lp-showcase-section">
-        <div className="lp-showcase-grid">
-          {/* Photo Réelle d'Étudiant avec Overlay Cinématique */}
-          <div className="lp-real-photo-card">
+      {/* ── SECTION DÉMONSTRATION INTERACTIVE (Photo Réelle Discrète + Studio Démo) ── */}
+      <section id="demo" className="ms-section">
+        <div className="ms-section-header">
+          <div className="ms-pill-badge liquid-glass">
+            <Sparkles size={13} />
+            <span>Aperçu en conditions réelles</span>
+          </div>
+          <h2 className="ms-section-title">
+            L'efficacité de révision éprouvée
+          </h2>
+          <p className="ms-section-subtitle">
+            Découvrez comment Sof.IA synthétise vos polycopiés et stimule votre mémorisation active en un clic.
+          </p>
+        </div>
+
+        <div className="ms-demo-layout">
+          {/* Photo Réelle d'Étudiant discrète avec overlay */}
+          <div className="ms-student-card liquid-glass">
             <img 
-              src="/hero-student.jpg" 
-              alt="Étudiante en médecine révisant avec Sof.IA sur iPad" 
-              className="lp-real-photo-img"
+              src="/library-student.jpg" 
+              alt="Étudiante en révision dans une bibliothèque" 
+              className="ms-student-img"
             />
-            <div className="lp-real-photo-gradient" />
-            <div className="lp-real-photo-caption">
-              <span className="lp-photo-badge">
-                <Sparkles size={12} /> Études Exigeantes
+            <div className="ms-student-gradient" />
+            <div className="ms-student-caption">
+              <span className="ms-caption-badge">
+                Concours & Examens
               </span>
-              <h3 className="lp-photo-title">Immersion & Mémorisation Profonde</h3>
-              <p className="lp-photo-text">
-                Pensé pour les étudiants en PACES/PASS/LAS, Internat ECNi et CRFPA qui doivent absorber des milliers de notions sans saturer.
+              <h3 className="ms-caption-title">Des sessions calmes et ultra-ciblées</h3>
+              <p className="ms-caption-text">
+                Idéal pour les étudiants en santé, droit et prépas qui préparent des épreuves à fort coefficient.
               </p>
             </div>
           </div>
 
-          {/* Démonstration Interactive Apple HIG */}
-          <div className="lp-mockup-apple">
-            {/* Window Header */}
-            <div className="lp-mockup-header">
-              <div className="lp-mockup-dots">
-                <span className="lp-mockup-dot lp-dot-red" />
-                <span className="lp-mockup-dot lp-dot-yellow" />
-                <span className="lp-mockup-dot lp-dot-green" />
+          {/* Studio Démo Interactif Sof.IA */}
+          <div className="ms-demo-studio liquid-glass">
+            {/* Header fenêtre */}
+            <div className="ms-studio-header">
+              <div className="ms-studio-dots">
+                <span className="ms-studio-dot ms-dot-r" />
+                <span className="ms-studio-dot ms-dot-y" />
+                <span className="ms-studio-dot ms-dot-g" />
               </div>
-              <div className="lp-mockup-title">
+              <div className="ms-studio-title">
                 <Sparkles size={13} color="#f472b6" />
-                <span>Sof.IA Studio — Cardiologie_Item_231.pdf</span>
+                <span>Sof.IA Studio — Item 88 : Dysphonie.pdf</span>
               </div>
-              <div style={{ width: '40px' }} />
+              <div style={{ width: '32px' }} />
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="lp-mockup-tabs">
+            {/* Onglets */}
+            <div className="ms-studio-tabs">
               <button 
-                className={`lp-mockup-tab-btn ${activeTab === 'flashcard' ? 'active' : ''}`}
+                className={`ms-studio-tab-btn ${activeTab === 'flashcard' ? 'active' : ''}`}
                 onClick={() => { setActiveTab('flashcard'); setIsFlipped(false); }}
               >
-                <Zap size={14} /> Flashcards (3D Flip)
+                <Zap size={14} /> Flashcards
               </button>
               <button 
-                className={`lp-mockup-tab-btn ${activeTab === 'mcq' ? 'active' : ''}`}
+                className={`ms-studio-tab-btn ${activeTab === 'mcq' ? 'active' : ''}`}
                 onClick={() => { setActiveTab('mcq'); setSelectedOption(null); }}
               >
                 <Brain size={14} /> Examen Blanc QCM
               </button>
               <button 
-                className={`lp-mockup-tab-btn ${activeTab === 'resume' ? 'active' : ''}`}
+                className={`ms-studio-tab-btn ${activeTab === 'resume' ? 'active' : ''}`}
                 onClick={() => setActiveTab('resume')}
               >
-                <FileText size={14} /> Fiche Synthétique
+                <FileText size={14} /> Synthèse
               </button>
               <button 
-                className={`lp-mockup-tab-btn ${activeTab === 'annale' ? 'active' : ''}`}
+                className={`ms-studio-tab-btn ${activeTab === 'annale' ? 'active' : ''}`}
                 onClick={() => setActiveTab('annale')}
               >
-                <Award size={14} /> Annales Concours
+                <Award size={14} /> Annales
               </button>
             </div>
 
-            {/* Body */}
-            <div className="lp-mockup-body">
+            {/* Corps interactif */}
+            <div className="ms-studio-body">
               {activeTab === 'flashcard' && (
-                <div className="lp-flashcard-perspective">
-                  <div 
-                    className={`lp-flashcard-inner ${isFlipped ? 'flipped' : ''}`}
-                    onClick={() => setIsFlipped(!isFlipped)}
-                    title="Cliquez pour retourner physiquement la flashcard"
-                  >
+                <div 
+                  className="ms-flip-container"
+                  onClick={() => setIsFlipped(!isFlipped)}
+                  title="Cliquez pour retourner la carte"
+                >
+                  <div className={`ms-flip-card ${isFlipped ? 'is-flipped' : ''}`}>
                     {/* Face Recto */}
-                    <div className="lp-flashcard-face lp-flashcard-front">
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className="lp-card-tag lp-tag-rose">Recto · Question Essentielle</span>
-                          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Item 231 · Électrocardiogramme</span>
-                        </div>
-                        <div className="lp-card-question">
-                          Quels sont les 3 critères diagnostiques majeurs d'un syndrome coronarien avec sus-décalage (STEMI) sur l'ECG ?
-                        </div>
+                    <div className="ms-flip-face ms-flip-front liquid-glass">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="ms-flashcard-tag">Recto · Question Clé</span>
+                        <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>Item 88 · ORL</span>
                       </div>
-                      <div className="lp-flashcard-footer">
-                        <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
-                          💡 Touchez la carte pour révéler le verso
+
+                      <div className="ms-flashcard-question">
+                        Quelles sont les 4 fonctions physiologiques majeures du larynx à maîtriser pour le concours ?
+                      </div>
+
+                      <div style={{ minHeight: '50px', display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.6)', fontSize: '0.92rem', fontStyle: 'italic' }}>
+                        💡 Réfléchissez à la réponse, puis cliquez pour retourner la carte...
+                      </div>
+
+                      <div className="ms-flashcard-footer">
+                        <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)' }}>
+                          Touchez la carte
                         </span>
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setIsFlipped(true); }}
-                          className="lp-btn-flip"
-                        >
-                          <RotateCw size={14} /> Tourner la carte
-                        </button>
+                        <span style={{ fontSize: '0.82rem', color: '#f472b6', fontWeight: 600 }}>
+                          Révéler la réponse ↷
+                        </span>
                       </div>
                     </div>
 
-                    {/* Face Verso (Retournement Physique 180°) */}
-                    <div className="lp-flashcard-face lp-flashcard-back">
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className="lp-card-tag lp-tag-violet">Verso · Corrigé Détaillé</span>
-                          <span style={{ fontSize: '0.8rem', color: '#c084fc' }}>Validation Sofia IA</span>
-                        </div>
-                        <div className="lp-card-answer-box">
-                          <p style={{ margin: '0 0 0.5rem 0' }}>1. <strong>Sus-décalage du segment ST</strong> persistant ≥ 1 mm dans au moins 2 dérivations contiguës.</p>
-                          <p style={{ margin: '0 0 0.5rem 0' }}>2. <strong>Image en miroir</strong> (sous-décalage réciproque) dans le territoire opposé.</p>
-                          <p style={{ margin: 0 }}>3. <strong>Onde de Pardee</strong> englobant le segment ST et l'onde T.</p>
-                        </div>
-                      </div>
-                      <div className="lp-flashcard-footer">
-                        <span style={{ fontSize: '0.82rem', color: '#34d399' }}>
-                          ✓ Intervalle Leitner : révision à J+4
+                    {/* Face Verso */}
+                    <div className="ms-flip-face ms-flip-back liquid-glass">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="ms-flashcard-tag" style={{ background: 'rgba(168, 85, 247, 0.2)', borderColor: 'rgba(168, 85, 247, 0.4)', color: '#c084fc' }}>
+                          Verso · Corrigé & Justification
                         </span>
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setIsFlipped(false); }}
-                          className="lp-btn-flip"
-                        >
-                          <RotateCw size={14} /> Revenir à la question
-                        </button>
+                        <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>Validation Sofia IA</span>
+                      </div>
+
+                      <div className="ms-flashcard-answer-box">
+                        <p style={{ margin: '0 0 0.5rem 0' }}>1. <strong style={{ color: '#fbcfe8' }}>Phonation</strong> : production de la voix par les cordes vocales.</p>
+                        <p style={{ margin: '0 0 0.5rem 0' }}>2. <strong style={{ color: '#fbcfe8' }}>Protection des voies aériennes</strong> lors de la déglutition.</p>
+                        <p style={{ margin: '0 0 0.5rem 0' }}>3. <strong style={{ color: '#fbcfe8' }}>Respiration</strong> : conduction et ventilation pulmonaire.</p>
+                        <p style={{ margin: 0 }}>4. <strong style={{ color: '#fbcfe8' }}>Fixation thoracique</strong> lors des efforts à glotte fermée.</p>
+                      </div>
+
+                      <div className="ms-flashcard-footer">
+                        <span style={{ fontSize: '0.82rem', color: '#34d399', fontWeight: 600 }}>
+                          ✓ Prochaine révision : +4 jours
+                        </span>
+                        <span style={{ fontSize: '0.82rem', color: '#f472b6', fontWeight: 600 }}>
+                          ↶ Revenir à la question
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -264,32 +299,34 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               )}
 
               {activeTab === 'mcq' && (
-                <div className="lp-mcq-demo">
+                <div className="ms-qcm-box liquid-glass">
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                    <span className="lp-card-tag lp-tag-rose">QCM Entraînement Concours</span>
-                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Difficulté : Avancée</span>
+                    <span className="ms-flashcard-tag" style={{ background: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', borderColor: 'rgba(251, 146, 60, 0.3)' }}>
+                      QCM Entraînement Concours
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>Item 88 · Dysphonie</span>
                   </div>
-                  <h4 style={{ color: '#ffffff', fontSize: '1.05rem', fontWeight: 750, margin: '0 0 1rem 0', lineHeight: 1.5 }}>
-                    Concernant la prise en charge immédiate d'une embolie pulmonaire à haut risque, quelle est la mesure prioritaire ?
+                  <h4 style={{ color: '#ffffff', fontSize: '1.05rem', fontWeight: 700, margin: '0 0 1rem 0', lineHeight: 1.45 }}>
+                    Concernant une dysphonie persistante depuis plus de 4 semaines chez un patient tabagique, quelle est la conduite à tenir indispensable ?
                   </h4>
                   <div>
                     {[
-                      "A. Anticoagulation par AVK à dose efficace d'emblée",
-                      "B. Thrombolyse intraveineuse systémique (en l'absence de contre-indication)",
-                      "C. Pose d'un filtre cave d'emblée sans héparinothérapie",
-                      "D. Surveillance simple et oxygénothérapie seule"
+                      "A. Prescription d'une corticothérapie orale et réévaluation à 2 mois",
+                      "B. Laryngoscopie indirecte ou nasofibroscopie pour éliminer une tumeur des cordes vocales",
+                      "C. Séance d'orthophonie isolée sans examen lourd préalable",
+                      "D. Antibiothérapie probabiliste d'emblée"
                     ].map((opt, idx) => {
                       const isCorrect = idx === 1;
                       const isSelected = selectedOption === idx;
                       return (
                         <div 
                           key={idx}
-                          className={`lp-mcq-option ${isSelected ? (isCorrect ? 'correct' : '') : ''}`}
+                          className={`ms-qcm-option ${isSelected ? (isCorrect ? 'correct' : '') : ''}`}
                           onClick={() => setSelectedOption(idx)}
                         >
                           <div style={{
                             width: '18px', height: '18px', borderRadius: '4px',
-                            border: isSelected ? '2px solid #f472b6' : '2px solid rgba(255,255,255,0.25)',
+                            border: isSelected ? '2px solid #f472b6' : '2px solid rgba(255,255,255,0.3)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             backgroundColor: isSelected ? '#f472b6' : 'transparent',
                             flexShrink: 0
@@ -299,7 +336,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                           <span style={{ flex: 1 }}>{opt}</span>
                           {isSelected && isCorrect && (
                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#34d399' }}>
-                              ✓ Bonne réponse
+                              ✓ Exact
                             </span>
                           )}
                         </div>
@@ -310,43 +347,43 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               )}
 
               {activeTab === 'resume' && (
-                <div style={{ width: '100%', maxWidth: '580px', textAlign: 'left', background: '#170d24', padding: '1.8rem', borderRadius: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <div style={{ width: '100%', maxWidth: '540px', textAlign: 'left', padding: '1.8rem', borderRadius: '1.2rem' }} className="liquid-glass">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#f472b6', marginBottom: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
-                    <FileText size={16} /> Synthèse Pédagogique Structurée
+                    <FileText size={16} /> Synthèse Pédagogique Rapide
                   </div>
-                  <h3 style={{ color: '#ffffff', fontSize: '1.2rem', fontWeight: 800, margin: '0 0 1rem 0' }}>Insuffisance Cardiaque Aiguë</h3>
-                  <p style={{ color: 'rgba(241, 245, 249, 0.78)', fontSize: '0.9rem', lineHeight: '1.7', margin: '0 0 1rem 0' }}>
-                    • <strong>Définition :</strong> Incapacité du myocarde à assurer un débit sanguin suffisant aux besoins métaboliques périphériques.<br />
-                    • <strong>Biomarqueurs clés :</strong> Dosage du BNP (&gt; 35 pg/mL) ou NT-proBNP (&gt; 125 pg/mL) pour éliminer le diagnostic en urgence.<br />
-                    • <strong>Traitement de fond (Les 4 Piliers) :</strong> Bêta-bloquants, IEC/ARA2 ou ARNI, Anti-aldostérone, et Inhibiteurs SGLT2.
+                  <h3 style={{ color: '#ffffff', fontSize: '1.15rem', fontWeight: 800, margin: '0 0 0.8rem 0' }}>Points Clés : Dysphonie de l'Adulte</h3>
+                  <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: '0.9rem', lineHeight: '1.65', margin: '0 0 1rem 0' }}>
+                    • <strong>Drapeau rouge :</strong> Toute dysphonie &gt; 3 semaines chez un sujet exposé au tabac/alcool impose un examen des cordes vocales.<br />
+                    • <strong>Causes bénignes fréquentes :</strong> Laryngite aiguë, nodules (surmenage vocal), polype, œdème de Reinke.<br />
+                    • <strong>Imagerie :</strong> TDM cervico-thoracique injecté si lésion suspecte ou paralysie récurrentielle sans cause évidente.
                   </p>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#fdba74', fontSize: '0.8rem', fontWeight: 650 }}>
-                    <Sparkles size={13} /> Sourcé mot pour mot depuis le polycopié du Collège des Enseignants
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#fb923c', fontSize: '0.8rem', fontWeight: 650 }}>
+                    <Sparkles size={13} /> Extrait automatiquement de votre polycopié de cours
                   </div>
                 </div>
               )}
 
               {activeTab === 'annale' && (
-                <div style={{ width: '100%', maxWidth: '580px', textAlign: 'left', background: '#170d24', padding: '1.8rem', borderRadius: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#fdba74', marginBottom: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
-                    <Award size={16} /> Module Annales & Concours
+                <div style={{ width: '100%', maxWidth: '540px', textAlign: 'left', padding: '1.8rem', borderRadius: '1.2rem' }} className="liquid-glass">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#fb923c', marginBottom: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
+                    <Award size={16} /> Module Annales d'Examen
                   </div>
-                  <h3 style={{ color: '#ffffff', fontSize: '1.2rem', fontWeight: 800, margin: '0 0 1rem 0' }}>Extraction Précise d'Annales PDF</h3>
-                  <p style={{ color: 'rgba(241, 245, 249, 0.78)', fontSize: '0.9rem', lineHeight: '1.7', margin: '0 0 1.25rem 0' }}>
-                    Glissez n'importe quel sujet d'annale officiel (ECNi, Barreau, partiels universitaires). Sof.IA extrait automatiquement :
+                  <h3 style={{ color: '#ffffff', fontSize: '1.15rem', fontWeight: 800, margin: '0 0 0.8rem 0' }}>Analyse des Sujets Officiels</h3>
+                  <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: '0.9rem', lineHeight: '1.65', margin: '0 0 1.2rem 0' }}>
+                    Importez les annales officielles de votre faculté ou concours. Sof.IA associe chaque énoncé au cours correspondant :
                   </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem', color: '#f1f5f9' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem', color: '#ffffff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <CheckCircle size={15} color="#34d399" /> Grilles et barèmes
+                      <CheckCircle size={15} color="#34d399" /> Barèmes officiels
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <CheckCircle size={15} color="#34d399" /> Clichés radio & schémas
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <CheckCircle size={15} color="#34d399" /> Explication détaillée par item
+                      <CheckCircle size={15} color="#34d399" /> Corrigé commenté
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <CheckCircle size={15} color="#34d399" /> Mode examen chronométré
+                      <CheckCircle size={15} color="#34d399" /> Mode chronométré
                     </div>
                   </div>
                 </div>
@@ -356,64 +393,64 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── BENTO FEATURES SECTION ── */}
-      <section id="features" className="lp-section">
-        <div className="lp-section-header">
-          <div className="lp-section-badge">
-            <Sparkles size={12} />
+      {/* ── FONCTIONNALITÉS SECTION ── */}
+      <section id="features" className="ms-section">
+        <div className="ms-section-header">
+          <div className="ms-pill-badge liquid-glass">
+            <Sparkles size={13} />
             <span>Architecture & Rigueur Scientifique</span>
           </div>
-          <h2 className="lp-section-title">
-            Tout l'arsenal indispensable pour réussir vos concours
+          <h2 className="ms-section-title">
+            Tout l'arsenal pour surclasser vos partiels
           </h2>
-          <p className="lp-section-subtitle">
-            Aucun gadget superflu. Des outils calibrés pour mémoriser durablement et performer le jour J.
+          <p className="ms-section-subtitle">
+            Chaque outil a été conçu pour absorber des volumes considérables de connaissances sans saturer.
           </p>
         </div>
 
-        <div className="lp-features-grid">
+        <div className="ms-features-grid">
           {features.map((f, i) => (
-            <div key={i} className="lp-feature-card">
+            <div key={i} className="ms-feature-card liquid-glass">
               <div 
-                className="lp-feature-icon"
+                className="ms-feature-icon" 
                 style={{ backgroundColor: f.bg, border: `1px solid ${f.border}` }}
               >
                 {f.icon}
               </div>
-              <h3 className="lp-feature-title">{f.title}</h3>
-              <p className="lp-feature-desc">{f.desc}</p>
+              <h3 className="ms-feature-name">{f.title}</h3>
+              <p className="ms-feature-desc">{f.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── PRICING SECTION (Haute Lisibilité WCAG AAA) ── */}
-      <section id="pricing" className="lp-section" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="lp-section-header">
-          <div className="lp-section-badge">
-            <Award size={12} />
-            <span>Tarifs Clairs</span>
+      {/* ── TARIFS SECTION ── */}
+      <section id="pricing" className="ms-section">
+        <div className="ms-section-header">
+          <div className="ms-pill-badge liquid-glass">
+            <Award size={13} />
+            <span>Tarification Transparente</span>
           </div>
-          <h2 className="lp-section-title">
+          <h2 className="ms-section-title">
             Investissez dans votre réussite
           </h2>
-          <p className="lp-section-subtitle">
-            Sans engagement. Annulable à tout moment en 1 clic.
+          <p className="ms-section-subtitle">
+            Sans engagement de durée. Annulation immédiate en 1 clic.
           </p>
         </div>
 
-        <div className="lp-pricing-grid">
+        <div className="ms-pricing-grid">
           {/* Free Tier */}
-          <div className="lp-pricing-card">
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(241, 245, 249, 0.7)' }}>Découverte</div>
-            <div className="lp-price-val">
-              0€ <span className="lp-price-period">/mois</span>
+          <div className="ms-pricing-card liquid-glass">
+            <div className="ms-price-header">Découverte</div>
+            <div className="ms-price-figure">
+              0€ <span className="ms-price-period">/mois</span>
             </div>
-            <p style={{ fontSize: '0.88rem', color: 'rgba(241, 245, 249, 0.65)', margin: '0 0 1.5rem 0' }}>
-              Pour tester la puissance de l'IA sur vos premiers cours.
+            <p className="ms-price-desc">
+              Pour découvrir la puissance de l'IA sur vos premiers cours et polycopiés.
             </p>
 
-            <div className="lp-pricing-features">
+            <div className="ms-features-list">
               {[
                 'Dossiers & cours organisés',
                 'Flashcards & QCM d\'entraînement',
@@ -422,30 +459,30 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 'Jusqu\'à 10 cours enregistrés',
                 '5 générations IA quotidiennes'
               ].map((item, idx) => (
-                <div key={idx} className="lp-pricing-item">
+                <div key={idx} className="ms-feature-item">
                   <CheckCircle size={15} color="#34d399" />
                   <span>{item}</span>
                 </div>
               ))}
             </div>
 
-            <button onClick={onGetStarted} className="lp-btn-secondary" style={{ width: '100%', justifyContent: 'center' }}>
+            <button onClick={onGetStarted} className="ms-btn-action secondary">
               Commencer gratuitement
             </button>
           </div>
 
           {/* Premium Tier */}
-          <div className="lp-pricing-card popular">
-            <span className="lp-popular-badge">Recommandé</span>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f472b6' }}>Premium Élite</div>
-            <div className="lp-price-val">
-              9,99€ <span className="lp-price-period">/mois</span>
+          <div className="ms-pricing-card liquid-glass popular">
+            <span className="ms-popular-tag">Recommandé</span>
+            <div className="ms-price-header" style={{ color: '#f472b6' }}>Premium Élite</div>
+            <div className="ms-price-figure">
+              9,99€ <span className="ms-price-period">/mois</span>
             </div>
-            <p style={{ fontSize: '0.88rem', color: 'rgba(241, 245, 249, 0.8)', margin: '0 0 1.5rem 0' }}>
-              Moins qu'un café par semaine pour viser les premières places.
+            <p className="ms-price-desc">
+              Moins qu'un café par semaine pour viser le haut du classement.
             </p>
 
-            <div className="lp-pricing-features">
+            <div className="ms-features-list">
               {[
                 'Tous les avantages du plan Découverte',
                 'Cours & polycopiés illimités',
@@ -454,40 +491,41 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 'Explications pédagogiques approfondies',
                 'Support prioritaire 7j/7'
               ].map((item, idx) => (
-                <div key={idx} className="lp-pricing-item" style={{ color: '#ffffff', fontWeight: 600 }}>
+                <div key={idx} className="ms-feature-item">
                   <CheckCircle size={15} color="#f472b6" />
                   <span>{item}</span>
                 </div>
               ))}
             </div>
 
-            <button onClick={onGetStarted} className="lp-btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+            <button onClick={onGetStarted} className="ms-btn-action primary">
               Passer au Premium <ChevronRight size={18} />
             </button>
-            <p style={{ fontSize: '0.75rem', color: 'rgba(241, 245, 249, 0.6)', textAlign: 'center', marginTop: '1rem' }}>
-              Apple Pay · Carte Bancaire · Résiliable en 1 clic
-            </p>
           </div>
         </div>
       </section>
 
-      {/* ── FINAL CTA SECTION (Texte Blanc Haute Visibilité) ── */}
-      <section className="lp-section">
-        <div className="lp-cta-box">
-          <h2 className="lp-cta-title">
+      {/* ── CALL TO ACTION BANNER ── */}
+      <section className="ms-section" style={{ paddingTop: '2rem' }}>
+        <div className="ms-cta-card liquid-glass">
+          <h2 className="ms-cta-title">
             Prêt à révolutionner vos sessions de révision ?
           </h2>
-          <p className="lp-cta-desc">
+          <p className="ms-cta-desc">
             Rejoignez dès aujourd'hui les étudiants qui préparent leurs examens avec Sof.IA.
           </p>
-          <button onClick={onGetStarted} className="lp-btn-primary" style={{ padding: '1.15rem 2.85rem', fontSize: '1.05rem' }}>
+          <button 
+            onClick={onGetStarted} 
+            className="ms-btn-action primary"
+            style={{ width: 'auto', padding: '1rem 2.8rem', display: 'inline-flex', margin: '0 auto' }}
+          >
             Créer mon compte gratuit <ArrowRight size={20} />
           </button>
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '2.5rem 2rem', textAlign: 'center', color: 'rgba(241, 245, 249, 0.5)', fontSize: '0.85rem' }}>
+      {/* ── SIMPLE FOOTER ── */}
+      <footer className="ms-simple-footer">
         <p>© 2026 Sof.IA — Plateforme d'apprentissage IA pour les filières exigeantes.</p>
       </footer>
     </div>
