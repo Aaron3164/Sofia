@@ -526,7 +526,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
       {/* ── SIMPLE FOOTER ── */}
       <footer className="ms-simple-footer">
-        <p>© 2026 Sof.IA — Plateforme d'apprentissage IA pour les filières exigeantes.</p>
+        <p style={{ color: '#ffffff' }}>© 2026 Sof.IA — Plateforme d'apprentissage IA pour les filières exigeantes.</p>
       </footer>
     </div>
   );
