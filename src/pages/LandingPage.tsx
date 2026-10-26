@@ -43,11 +43,13 @@ export default function LandingPage(props: LandingPageProps) {
 .sofia-landing .btn-primary { background:var(--pink); color:#fff; border-color:var(--pink); }
 .sofia-landing .btn-secondary { background:#fff; color:var(--plum); }
 .sofia-landing .btn-outline { background:transparent; color:var(--pink); border-color:var(--pink); }
-.sofia-landing .header { padding:24px 0; border-bottom:1px solid #f5e7ee; position:sticky; top:0; z-index:50; backdrop-filter: blur(8px); background:rgba(255,252,253,.9);}
-.sofia-landing .header-inner { display:grid; grid-template-columns:1fr auto auto; gap:16px; align-items:center; }
-.sofia-landing .logo { font-size:32px; font-weight:800; color:var(--pink); letter-spacing:-0.03em; cursor:pointer; display:inline-flex; align-items:center; gap:10px; }
-.sofia-landing .logo-img { width:34px; height:34px; border-radius:10px; object-fit:contain; }
-.sofia-landing .tagline { color:var(--muted); font-weight:600; text-align:right; }
+.sofia-landing .header { padding:20px 0; border-bottom:1px solid #f5e7ee; position:sticky; top:0; z-index:50; backdrop-filter: blur(10px); background:rgba(255,252,253,.94); width:100%; }
+.sofia-landing .header .container { width:min(1240px, calc(100% - 48px)); }
+.sofia-landing .header-inner { display:flex; justify-content:space-between; align-items:center; width:100%; gap:24px; }
+.sofia-landing .logo { font-size:38px; font-weight:850; color:var(--pink); letter-spacing:-0.035em; cursor:pointer; display:inline-flex; align-items:center; gap:14px; }
+.sofia-landing .logo-img { width:46px; height:46px; border-radius:12px; object-fit:contain; box-shadow: 0 4px 14px rgba(223,33,108,0.12); }
+.sofia-landing .header-right { display:flex; align-items:center; gap:24px; }
+.sofia-landing .tagline { color:var(--muted); font-weight:600; font-size:15px; }
 .sofia-landing h1,.sofia-landing h2,.sofia-landing h3,.sofia-landing h4,.sofia-landing p { margin:0; }
 .sofia-landing .hero { display:grid; grid-template-columns:1fr 520px; gap:44px; align-items:center; position:relative; }
 .sofia-landing .hero-glow { position:absolute; right:80px; top:10px; width:440px; height:440px; border-radius:50%; background:radial-gradient(circle,#ffd7e8 0%,rgba(255,215,232,0) 70%); filter:blur(6px); pointer-events:none;}
@@ -474,18 +476,20 @@ export default function LandingPage(props: LandingPageProps) {
                         <img src="/sofia-logo.png" alt="Logo Sof.IA" className="logo-img" />
                         <span>sof.ia</span>
                     </div>
-                    <div className="tagline">
-                        Un peu d’IA. Beaucoup de déclics.
+                    <div className="header-right">
+                        <div className="tagline">
+                            Un peu d’IA. Beaucoup de déclics.
+                        </div>
+                        {onGetStarted ? (
+                            <button className="pill btn-outline focusable" onClick={handleAction} type="button">
+                                Ouvrir Sofia
+                            </button>
+                        ) : (
+                            <a className="pill btn-outline focusable" href={appUrl}>
+                                Ouvrir Sofia
+                            </a>
+                        )}
                     </div>
-                    {onGetStarted ? (
-                        <button className="pill btn-outline focusable" onClick={handleAction} type="button">
-                            Ouvrir Sofia
-                        </button>
-                    ) : (
-                        <a className="pill btn-outline focusable" href={appUrl}>
-                            Ouvrir Sofia
-                        </a>
-                    )}
                 </div>
             </header>
 
