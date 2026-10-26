@@ -63,22 +63,177 @@ export default function LandingPage(props: LandingPageProps) {
 .sofia-landing .chip { position:absolute; left:180px; bottom:26px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:10px 16px; font-size:12px; font-weight:700; letter-spacing:.04em; }
 .sofia-landing .eyebrow { color:var(--pink); font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
 .sofia-landing .overview-grid { margin-top:28px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
-.sofia-landing .overview-card { padding:28px; min-height:260px; display:flex; flex-direction:column; gap:14px; transition:transform .2s ease, box-shadow .2s ease; }
-.sofia-landing .overview-card:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(48,33,53,.08); }
+.sofia-landing .overview-card { padding:28px; min-height:260px; display:flex; flex-direction:column; gap:14px; transition:transform .3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .3s ease, border-color .3s ease; }
+.sofia-landing .overview-card:hover { transform:scale(1.03) translateY(-4px); box-shadow:0 18px 40px rgba(223,33,108,.14); border-color:#f5b0cd; z-index:2; }
 .sofia-landing .overview-card.pink { background:#fff4f9; }
-.sofia-landing .annales-banner { margin-top:16px; padding:24px 28px; display:flex; justify-content:space-between; align-items:center; }
+.sofia-landing .annales-banner { margin-top:16px; padding:24px 28px; display:flex; justify-content:space-between; align-items:center; transition:transform .3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .3s ease; }
+.sofia-landing .annales-banner:hover { transform:scale(1.015) translateY(-2px); box-shadow:0 12px 30px rgba(223,33,108,.12); }
 .sofia-landing .feature-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:24px; }
-.sofia-landing .feature-card { padding:28px; min-height:340px; }
+.sofia-landing .feature-card { padding:28px; min-height:360px; }
 .sofia-landing .feature-a { background:#fff2f8; } .sofia-landing .feature-b { background:#f5f2ff; }
-.sofia-landing .demo-box { margin-top:18px; background:#fff; border:1px solid var(--line); border-radius:18px; padding:18px; }
-.sofia-landing .choice { width:100%; text-align:left; margin-top:8px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; cursor:pointer; }
-.sofia-landing .choice:focus-visible, .sofia-landing .focusable:focus-visible { outline:3px solid rgba(223,33,108,.35); outline-offset:2px; }
+
+/* ── 3D FLIP FLASHCARD INTERACTIVE ── */
+.sofia-landing .flip-container {
+  perspective: 1000px;
+  width: 100%;
+  min-height: 220px;
+  cursor: pointer;
+  user-select: none;
+  margin-top: 16px;
+}
+.sofia-landing .flip-inner {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+  transform-style: preserve-3d;
+}
+.sofia-landing .flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+.sofia-landing .flip-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  box-shadow: 0 10px 25px rgba(223,33,108,.06);
+}
+.sofia-landing .flip-front {
+  transform: rotateY(0deg);
+}
+.sofia-landing .flip-back {
+  transform: rotateY(180deg);
+  background: #fff8fb;
+  border-color: #f7bbd4;
+}
+.sofia-landing .flip-hint {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+/* ── REFINED QCM STYLING ── */
+.sofia-landing .qcm-card {
+  margin-top: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(48,33,53,.04);
+}
+.sofia-landing .qcm-option {
+  width: 100%;
+  text-align: left;
+  margin-top: 10px;
+  background: #faf8fa;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 550;
+  color: var(--plum);
+  transition: all 0.2s ease;
+}
+.sofia-landing .qcm-option:hover {
+  border-color: #f2bad2;
+  background: #fff4f9;
+  transform: translateX(3px);
+}
+.sofia-landing .qcm-option.selected-correct {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+}
+.sofia-landing .qcm-option.selected-wrong {
+  border-color: #f43f5e;
+  background: #fff1f2;
+  color: #9f1239;
+}
+.sofia-landing .qcm-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.sofia-landing .qcm-feedback {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.sofia-landing .qcm-feedback.correct {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.sofia-landing .qcm-feedback.wrong {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
 .sofia-landing .two-col { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:center; }
 .sofia-landing .benefits { margin-top:18px; display:grid; gap:10px; }
 .sofia-landing .benefit { display:flex; gap:10px; align-items:flex-start; color:var(--muted); }
-.sofia-landing .sheets { position:relative; min-height:420px; }
-.sofia-landing .sheet-back { position:absolute; top:28px; left:32px; transform:rotate(-6deg); width:320px; padding:22px; }
-.sofia-landing .sheet-front { position:absolute; top:78px; left:130px; transform:rotate(5deg); width:320px; padding:24px; }
+
+/* ── TALLER & CHIANTE SOURCE SHEET ── */
+.sofia-landing .sheets { position:relative; min-height:480px; }
+.sofia-landing .sheet-back {
+  position:absolute;
+  top:10px;
+  left:20px;
+  transform:rotate(-6deg);
+  width:320px;
+  min-height:430px;
+  padding:22px 24px;
+  background:#fff;
+  border:1px solid #e5d7df;
+  box-shadow: 0 14px 34px rgba(48,33,53,.07);
+}
+.sofia-landing .sheet-back .dense-text {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #7b6e7d;
+  font-family: ui-serif, Georgia, Cambria, serif;
+}
+.sofia-landing .sheet-front {
+  position:absolute;
+  top:110px;
+  left:130px;
+  transform:rotate(5deg);
+  width:320px;
+  padding:24px;
+  box-shadow: 0 20px 48px rgba(223,33,108,.16);
+  border: 1.5px solid #f2bad2;
+  z-index: 2;
+}
 .sofia-landing .highlight { margin-top:14px; background:#ffe7f1; color:var(--pink); border-radius:10px; padding:10px 12px; font-weight:700; }
 .sofia-landing .pale-section { background:var(--pale); }
 .sofia-landing .synth-wrap { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:center; }
@@ -88,10 +243,110 @@ export default function LandingPage(props: LandingPageProps) {
 .sofia-landing .synth-left { min-height:320px; position:relative; }
 .sofia-landing .synth-main { position:absolute; left:70px; top:90px; width:360px; padding:24px; }
 .sofia-landing .search-visual { margin-top:18px; border-radius:14px; border:1px solid var(--line); background:#fff; padding:14px 16px; color:#655766; }
-.sofia-landing .agenda { background:#f7f2ec; border:1px solid #e8ddcf; border-radius:24px; padding:24px; }
-.sofia-landing .agenda-row { display:grid; grid-template-columns:88px 1fr; gap:12px; padding:12px 0; border-top:1px dashed rgba(48,33,53,.2); }
-.sofia-landing .columns3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; margin-top:22px; }
-.sofia-landing .columns3 > div { border-top:2px solid var(--line); padding-top:16px; }
+
+/* ── EXACT AGENDA AS IN SCREEN 4 ── */
+.sofia-landing .agenda-container {
+  background: #fbf7f2;
+  border: 1px solid #ebdcd0;
+  border-radius: 28px;
+  padding: 36px 32px 30px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+.sofia-landing .agenda-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #26192a;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+}
+.sofia-landing .agenda-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sofia-landing .agenda-item {
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 15px;
+  background: #fff;
+  border: 1px solid rgba(220, 205, 195, 0.5);
+  box-shadow: 0 4px 14px rgba(48, 33, 53, 0.04);
+}
+.sofia-landing .agenda-date {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #7b6e7d;
+  min-width: 58px;
+  letter-spacing: 0.02em;
+}
+.sofia-landing .agenda-desc {
+  font-weight: 600;
+  color: #2b1c2e;
+}
+.sofia-landing .agenda-item.highlighted {
+  background: #DF216C;
+  color: #ffffff;
+  border: none;
+  transform: rotate(-1.5deg) scale(1.02);
+  box-shadow: 0 10px 28px rgba(223, 33, 108, 0.35);
+  z-index: 2;
+  position: relative;
+}
+.sofia-landing .agenda-item.highlighted .agenda-date {
+  color: #ffccd9;
+}
+.sofia-landing .agenda-item.highlighted .agenda-desc {
+  color: #ffffff;
+  font-weight: 700;
+}
+.sofia-landing .agenda-footer-note {
+  margin-top: 24px;
+  font-size: 13.5px;
+  color: #8c7e8e;
+  font-weight: 500;
+}
+
+/* ── EXACT SECTION "ET TOUT CE QU'IL TE FAUT AUTOUR" AS SCREEN 5 ── */
+.sofia-landing .columns3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 36px;
+}
+.sofia-landing .columns3-col {
+  border-top: 1.5px solid #f0e2ea;
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sofia-landing .columns3-tag {
+  color: #DF216C;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.sofia-landing .columns3-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #2b1a30;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
+}
+.sofia-landing .columns3-desc {
+  color: #6a5d6d;
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+}
+
 .sofia-landing .prices { margin-top:24px; display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:stretch; }
 .sofia-landing .price-card { padding:28px; display:flex; flex-direction:column; min-height:100%; }
 .sofia-landing .price-card ul { margin:18px 0 22px; padding-left:18px; color:#5f5462; line-height:1.5; flex:1; }
@@ -418,35 +673,46 @@ export default function LandingPage(props: LandingPageProps) {
                             <h3 style={{ marginTop: 8, fontSize: 28 }}>
                                 Le déclic au bout des doigts.
                             </h3>
-                            <div className="demo-box">
-                                <p style={{ fontWeight: 600 }}>
-                                    Qu’est-ce que le rappel actif ?
-                                </p>
-                                <button
-                                    className="pill btn-secondary focusable"
-                                    type="button"
-                                    style={{ marginTop: 14 }}
-                                    aria-expanded={flashRevealed}
-                                    onClick={() =>
-                                        startTransition(() =>
-                                            setFlashRevealed((v) => !v)
-                                        )
-                                    }
-                                >
-                                    {flashRevealed
-                                        ? "Masquer la réponse"
-                                        : "Voir la réponse"}
-                                </button>
-                                <p
-                                    aria-live="polite"
-                                    style={{ marginTop: 14, color: "#5d5260" }}
-                                >
-                                    {flashRevealed
-                                        ? "Retrouver une information de mémoire, sans regarder son cours."
-                                        : "Clique pour te tester avant de vérifier."}
-                                </p>
+                            <div 
+                                className="flip-container"
+                                onClick={() => startTransition(() => setFlashRevealed(v => !v))}
+                                role="button"
+                                tabIndex={0}
+                                aria-label="Retourner la flashcard"
+                            >
+                                <div className={`flip-inner ${flashRevealed ? 'is-flipped' : ''}`}>
+                                    {/* Recto */}
+                                    <div className="flip-face flip-front">
+                                        <div>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#DF216C', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                                Question
+                                            </span>
+                                            <p style={{ marginTop: 10, fontSize: 18, fontWeight: 700, color: '#302135', lineHeight: 1.4 }}>
+                                                Qu’est-ce que le rappel actif ?
+                                            </p>
+                                        </div>
+                                        <div className="flip-hint">
+                                            <span>↻ Cliquer pour retourner la carte</span>
+                                        </div>
+                                    </div>
+                                    {/* Verso */}
+                                    <div className="flip-face flip-back">
+                                        <div>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#DF216C', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                                Réponse
+                                            </span>
+                                            <p style={{ marginTop: 10, fontSize: 16, fontWeight: 600, color: '#302135', lineHeight: 1.5 }}>
+                                                Retrouver une information de mémoire, sans regarder son cours.
+                                            </p>
+                                        </div>
+                                        <div className="flip-hint">
+                                            <span>✓ Réponse validée</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </article>
+
                         <article
                             className="card feature-card feature-b"
                             id="qcm"
@@ -455,49 +721,48 @@ export default function LandingPage(props: LandingPageProps) {
                             <h3 style={{ marginTop: 8, fontSize: 28 }}>
                                 Mieux vaut se tromper ici.
                             </h3>
-                            <div className="demo-box">
-                                <p style={{ fontWeight: 600 }}>
+                            <div className="qcm-card">
+                                <p style={{ fontWeight: 700, color: '#302135', fontSize: 16 }}>
                                     Pour mieux retenir, tu choisis…
                                 </p>
                                 <button
-                                    className="choice focusable"
+                                    className={`qcm-option focusable ${qcmChoice === 'A' ? 'selected-wrong' : ''}`}
                                     type="button"
                                     onClick={() =>
                                         startTransition(() => setQcmChoice("A"))
                                     }
                                     aria-pressed={qcmChoice === "A"}
                                 >
-                                    A — Relire cinq fois le même cours
+                                    <span className="qcm-badge">A</span>
+                                    <span>Relire cinq fois le même cours</span>
                                 </button>
                                 <button
-                                    className="choice focusable"
+                                    className={`qcm-option focusable ${qcmChoice === 'B' ? 'selected-correct' : ''}`}
                                     type="button"
                                     onClick={() =>
                                         startTransition(() => setQcmChoice("B"))
                                     }
                                     aria-pressed={qcmChoice === "B"}
                                 >
-                                    B — Se tester et espacer ses révisions
+                                    <span className="qcm-badge">B</span>
+                                    <span>Se tester et espacer ses révisions</span>
                                 </button>
-                                <p
-                                    aria-live="polite"
-                                    style={{
-                                        marginTop: 12,
-                                        color:
-                                            qcmChoice === "B"
-                                                ? "#0e7a3e"
-                                                : qcmChoice === "A"
-                                                  ? "#c21d5f"
-                                                  : "#5d5260",
-                                    }}
-                                >
-                                    {qcmChoice === null &&
-                                        "Choisis une réponse."}
-                                    {qcmChoice === "A" &&
-                                        "Pas optimal : la relecture seule donne une illusion de maîtrise."}
-                                    {qcmChoice === "B" &&
-                                        "Exact : rappel actif + répétition espacée = apprentissage durable."}
-                                </p>
+
+                                {qcmChoice === 'A' && (
+                                    <div className="qcm-feedback wrong" aria-live="polite">
+                                        ✕ Pas optimal : la relecture seule donne une illusion trompeuse de maîtrise.
+                                    </div>
+                                )}
+                                {qcmChoice === 'B' && (
+                                    <div className="qcm-feedback correct" aria-live="polite">
+                                        ✓ Exact : rappel actif + répétition espacée = apprentissage durable.
+                                    </div>
+                                )}
+                                {qcmChoice === null && (
+                                    <p style={{ marginTop: 12, fontSize: 13, color: '#827581', fontWeight: 500 }}>
+                                        Choisis une réponse pour tester ta méthode.
+                                    </p>
+                                )}
                             </div>
                         </article>
                     </div>
@@ -547,17 +812,23 @@ export default function LandingPage(props: LandingPageProps) {
                     <div className="sheets" data-reveal aria-hidden="true">
                         <article className="card sheet-back">
                             <p className="eyebrow">SOURCE</p>
-                            <p
-                                style={{
-                                    marginTop: 12,
-                                    color: "#6a5d6d",
-                                    lineHeight: 1.5,
-                                }}
-                            >
-                                Apprentissage: consolidation hippocampique,
-                                réactivation, rappel indicé et contexte
-                                d’encodage...
-                            </p>
+                            <div className="dense-text">
+                                <p style={{ fontWeight: 700, color: '#4a3b4e', marginBottom: 6 }}>
+                                    Chapitre IV — Neurophysiologie de la mémoire
+                                </p>
+                                <p style={{ marginBottom: 6 }}>
+                                    L'apprentissage synaptique implique une potentialisation à long terme (LTP) au sein des circuits hippocampiques CA1 et CA3.
+                                </p>
+                                <p style={{ marginBottom: 6 }}>
+                                    La consolidation mnésique requiert une réactivation nocturne synchrone durant les phases de sommeil à ondes lentes, favorisant le transfert néocortical graduel.
+                                </p>
+                                <p style={{ marginBottom: 6 }}>
+                                    Facteurs d'interférence proactive et rétroactive selon les contextes d'encodage multimodal et de rappel indicé sous contrainte...
+                                </p>
+                                <p style={{ color: '#b0a3b0', fontSize: 11 }}>
+                                    [... 42 pages de polycopié brut ...]
+                                </p>
+                            </div>
                         </article>
                         <article className="card sheet-front">
                             <p className="eyebrow">TA FICHE</p>
@@ -667,37 +938,24 @@ export default function LandingPage(props: LandingPageProps) {
                             mémoriser, puis te tester avec régularité.
                         </p>
                     </div>
-                    <article className="agenda" data-reveal>
-                        <h3>Chaque session a sa place.</h3>
-                        <div className="agenda-row">
-                            <strong>LUN 12</strong>
-                            <span>Comprendre / Fiche de synthèse</span>
+                    <article className="agenda-container" data-reveal>
+                        <h3 className="agenda-title">Chaque session a sa place.</h3>
+                        <div className="agenda-stack">
+                            <div className="agenda-item">
+                                <span className="agenda-date">LUN 12</span>
+                                <span className="agenda-desc">Comprendre / Fiche de synthèse</span>
+                            </div>
+                            <div className="agenda-item highlighted">
+                                <span className="agenda-date">MER 14</span>
+                                <span className="agenda-desc">Mémoriser / Session flashcards</span>
+                            </div>
+                            <div className="agenda-item">
+                                <span className="agenda-date">VEN 16</span>
+                                <span className="agenda-desc">Se tester / QCM d’entraînement</span>
+                            </div>
                         </div>
-                        <div className="agenda-row">
-                            <strong>MER 14</strong>
-                            <span
-                                style={{
-                                    background: "#ffd9ea",
-                                    display: "inline-block",
-                                    padding: "2px 8px",
-                                    borderRadius: 999,
-                                }}
-                            >
-                                Mémoriser / Session flashcards
-                            </span>
-                        </div>
-                        <div className="agenda-row">
-                            <strong>VEN 16</strong>
-                            <span>Se tester / QCM d’entraînement</span>
-                        </div>
-                        <p
-                            style={{
-                                marginTop: 12,
-                                color: "#6a5d6d",
-                                fontSize: 14,
-                            }}
-                        >
-                            Exemple de semaine de progression.
+                        <p className="agenda-footer-note">
+                            Exemple de semaine, à ton rythme.
                         </p>
                     </article>
                 </div>
@@ -707,32 +965,33 @@ export default function LandingPage(props: LandingPageProps) {
                 <div className="container" data-reveal>
                     <h2
                         style={{
-                            fontSize: "clamp(30px,5vw,44px)",
+                            fontSize: "clamp(30px,5vw,48px)",
                             letterSpacing: "-0.03em",
+                            fontWeight: 800,
                         }}
                     >
                         Et tout ce qu’il te faut autour.
                     </h2>
                     <div className="columns3">
-                        <div>
-                            <h3>Résumés</h3>
-                            <p>
-                                Va droit à l’essentiel, puis reconnecte les
-                                idées clés sans t’éparpiller.
+                        <div className="columns3-col" id="resumes-col">
+                            <p className="columns3-tag">RÉSUMÉS</p>
+                            <h3 className="columns3-title">Va droit à l’essentiel.</h3>
+                            <p className="columns3-desc">
+                                Transforme les pages denses en fiches de synthèse pour retrouver le fil et les notions clés.
                             </p>
                         </div>
-                        <div id="bibliotheque">
-                            <h3>Bibliothèque</h3>
-                            <p>
-                                Une place pour chaque cours, organisée pour
-                                retrouver vite ce qui compte.
+                        <div className="columns3-col" id="bibliotheque">
+                            <p className="columns3-tag">BIBLIOTHÈQUE CLOUD</p>
+                            <h3 className="columns3-title">Une place pour chaque cours.</h3>
+                            <p className="columns3-desc">
+                                Centralise tes sources dans ton espace. Tes supports ne sont plus dispersés entre dix dossiers.
                             </p>
                         </div>
-                        <div id="annales">
-                            <h3>Annales</h3>
-                            <p>
-                                Comprends aussi tes erreurs pour transformer
-                                chaque tentative en progression.
+                        <div className="columns3-col" id="annales">
+                            <p className="columns3-tag">ANNALES</p>
+                            <h3 className="columns3-title">Comprends aussi tes erreurs.</h3>
+                            <p className="columns3-desc">
+                                Travaille les sujets des années précédentes avec des corrections pour éclaircir les points qui coincent.
                             </p>
                         </div>
                     </div>
