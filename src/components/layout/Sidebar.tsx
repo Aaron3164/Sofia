@@ -57,7 +57,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   return (
     <aside className={`sidebar glass-panel ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
-        <div className="logo-placeholder">Sof.IA</div>
+        <div className="logo-placeholder" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src="/sofia-logo.png" alt="Logo Sof.IA" style={{ width: '28px', height: '28px', borderRadius: '8px', objectFit: 'contain' }} />
+          <span>Sof.IA</span>
+        </div>
         <button className="mobile-only close-sidebar-btn" onClick={onClose} aria-label="Fermer le menu">
           <X size={20} />
         </button>

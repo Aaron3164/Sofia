@@ -302,7 +302,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>Premium</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>L'expérience Aura ultime</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>L'expérience ultime</p>
                 </div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>9,99€ <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
                 

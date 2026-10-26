@@ -45,7 +45,8 @@ export default function LandingPage(props: LandingPageProps) {
 .sofia-landing .btn-outline { background:transparent; color:var(--pink); border-color:var(--pink); }
 .sofia-landing .header { padding:24px 0; border-bottom:1px solid #f5e7ee; position:sticky; top:0; z-index:50; backdrop-filter: blur(8px); background:rgba(255,252,253,.9);}
 .sofia-landing .header-inner { display:grid; grid-template-columns:1fr auto auto; gap:16px; align-items:center; }
-.sofia-landing .logo { font-size:32px; font-weight:800; color:var(--pink); letter-spacing:-0.03em; cursor:pointer; }
+.sofia-landing .logo { font-size:32px; font-weight:800; color:var(--pink); letter-spacing:-0.03em; cursor:pointer; display:inline-flex; align-items:center; gap:10px; }
+.sofia-landing .logo-img { width:34px; height:34px; border-radius:10px; object-fit:contain; }
 .sofia-landing .tagline { color:var(--muted); font-weight:600; text-align:right; }
 .sofia-landing h1,.sofia-landing h2,.sofia-landing h3,.sofia-landing h4,.sofia-landing p { margin:0; }
 .sofia-landing .hero { display:grid; grid-template-columns:1fr 520px; gap:44px; align-items:center; position:relative; }
@@ -469,7 +470,10 @@ export default function LandingPage(props: LandingPageProps) {
             <style>{css}</style>
             <header className="header">
                 <div className="container header-inner">
-                    <div className="logo" onClick={handleAction}>sof.ia</div>
+                    <div className="logo" onClick={handleAction}>
+                        <img src="/sofia-logo.png" alt="Logo Sof.IA" className="logo-img" />
+                        <span>sof.ia</span>
+                    </div>
                     <div className="tagline">
                         Un peu d’IA. Beaucoup de déclics.
                     </div>
