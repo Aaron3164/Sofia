@@ -974,21 +974,21 @@ export default function LandingPage(props: LandingPageProps) {
                     </h2>
                     <div className="columns3">
                         <div className="columns3-col" id="resumes-col">
-                            <p className="columns3-tag">RÉSUMÉS</p>
+                            <p className="columns3-tag">05 / RÉSUMÉS</p>
                             <h3 className="columns3-title">Va droit à l’essentiel.</h3>
                             <p className="columns3-desc">
                                 Transforme les pages denses en fiches de synthèse pour retrouver le fil et les notions clés.
                             </p>
                         </div>
                         <div className="columns3-col" id="bibliotheque">
-                            <p className="columns3-tag">BIBLIOTHÈQUE CLOUD</p>
+                            <p className="columns3-tag">06 / BIBLIOTHÈQUE CLOUD</p>
                             <h3 className="columns3-title">Une place pour chaque cours.</h3>
                             <p className="columns3-desc">
                                 Centralise tes sources dans ton espace. Tes supports ne sont plus dispersés entre dix dossiers.
                             </p>
                         </div>
                         <div className="columns3-col" id="annales">
-                            <p className="columns3-tag">ANNALES</p>
+                            <p className="columns3-tag">07 / ANNALES</p>
                             <h3 className="columns3-title">Comprends aussi tes erreurs.</h3>
                             <p className="columns3-desc">
                                 Travaille les sujets des années précédentes avec des corrections pour éclaircir les points qui coincent.
