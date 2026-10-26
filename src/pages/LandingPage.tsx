@@ -33,7 +33,7 @@ export default function LandingPage(props: LandingPageProps) {
 .sofia-landing, .sofia-landing * { box-sizing: border-box; }
 .sofia-landing {
   --bg:#FFFCFD; --pink:#DF216C; --plum:#302135; --muted:#827581; --line:#EFDFE7; --pale:#FBEFF4;
-  background:var(--bg); color:var(--plum); width:100%; font-family:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; overflow-x:clip;
+  background:var(--bg); color:var(--plum); width:100%; min-height:100vh; height:100%; overflow-y:auto; font-family:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; overflow-x:hidden;
 }
 .sofia-landing a { color:inherit; text-decoration:none; }
 .sofia-landing button { font:inherit; color:inherit; }
