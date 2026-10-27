@@ -578,16 +578,65 @@ export default function Statistics() {
   );
 }
 
-// ------ Helper Components for QCM Forest View ------
-
-const isCorrectOption = (correctOpts: string[], option: string) => {
-  return correctOpts.some(c => c.trim().toLowerCase() === option.trim().toLowerCase());
+const getCorrectAnswers = (q: any): string[] => {
+  const raw = q.correctAnswers ?? q.correct_answers ?? q.correctAnswer ?? q.correct_answer ?? q.responses ?? q.answers ?? [];
+  if (Array.isArray(raw)) return raw.map(v => v?.toString() || '');
+  if (raw === null || raw === undefined) return [];
+  return [raw.toString()];
 };
 
-const getCorrectAnswers = (q: any): string[] => {
-  if (q.correctAnswers && Array.isArray(q.correctAnswers)) return q.correctAnswers;
-  if (q.correctAnswer) return [q.correctAnswer];
-  return [];
+const normalizeOption = (s: string) => 
+  s.toString()
+   .trim()
+   .toLowerCase()
+   .normalize("NFD")
+   .replace(/[\u0300-\u036f]/g, "") // Enlever les accents
+   .replace(/[^a-z0-9]/g, ''); // Garder uniquement l'essentiel (alphanumérique)
+
+const isCorrectOption = (correctOpts: string[], option: string, oIndex: number) => {
+  const normalizedOption = normalizeOption(option);
+  const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  
+  return correctOpts.some(c => {
+    if (c === null || c === undefined) return false;
+    const cStr = c.toString().trim();
+    const normalizedC = normalizeOption(cStr);
+    
+    // 1. Match par texte (normalisé agressivement)
+    if (normalizedC !== '' && normalizedC === normalizedOption) return true;
+    
+    // 2. Match par index (0-based ou 1-based)
+    if (cStr === oIndex.toString() || cStr === (oIndex + 1).toString()) return true;
+    
+    // 3. Match par lettre ("a", "b", "c"...)
+    if (normalizedC === letters[oIndex]) return true;
+    
+    return false;
+  });
+};
+
+const isOptionSelected = (selected: any[], option: string, oIndex: number) => {
+  if (!Array.isArray(selected) || selected.length === 0) return false;
+  const normalizedOption = normalizeOption(option);
+  const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+
+  return selected.some(s => {
+    if (s === null || s === undefined) return false;
+    const sStr = s.toString().trim();
+    const normalizedS = normalizeOption(sStr);
+
+    // 1. Match par texte exact ou normalisé
+    if (sStr === option.trim()) return true;
+    if (normalizedS !== '' && normalizedS === normalizedOption) return true;
+
+    // 2. Match par index (0-based ou 1-based)
+    if (sStr === oIndex.toString() || sStr === (oIndex + 1).toString()) return true;
+
+    // 3. Match par lettre ("A", "B", "a"...)
+    if (normalizedS === letters[oIndex]) return true;
+
+    return false;
+  });
 };
 
 function QcmGradeItem({ g, expandedQcm, setExpandedQcm, onDelete }: any) {
@@ -639,8 +688,8 @@ function QcmGradeItem({ g, expandedQcm, setExpandedQcm, onDelete }: any) {
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {q.options.map((option: string, oIndex: number) => {
-                      const isSelected = selected.includes(option);
-                      const isCorrect = isCorrectOption(correctOpts, option);
+                      const isSelected = isOptionSelected(selected, option, oIndex);
+                      const isCorrect = isCorrectOption(correctOpts, option, oIndex);
                       
                       let bgColor = 'var(--bg-primary)';
                       let borderColor = 'var(--border-color)';
