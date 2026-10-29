@@ -53,7 +53,7 @@ async function ensureQuota() {
   }
 
   if (!data) {
-    throw new Error('Limite de générations par jour atteinte (10 pour le plan gratuit, 100 pour le plan Premium).');
+    throw new Error('Limite de générations par jour atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
   }
 }
 

@@ -1,7 +1,7 @@
 -- Cette fonction SQL met à jour les limites de générations d'IA quotidiennes.
 -- Elle définit :
---   - 10 générations max par jour pour le forfait gratuit (free)
---   - 100 générations max par jour pour le forfait payant (premium)
+--   - 5 générations max par jour pour le forfait gratuit (free)
+--   - 50 générations max par jour pour le forfait payant (premium)
 
 create or replace function public.check_and_increment_ai_usage()
 returns boolean as $$
@@ -24,9 +24,9 @@ begin
 
   -- Définir les limites correspondantes
   if user_plan = 'premium' then
-    max_limit := 100;
+    max_limit := 50;
   else
-    max_limit := 10;
+    max_limit := 5;
   end if;
 
   -- 3. Récupérer la consommation actuelle de l'utilisateur

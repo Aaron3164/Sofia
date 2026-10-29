@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => {
                 res.setHeader('Content-Type', 'application/json');
                 return res.end(JSON.stringify({
                   error: 'QUOTA_EXCEEDED',
-                  message: 'Limite quotidienne de générations IA atteinte (10/jour en gratuit, 100/jour en Premium).'
+                  message: 'Limite quotidienne de générations IA atteinte (5/jour en gratuit, 50/jour en Premium).'
                 }));
               }
             }

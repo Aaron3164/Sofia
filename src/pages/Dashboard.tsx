@@ -268,7 +268,7 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Statistiques de progression</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Synchronisation cloud</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Jusqu'à 10 cours au total</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> 10 générations IA par jour</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> 5 générations IA par jour</div>
                 </div>
 
                 <button 

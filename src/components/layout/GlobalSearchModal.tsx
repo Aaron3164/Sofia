@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, X, FileText, Folder, Sparkles, ArrowRight, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { globalSearch, getDailyUsage } from '../../lib/gemini';
+import { globalSearch } from '../../lib/gemini';
 import { useFileSystem, type FileNode } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -38,16 +38,10 @@ export const GlobalSearchModal: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd+K or Ctrl+K to open
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        const maxGens = profile?.plan === 'premium' ? 100 : 10;
-        const usage = await getDailyUsage();
-        if (usage >= maxGens) {
-          alert(`Limite quotidienne de générations atteinte (${usage}/${maxGens}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 100 générations/jour !'}`);
-          return;
-        }
         setIsOpen((prev) => !prev);
       }
       // Esc to close
@@ -56,15 +50,7 @@ export const GlobalSearchModal: React.FC = () => {
       }
     };
 
-    const handleCustomOpen = async () => {
-      const maxGens = profile?.plan === 'premium' ? 100 : 10;
-      const usage = await getDailyUsage();
-      if (usage >= maxGens) {
-        alert(`Limite quotidienne de générations atteinte (${usage}/${maxGens}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 100 générations/jour !'}`);
-        return;
-      }
-      setIsOpen(true);
-    };
+    const handleCustomOpen = () => setIsOpen(true);
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('open-global-search', handleCustomOpen);
@@ -73,7 +59,7 @@ export const GlobalSearchModal: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('open-global-search', handleCustomOpen);
     };
-  }, [isOpen, profile?.plan]);
+  }, [isOpen]);
 
   // Focus input when modal opens
   useEffect(() => {

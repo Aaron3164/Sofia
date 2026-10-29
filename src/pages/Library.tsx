@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useDialog } from '../context/DialogContext';
@@ -7,7 +7,6 @@ import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft,
 import { MoveNodeModal } from '../components/library/MoveNodeModal';
 import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportModal';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
-import { getDailyUsage } from '../lib/gemini';
 import { supabase } from '../lib/supabase';
 import './Library.css';
 
@@ -22,19 +21,6 @@ export default function Library() {
   const [nodeToMove, setNodeToMove] = useState<FileNode | null>(null);
   const [isAnnaleModalOpen, setIsAnnaleModalOpen] = useState(false);
   const [revisionFolder, setRevisionFolder] = useState<{ id: string | null; name: string } | null>(null);
-  const [dailyUsage, setDailyUsage] = useState<number>(0);
-
-  const maxGenerations = profile?.plan === 'premium' ? 100 : 10;
-  const isQuotaReached = dailyUsage >= maxGenerations;
-
-  useEffect(() => {
-    const refreshUsage = () => {
-      getDailyUsage().then(count => setDailyUsage(count));
-    };
-    refreshUsage();
-    window.addEventListener('ai-usage-updated', refreshUsage);
-    return () => window.removeEventListener('ai-usage-updated', refreshUsage);
-  }, []);
   
   const currentFolder = getNode(currentFolderId);
   const items = getChildren(currentFolderId);
@@ -206,24 +192,9 @@ export default function Library() {
           </button>
           <button 
             className="btn btn-outline shadow-sm" 
-            onClick={() => {
-              if (isQuotaReached) {
-                alert(`Limite quotidienne atteinte (${dailyUsage}/${maxGenerations} générations). Revenez demain ou passez au plan Premium !`);
-                return;
-              }
-              setIsAnnaleModalOpen(true);
-            }}
-            disabled={isQuotaReached}
-            title={isQuotaReached ? `Limite d'IA atteinte (${dailyUsage}/${maxGenerations})` : "Importer une annale officielle au format PDF pour ce dossier"}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              borderColor: 'rgba(219, 39, 119, 0.4)', 
-              color: 'var(--accent-primary)',
-              opacity: isQuotaReached ? 0.45 : 1,
-              cursor: isQuotaReached ? 'not-allowed' : 'pointer'
-            }}
+            onClick={() => setIsAnnaleModalOpen(true)}
+            title="Importer une annale officielle au format PDF pour ce dossier"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', borderColor: 'rgba(219, 39, 119, 0.4)', color: 'var(--accent-primary)' }}
           >
             <GraduationCap size={18} />
             <span className="desktop-only">Importer une annale</span>

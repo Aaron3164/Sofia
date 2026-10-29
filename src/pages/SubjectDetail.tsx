@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
-import { extractTextFromPDF, checkPDFPageCount } from '../lib/pdf-extractor';
+import { extractTextFromPDF } from '../lib/pdf-extractor';
 import { InteractiveMCQ } from '../components/library/InteractiveMCQ';
 import { InteractiveFlashcard } from '../components/library/InteractiveFlashcard';
 import { InteractiveQA } from '../components/library/InteractiveQA';
@@ -30,7 +30,7 @@ export default function SubjectDetail() {
   const courseNode = getNode(id || null);
   const storageKey = `aura_subject_${id}`;
   const [dailyUsage, setDailyUsage] = React.useState<number>(0);
-  const maxGenerations = profile?.plan === 'premium' ? 100 : 10;
+  const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
   const isQuotaReached = dailyUsage >= maxGenerations;
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
@@ -304,14 +304,6 @@ export default function SubjectDetail() {
     // Reset input value so selecting the same file again triggers onChange
     e.target.value = '';
 
-    // Check maximum 50 pages for local PDF upload
-    try {
-      await checkPDFPageCount(selected, 50);
-    } catch (pageErr: any) {
-      await alert(pageErr.message || 'Le fichier PDF dépasse la limite autorisée de 50 pages.');
-      return;
-    }
-
     setFileName(selected.name);
     setIsGenerating(false);
     setIsUploading(true);
@@ -341,7 +333,7 @@ export default function SubjectDetail() {
         })(),
         extractTextFromPDF(selected, (current, total) => {
           setExtractionProgress({ current, total });
-        }, { maxPages: 50 }).catch(err => {
+        }).catch(err => {
           console.error('Extraction error:', err);
           return 'Erreur d\'extraction du texte du PDF.';
         })
@@ -388,16 +380,6 @@ export default function SubjectDetail() {
     // Reset input value so selecting the same file again triggers onChange
     e.target.value = '';
 
-    // Validate 50 pages maximum on all selected files
-    for (const file of files) {
-      try {
-        await checkPDFPageCount(file, 50);
-      } catch (pageErr: any) {
-        await alert(`Fichier "${file.name}" rejeté : ${pageErr.message || 'Le fichier dépasse la limite autorisée de 50 pages.'}`);
-        return;
-      }
-    }
-
     setIsUploadingNaive(true);
     try {
       const newAttachments = [...naiveAttachments];
@@ -436,7 +418,7 @@ export default function SubjectDetail() {
 
   const handleGenerate = async () => {
     if (isQuotaReached) {
-      await alert(`Limite quotidienne atteinte (${dailyUsage}/${maxGenerations} générations). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 100 générations/jour !'}`);
+      await alert(`Limite quotidienne atteinte (${dailyUsage}/${maxGenerations}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
       return;
     }
     if (!extractedContent) {

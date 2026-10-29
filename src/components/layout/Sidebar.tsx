@@ -86,35 +86,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <div className="nav-section-label" style={{ marginTop: '0.75rem' }}>Outils</div>
 
-        {(() => {
-          const maxGens = profile?.plan === 'premium' ? 100 : 10;
-          const quotaReached = usage !== null && usage >= maxGens;
-
-          return (
-            <button
-              className={`nav-item ${quotaReached ? 'disabled' : ''}`}
-              onClick={() => {
-                if (quotaReached) return;
-                window.dispatchEvent(new CustomEvent('open-global-search'));
-                if (window.innerWidth <= 768 && onClose) onClose();
-              }}
-              disabled={quotaReached}
-              title={quotaReached ? `Limite quotidienne atteinte (${usage}/${maxGens})` : 'Recherche Globale (Ctrl+K)'}
-              style={{ 
-                width: '100%', 
-                border: 'none', 
-                background: 'transparent', 
-                cursor: quotaReached ? 'not-allowed' : 'pointer', 
-                fontFamily: 'inherit', 
-                textAlign: 'left',
-                opacity: quotaReached ? 0.5 : 1
-              }}
-            >
-              <span className="nav-item-icon"><Search size={17} /></span>
-              Recherche Globale
-            </button>
-          );
-        })()}
+        <button
+          className="nav-item"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('open-global-search'));
+            if (window.innerWidth <= 768 && onClose) onClose();
+          }}
+          style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+        >
+          <span className="nav-item-icon"><Search size={17} /></span>
+          Recherche Globale
+        </button>
 
         <NavLink
           to="/chat"
@@ -148,29 +130,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </div>
             </NavLink>
 
-            {usage !== null && (() => {
-              const maxGens = profile?.plan === 'premium' ? 100 : 10;
-              const warnThreshold = profile?.plan === 'premium' ? 90 : 8;
-              return (
-                <div className="usage-bar-container">
-                  <div className="usage-bar-header">
-                    <span>Générations IA (Aujourd'hui)</span>
-                    <span style={{ color: usage >= warnThreshold ? 'var(--danger)' : 'var(--text-muted)' }}>
-                      {usage} / {maxGens}
-                    </span>
-                  </div>
-                  <div className="usage-bar-track">
-                    <div
-                      className="usage-bar-fill"
-                      style={{
-                        width: `${Math.min((usage / maxGens) * 100, 100)}%`,
-                        background: usage >= warnThreshold ? 'var(--danger)' : undefined,
-                      }}
-                    />
-                  </div>
+            {usage !== null && (
+              <div className="usage-bar-container">
+                <div className="usage-bar-header">
+                  <span>Générations IA (Aujourd'hui)</span>
+                  <span style={{ color: usage >= (profile?.plan === 'premium' ? 45 : 4) ? 'var(--danger)' : 'var(--text-muted)' }}>
+                    {usage} / {profile?.plan === 'premium' ? 50 : 5}
+                  </span>
                 </div>
-              );
-            })()}
+                <div className="usage-bar-track">
+                  <div
+                    className="usage-bar-fill"
+                    style={{
+                      width: `${Math.min((usage / (profile?.plan === 'premium' ? 50 : 5)) * 100, 100)}%`,
+                      background: usage >= (profile?.plan === 'premium' ? 45 : 4) ? 'var(--danger)' : undefined,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {profile?.plan === 'premium' && (
               <div className="premium-badge">✦ Forfait Premium Actif</div>

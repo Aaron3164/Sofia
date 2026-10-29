@@ -1035,7 +1035,7 @@ export default function LandingPage(props: LandingPageProps) {
                                 <li>Répétition espacée (Leitner)</li>
                                 <li>Recherche transversale</li>
                                 <li>Jusqu’à 10 cours enregistrés</li>
-                                <li>10 générations IA quotidiennes</li>
+                                <li>5 générations IA quotidiennes</li>
                             </ul>
                             {onGetStarted ? (
                                 <button

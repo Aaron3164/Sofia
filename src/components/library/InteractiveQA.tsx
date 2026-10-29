@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, Loader2, Pencil } from 'lucide-react';
 import { askQuestion, generateChatTitle, getDailyUsage } from '../../lib/gemini';
 import { mdToHtml } from '../../lib/markdown';
-import { extractTextFromPDF, checkPDFPageCount } from '../../lib/pdf-extractor';
+import { extractTextFromPDF } from '../../lib/pdf-extractor';
 import { WysiwygEditor } from './WysiwygEditor';
 
 export interface QAMessage {
@@ -81,7 +81,7 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
 
   // Quota tracking
   const [dailyUsage, setDailyUsage] = useState<number>(0);
-  const maxGenerations = plan === 'premium' ? 100 : 10;
+  const maxGenerations = plan === 'premium' ? 50 : 5;
   const isQuotaReached = dailyUsage >= maxGenerations;
 
   useEffect(() => {
@@ -167,18 +167,8 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reset input value so selecting the same file again triggers onChange
-    e.target.value = '';
-
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
       alert('Veuillez sélectionner un fichier au format PDF.');
-      return;
-    }
-
-    try {
-      await checkPDFPageCount(file, 50);
-    } catch (pageErr: any) {
-      alert(pageErr.message || 'Le fichier PDF dépasse la limite autorisée de 50 pages.');
       return;
     }
 
@@ -188,7 +178,7 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
     try {
       const extractedText = await extractTextFromPDF(file, (current, total) => {
         setPdfProgress(`Extraction : page ${current} / ${total}...`);
-      }, { maxPages: 50 });
+      });
 
       if (!extractedText.trim()) {
         alert('Le fichier PDF semble ne contenir aucun texte exploitable.');
@@ -239,7 +229,7 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
     if (!inputValue.trim() || !documentContext) return;
 
     if (isQuotaReached) {
-      alert(`Limite quotidienne atteinte (${dailyUsage}/${maxGenerations} générations). ${plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 100 générations/jour !'}`);
+      alert(`Limite quotidienne atteinte (${dailyUsage}/${maxGenerations}). ${plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
       return;
     }
 

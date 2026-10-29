@@ -7,15 +7,6 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
-// Helper to generate a deterministic cache key from arguments
-function getCacheKey(prefix: string, content: string): string {
-  let hash = 5381;
-  for (let i = 0; i < content.length; i++) {
-    hash = (hash * 33) ^ content.charCodeAt(i);
-  }
-  return `${prefix}_${(hash >>> 0).toString(36)}`;
-}
-
 /**
  * Sends prompt requests securely through the serverless backend proxy (/api/gemini)
  */
@@ -24,19 +15,6 @@ async function callGeminiProxy(
   contents: string[] | any[],
   config?: Record<string, any>
 ): Promise<{ text: string; groundingMetadata?: any }> {
-  // 1. Client-Side Session Cache: if exact same query and context was already answered, return instantly!
-  const cacheKey = getCacheKey('gemini_client_cache', `${model}:::${JSON.stringify(contents)}:::${JSON.stringify(config || {})}`);
-  try {
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      console.log('[CACHE HIT] Réponse réutilisée depuis le cache navigateur local (aucun quota consommé)');
-      return parsed;
-    }
-  } catch (e) {
-    // Ignore session cache read errors
-  }
-
   // Vérification stricte du quota côté client avant tout appel
   await ensureQuota();
 
@@ -63,33 +41,20 @@ async function callGeminiProxy(
 
   const data = await response.json();
 
-  // Met à jour la barre de quota dans la Sidebar en temps réel (sauf si réponse servie par cache serveur)
-  if (!data.cached) {
-    window.dispatchEvent(new CustomEvent('ai-usage-updated'));
-  }
+  // Met à jour la barre de quota dans la Sidebar en temps réel
+  window.dispatchEvent(new CustomEvent('ai-usage-updated'));
 
   if (!response.ok || data.error) {
     if (data.error === 'QUOTA_EXCEEDED' || response.status === 429) {
-      throw new Error(data.message || 'Limite quotidienne de générations atteinte (10 pour le plan gratuit, 100 pour le plan Premium).');
+      throw new Error(data.message || 'Limite quotidienne de générations atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
     }
     throw new Error(data.message || data.error || 'Erreur lors de la génération avec Gemini.');
   }
 
-  const result = { 
+  return { 
     text: data.text || '',
     groundingMetadata: data.groundingMetadata || null
   };
-
-  // Enregistre en cache navigateur pour réutilisation immédiate
-  try {
-    if (result.text) {
-      sessionStorage.setItem(cacheKey, JSON.stringify(result));
-    }
-  } catch (e) {
-    // SessionStorage may be full or disabled, ignore
-  }
-
-  return result;
 }
 
 /**
@@ -104,53 +69,24 @@ export async function getDailyUsage(): Promise<number> {
     const userId = sessionData?.session?.user?.id;
     if (!userId) return 0;
 
-    // 1. Lire la table ai_usage avec select('*') pour éviter toute erreur de colonne inexistante
-    const { data: rows, error: readError } = await supabase
-      .from('ai_usage')
-      .select('*')
-      .eq('user_id', userId);
-
-    if (readError) {
-      console.warn('[Quota] Avertissement lecture ai_usage:', readError.message);
-      return 0;
-    }
-
-    if (!rows || rows.length === 0) {
-      return 0;
-    }
-
+    // Calcul de la date du jour (supporte date locale et UTC pour éviter les décalages de fuseau)
     const now = new Date();
     const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const utcDate = now.toISOString().split('T')[0];
+    const datesToCheck = Array.from(new Set([localDate, utcDate]));
 
-    // Trouver la ligne la plus récente
-    for (const row of rows) {
-      const rowAny = row as any;
-      // Cas 1: row a un champ usage_date
-      if (rowAny.usage_date) {
-        if (rowAny.usage_date === localDate || rowAny.usage_date === utcDate) {
-          const val = rowAny.generation_count ?? rowAny.count;
-          if (typeof val === 'number') return val;
-        }
-      }
-      // Cas 2: row a un champ updated_at
-      else if (rowAny.updated_at) {
-        try {
-          const rowDate = new Date(rowAny.updated_at).toISOString().split('T')[0];
-          const rowLocalDate = `${new Date(rowAny.updated_at).getFullYear()}-${String(new Date(rowAny.updated_at).getMonth() + 1).padStart(2, '0')}-${String(new Date(rowAny.updated_at).getDate()).padStart(2, '0')}`;
-          if (rowDate === utcDate || rowDate === localDate || rowLocalDate === localDate) {
-            const val = rowAny.count ?? rowAny.generation_count;
-            if (typeof val === 'number') return val;
-          }
-        } catch {
-          const val = rowAny.count ?? rowAny.generation_count;
-          if (typeof val === 'number') return val;
-        }
-      } else {
-        // Pas de date : renvoyer count directement
-        const val = rowAny.count ?? rowAny.generation_count;
-        if (typeof val === 'number') return val;
-      }
+    // Requête ciblée sur la clé primaire (user_id, usage_date)
+    const { data, error } = await supabase
+      .from('ai_usage')
+      .select('generation_count')
+      .eq('user_id', userId)
+      .in('usage_date', datesToCheck)
+      .order('usage_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data && typeof data.generation_count === 'number') {
+      return data.generation_count;
     }
 
     return 0;
@@ -176,7 +112,7 @@ export async function ensureQuota(): Promise<void> {
       .eq('id', userId)
       .maybeSingle();
 
-    const maxGenerations = profile?.plan === 'premium' ? 100 : 10;
+    const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
     const usage = await getDailyUsage();
 
     if (usage >= maxGenerations) {
@@ -209,6 +145,15 @@ function getSystemInstruction(prefs?: AIPreferences) {
   const boldInstruction = "CONSIGNE IMPORTANTE SUR LES MOTS EN GRAS DANS LE TEXTE DU COURS : Les mots ou phrases encadrés par des astérisques **gras** (ex: **notion**) dans le texte de cours fourni ont été détectés en gras dans le document source (PDF). En général, ce sont des concepts, définitions ou mots-clés importants mis en valeur par l'auteur du cours. Tu dois généralement leur accorder une attention et une priorité particulières dans tes résumés, flashcards et questions, tout en conservant ton discernement et jugement pédagogique pour décider s'ils méritent ou non d'être retenus selon le contexte.";
 
   return `${personalities[personality]} ${modes[studyMode]}\n${boldInstruction}\n\n`;
+}
+
+// Helper to generate a cache key from arguments
+function getCacheKey(prefix: string, content: string): string {
+  let hash = 5381;
+  for (let i = 0; i < content.length; i++) {
+    hash = (hash * 33) ^ content.charCodeAt(i);
+  }
+  return `${prefix}_${(hash >>> 0).toString(36)}`;
 }
 
 /**
@@ -373,13 +318,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 - Utilise '__' pour souligner les précisions importantes.
 - TABLEAUX : Si une comparaison, classification ou synthèse de plusieurs notions s'y prête, STRUCTURE-LA DANS UN BEAU TABLEAU MARKDOWN standard avec des en-têtes clairs (| Colonne 1 | Colonne 2 | \n | --- | --- |).
 - SOURCE : Si l'information provient du document, mentionne-le subtilement.
-- Tu DOIS tutoyer l'étudiant (utilise "tu").
-- CIBLAGE ABSOLU DES QUESTIONS D'ANNALE (RÈGLE STRICTE) :
-  Si l'étudiant mentionne un numéro de question ou de QCM (ex: "question 11", "QCM 11", "explique la 11", "la question 11 stp") :
-  1. Tu DOIS CHERCHER EXCLUSIVEMENT le bloc commençant par [QUESTION 11] dans le sujet officiel de l'annale.
-  2. Ton explication DOIT PORTER PRÉCISÉMENT sur l'énoncé de CETTE question 11 et sur ses propositions spécifiques (A, B, C, D, E).
-  3. INTERDICTION FORMELLE d'aller chercher un chapitre au hasard ou une autre question dans un cours théorique ou un document annexe sous prétexte qu'un mot-clé s'y trouve. Les cours de référence ne servent qu'à apporter des justifications théoriques POUR LA QUESTION 11 ciblée, pas à remplacer son énoncé !
-  4. Commence toujours ton explication en citant l'intitulé exact de la question ciblée (ex: "### Question 11 : ...").`;
+- Tu DOIS tutoyer l'étudiant (utilise "tu").`;
 
   let historyPrompt = "";
   if (history && history.length > 0) {
@@ -392,7 +331,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
     annalePrompt = `\n\nSUJET D'EXAMEN / ANNALES / EXERCICE ATTACHÉ PAR L'ÉTUDIANT :\n${annaleContext.substring(0, 150000)}\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal ci-dessus, ses méthodes, sa structure et ses notions.`;
   }
 
-  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte d'étude et de cours :\n${context}${annalePrompt}\n${historyPrompt}\nDemande précise de l'étudiant : ${question}`;
+  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${context}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
   
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt]);
