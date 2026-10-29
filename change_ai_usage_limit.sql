@@ -1,5 +1,10 @@
 -- Cette fonction SQL met à jour les limites de générations d'IA quotidiennes.
--- Elle définit :
+-- Schéma réel de la table public.ai_usage :
+--   - user_id (uuid)
+--   - usage_date (date)
+--   - generation_count (int4)
+--
+-- Limites définies :
 --   - 5 générations max par jour pour le forfait gratuit (free)
 --   - 50 générations max par jour pour le forfait payant (premium)
 
@@ -9,7 +14,7 @@ declare
   user_plan text;
   current_count integer;
   max_limit integer;
-  last_updated timestamptz;
+  today_date date := current_date;
 begin
   -- 1. Récupérer l'ID de l'utilisateur connecté
   if auth.uid() is null then
@@ -22,42 +27,34 @@ begin
     user_plan := 'free';
   end if;
 
-  -- Définir les limites correspondantes
+  -- Définir les limites correspondantes (5 gratuit, 50 premium)
   if user_plan = 'premium' then
     max_limit := 50;
   else
     max_limit := 5;
   end if;
 
-  -- 3. Récupérer la consommation actuelle de l'utilisateur
-  select count, updated_at into current_count, last_updated
+  -- 3. Récupérer la consommation du jour pour cet utilisateur
+  select generation_count into current_count
   from public.ai_usage
-  where user_id = auth.uid();
+  where user_id = auth.uid()
+    and usage_date = today_date;
 
-  -- 4. Si aucune ligne n'existe, on insère la première utilisation
+  -- 4. Si aucune ligne pour aujourd'hui, on insère la première utilisation (1)
   if not found or current_count is null then
-    insert into public.ai_usage (user_id, count, updated_at)
-    values (auth.uid(), 1, now());
+    insert into public.ai_usage (user_id, usage_date, generation_count)
+    values (auth.uid(), today_date, 1);
     return true;
   else
-    -- Si c'est un nouveau jour (en date serveur), on réinitialise le compteur à 1
-    if last_updated::date < current_date then
+    -- 5. Si la ligne existe aujourd'hui, on vérifie la limite
+    if current_count < max_limit then
       update public.ai_usage
-      set count = 1,
-          updated_at = now()
-      where user_id = auth.uid();
+      set generation_count = current_count + 1
+      where user_id = auth.uid()
+        and usage_date = today_date;
       return true;
     else
-      -- Si on est le même jour, on vérifie si la limite est atteinte
-      if current_count < max_limit then
-        update public.ai_usage
-        set count = current_count + 1,
-            updated_at = now()
-        where user_id = auth.uid();
-        return true;
-      else
-        return false;
-      end if;
+      return false; -- Limite quotidienne atteinte
     end if;
   end if;
 end;

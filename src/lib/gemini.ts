@@ -69,27 +69,26 @@ export async function getDailyUsage(): Promise<number> {
     const userId = sessionData?.session?.user?.id;
     if (!userId) return 0;
 
-    // Calcul de la date du jour (supporte date locale et UTC pour éviter les décalages de fuseau)
+    // Calcul de la date du jour (format YYYY-MM-DD local et UTC)
     const now = new Date();
     const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const utcDate = now.toISOString().split('T')[0];
     const datesToCheck = Array.from(new Set([localDate, utcDate]));
 
-    // Requête ciblée sur la clé primaire (user_id, usage_date)
+    // Requête directe sur la table ai_usage avec les vrais noms de colonnes : usage_date et generation_count
     const { data, error } = await supabase
       .from('ai_usage')
-      .select('generation_count')
+      .select('generation_count, usage_date')
       .eq('user_id', userId)
       .in('usage_date', datesToCheck)
       .order('usage_date', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (!error && data && typeof data.generation_count === 'number') {
-      return data.generation_count;
-    }
+    if (error || !data) return 0;
 
-    return 0;
+    const count = data.generation_count;
+    return typeof count === 'number' ? count : 0;
   } catch (err) {
     console.error('[Quota] Erreur getDailyUsage:', err);
     return 0;
