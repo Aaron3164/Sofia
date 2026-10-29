@@ -104,24 +104,50 @@ export async function getDailyUsage(): Promise<number> {
     const userId = sessionData?.session?.user?.id;
     if (!userId) return 0;
 
-    // Calcul de la date du jour (supporte date locale et UTC pour éviter les décalages de fuseau)
+    // 1. Essai avec le schéma par date (generation_count, usage_date)
     const now = new Date();
     const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const utcDate = now.toISOString().split('T')[0];
     const datesToCheck = Array.from(new Set([localDate, utcDate]));
 
-    // Requête ciblée sur la clé primaire (user_id, usage_date)
-    const { data, error } = await supabase
+    const { data: dateData, error: dateError } = await supabase
       .from('ai_usage')
-      .select('generation_count')
+      .select('generation_count, count, updated_at')
       .eq('user_id', userId)
       .in('usage_date', datesToCheck)
       .order('usage_date', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (!error && data && typeof data.generation_count === 'number') {
-      return data.generation_count;
+    if (!dateError && dateData) {
+      if (typeof dateData.generation_count === 'number') {
+        return dateData.generation_count;
+      }
+      if (typeof dateData.count === 'number') {
+        return dateData.count;
+      }
+    }
+
+    // 2. Fallback avec le schéma standard par utilisateur (count, updated_at) utilisé par RPC check_and_increment_ai_usage
+    const { data: userRow, error: userError } = await supabase
+      .from('ai_usage')
+      .select('count, generation_count, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!userError && userRow) {
+      // Vérifier si la mise à jour date bien d'aujourd'hui
+      if (userRow.updated_at) {
+        const rowDate = new Date(userRow.updated_at).toISOString().split('T')[0];
+        if (rowDate === utcDate || rowDate === localDate) {
+          if (typeof userRow.count === 'number') return userRow.count;
+          if (typeof userRow.generation_count === 'number') return userRow.generation_count;
+        } else {
+          return 0; // Jour différent = quota réinitialisé
+        }
+      }
+      if (typeof userRow.count === 'number') return userRow.count;
+      if (typeof userRow.generation_count === 'number') return userRow.generation_count;
     }
 
     return 0;
@@ -344,7 +370,8 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 - Utilise '__' pour souligner les précisions importantes.
 - TABLEAUX : Si une comparaison, classification ou synthèse de plusieurs notions s'y prête, STRUCTURE-LA DANS UN BEAU TABLEAU MARKDOWN standard avec des en-têtes clairs (| Colonne 1 | Colonne 2 | \n | --- | --- |).
 - SOURCE : Si l'information provient du document, mentionne-le subtilement.
-- Tu DOIS tutoyer l'étudiant (utilise "tu").`;
+- Tu DOIS tutoyer l'étudiant (utilise "tu").
+- CIBLAGE PRÉCIS DES QUESTIONS : Si l'étudiant fait référence à une question spécifique (ex: "QCM 3", "question 12", "la 4"), IDENTIFIE IMPÉRATIVEMENT ET EXACTEMENT la question correspondante dans le sujet d'annale fourni ci-dessous grâce à son numéro [QUESTION X]. Ne confonds JAMAIS deux questions différentes et ne prends pas une question d'un autre document. Traite précisément l'énoncé et les propositions A, B, C, D, E de la question demandée.`;
 
   let historyPrompt = "";
   if (history && history.length > 0) {
@@ -357,7 +384,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
     annalePrompt = `\n\nSUJET D'EXAMEN / ANNALES / EXERCICE ATTACHÉ PAR L'ÉTUDIANT :\n${annaleContext.substring(0, 150000)}\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal ci-dessus, ses méthodes, sa structure et ses notions.`;
   }
 
-  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${context}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
+  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte d'étude et de cours :\n${context}${annalePrompt}\n${historyPrompt}\nDemande précise de l'étudiant : ${question}`;
   
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt]);

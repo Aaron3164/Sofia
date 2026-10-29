@@ -112,7 +112,18 @@ export default function AnnaleDetail() {
           !n.name.startsWith('🎓')
         );
 
-        let combinedContext = `--- SUJET DE L'ANNALE : ${displayTitle} ---\n${ownContent}\n\n`;
+        let questionsFormatted = '';
+        if (loadedQuestions && loadedQuestions.length > 0) {
+          questionsFormatted = loadedQuestions.map((q: any, idx: number) => {
+            const num = q.questionNumber || (idx + 1);
+            const opts = (q.options || []).join('\n  ');
+            const answers = Array.isArray(q.correctAnswers) ? q.correctAnswers.join(', ') : (q.correctAnswer || 'Non spécifié');
+            const expl = q.explanation ? `\nExplication : ${q.explanation}` : '';
+            return `[QUESTION ${num}]\nÉnoncé : ${q.question}\nOptions :\n  ${opts}\nBonne(s) réponse(s) : ${answers}${expl}`;
+          }).join('\n\n');
+        }
+
+        let combinedContext = `=== SUJET OFFICIEL DE L'ANNALE : ${displayTitle} ===\n${questionsFormatted || ownContent}\n\n`;
 
         if (siblingCourses.length > 0 && user) {
           const courseIds = siblingCourses.map(c => c.id);
@@ -122,11 +133,12 @@ export default function AnnaleDetail() {
             .in('course_id', courseIds);
 
           if (!sibError && siblingsData) {
+            combinedContext += `=== COURS DE RÉFÉRENCE (POUR APPUYER LES EXPLICATIONS) ===\n`;
             siblingsData.forEach(s => {
               const matchingNode = siblingCourses.find(c => c.id === s.course_id);
               const courseTitle = s.file_name || matchingNode?.name || 'Cours du dossier';
               if (s.extracted_content && s.extracted_content.trim()) {
-                combinedContext += `--- COURS DU DOSSIER : ${courseTitle} ---\n${s.extracted_content.substring(0, 80000)}\n\n`;
+                combinedContext += `--- DOCUMENT DE COURS : ${courseTitle} ---\n${s.extracted_content.substring(0, 80000)}\n\n`;
               }
             });
           }
