@@ -141,7 +141,7 @@ export default function AnnaleDetail() {
     }
 
     loadAnnaleData();
-  }, [id, user, annaleNode, nodes, displayTitle]);
+  }, [id, user?.id, annaleNode?.parentId, displayTitle]);
 
   // Handle QA updates
   const handleQAUpdate = async (newData: string) => {
@@ -353,34 +353,30 @@ export default function AnnaleDetail() {
         ) : (
           <>
             {/* Tab 1: MCQ Interactive Exam */}
-            {activeTab === 'exam' && (
-              <div style={{ flex: 1, height: '100%', overflowY: 'auto' }}>
-                {questions.length > 0 ? (
-                  <InteractiveMCQ
-                    data={questions}
-                    courseId={id}
-                    courseName={displayTitle}
-                    documentContext={folderCoursesContext}
-                  />
-                ) : (
-                  <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                    <p>Aucune question n'a été trouvée pour cette annale.</p>
-                  </div>
-                )}
-              </div>
-            )}
+            <div style={{ flex: 1, height: '100%', overflowY: 'auto', display: activeTab === 'exam' ? 'block' : 'none' }}>
+              {questions.length > 0 ? (
+                <InteractiveMCQ
+                  data={questions}
+                  courseId={id}
+                  courseName={displayTitle}
+                  documentContext={folderCoursesContext}
+                />
+              ) : (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  <p>Aucune question n'a été trouvée pour cette annale.</p>
+                </div>
+              )}
+            </div>
 
             {/* Tab 2: Sofia AI Interactive Explanations */}
-            {activeTab === 'explications' && (
-              <div style={{ flex: 1, height: '100%', overflowY: 'auto', padding: '1rem' }}>
-                <InteractiveQA
-                  data={qaData}
-                  onUpdate={handleQAUpdate}
-                  documentContext={folderCoursesContext}
-                  plan={profile?.plan}
-                />
-              </div>
-            )}
+            <div style={{ flex: 1, height: '100%', overflowY: 'auto', padding: '1rem', display: activeTab === 'explications' ? 'block' : 'none' }}>
+              <InteractiveQA
+                data={qaData}
+                onUpdate={handleQAUpdate}
+                documentContext={folderCoursesContext}
+                plan={profile?.plan}
+              />
+            </div>
           </>
         )}
 

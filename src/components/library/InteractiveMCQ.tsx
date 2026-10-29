@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { explainMCQErrors } from '../../lib/gemini';
@@ -79,18 +79,29 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
     }
   }, [selectedAnswers, showResults, detailedCorrections, courseId]);
 
-  // Reset state on new generation
+  // Ref to track actual data content and avoid wiping session storage on reference change
+  const prevDataStrRef = useRef<string>('');
+
+  // Reset state ONLY on genuine new generation/content change
   useEffect(() => {
-    setSelectedAnswers({});
-    setShowResults(false);
-    setDetailedCorrections({});
-    setShowDetailedPanel(false);
-    if (courseId) {
-      sessionStorage.removeItem(`aura_mcq_answers_${courseId}`);
-      sessionStorage.removeItem(`aura_mcq_results_${courseId}`);
-      sessionStorage.removeItem(`aura_mcq_corrections_${courseId}`);
+    const currentDataStr = typeof data === 'string' ? data : JSON.stringify(data || []);
+    if (!prevDataStrRef.current) {
+      prevDataStrRef.current = currentDataStr;
+      return;
     }
-  }, [data]);
+    if (prevDataStrRef.current !== currentDataStr) {
+      prevDataStrRef.current = currentDataStr;
+      setSelectedAnswers({});
+      setShowResults(false);
+      setDetailedCorrections({});
+      setShowDetailedPanel(false);
+      if (courseId) {
+        sessionStorage.removeItem(`aura_mcq_answers_${courseId}`);
+        sessionStorage.removeItem(`aura_mcq_results_${courseId}`);
+        sessionStorage.removeItem(`aura_mcq_corrections_${courseId}`);
+      }
+    }
+  }, [data, courseId]);
 
   let scenarioText: string | null = null;
   let mcqs: MCQ[] = [];
