@@ -104,50 +104,53 @@ export async function getDailyUsage(): Promise<number> {
     const userId = sessionData?.session?.user?.id;
     if (!userId) return 0;
 
-    // 1. Essai avec le schéma par date (generation_count, usage_date)
+    // 1. Lire la table ai_usage avec select('*') pour éviter toute erreur de colonne inexistante
+    const { data: rows, error: readError } = await supabase
+      .from('ai_usage')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (readError) {
+      console.warn('[Quota] Avertissement lecture ai_usage:', readError.message);
+      return 0;
+    }
+
+    if (!rows || rows.length === 0) {
+      return 0;
+    }
+
     const now = new Date();
     const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const utcDate = now.toISOString().split('T')[0];
-    const datesToCheck = Array.from(new Set([localDate, utcDate]));
 
-    const { data: dateData, error: dateError } = await supabase
-      .from('ai_usage')
-      .select('generation_count, count, updated_at')
-      .eq('user_id', userId)
-      .in('usage_date', datesToCheck)
-      .order('usage_date', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!dateError && dateData) {
-      if (typeof dateData.generation_count === 'number') {
-        return dateData.generation_count;
-      }
-      if (typeof dateData.count === 'number') {
-        return dateData.count;
-      }
-    }
-
-    // 2. Fallback avec le schéma standard par utilisateur (count, updated_at) utilisé par RPC check_and_increment_ai_usage
-    const { data: userRow, error: userError } = await supabase
-      .from('ai_usage')
-      .select('count, generation_count, updated_at')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (!userError && userRow) {
-      // Vérifier si la mise à jour date bien d'aujourd'hui
-      if (userRow.updated_at) {
-        const rowDate = new Date(userRow.updated_at).toISOString().split('T')[0];
-        if (rowDate === utcDate || rowDate === localDate) {
-          if (typeof userRow.count === 'number') return userRow.count;
-          if (typeof userRow.generation_count === 'number') return userRow.generation_count;
-        } else {
-          return 0; // Jour différent = quota réinitialisé
+    // Trouver la ligne la plus récente
+    for (const row of rows) {
+      const rowAny = row as any;
+      // Cas 1: row a un champ usage_date
+      if (rowAny.usage_date) {
+        if (rowAny.usage_date === localDate || rowAny.usage_date === utcDate) {
+          const val = rowAny.generation_count ?? rowAny.count;
+          if (typeof val === 'number') return val;
         }
       }
-      if (typeof userRow.count === 'number') return userRow.count;
-      if (typeof userRow.generation_count === 'number') return userRow.generation_count;
+      // Cas 2: row a un champ updated_at
+      else if (rowAny.updated_at) {
+        try {
+          const rowDate = new Date(rowAny.updated_at).toISOString().split('T')[0];
+          const rowLocalDate = `${new Date(rowAny.updated_at).getFullYear()}-${String(new Date(rowAny.updated_at).getMonth() + 1).padStart(2, '0')}-${String(new Date(rowAny.updated_at).getDate()).padStart(2, '0')}`;
+          if (rowDate === utcDate || rowDate === localDate || rowLocalDate === localDate) {
+            const val = rowAny.count ?? rowAny.generation_count;
+            if (typeof val === 'number') return val;
+          }
+        } catch {
+          const val = rowAny.count ?? rowAny.generation_count;
+          if (typeof val === 'number') return val;
+        }
+      } else {
+        // Pas de date : renvoyer count directement
+        const val = rowAny.count ?? rowAny.generation_count;
+        if (typeof val === 'number') return val;
+      }
     }
 
     return 0;
@@ -371,7 +374,12 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 - TABLEAUX : Si une comparaison, classification ou synthèse de plusieurs notions s'y prête, STRUCTURE-LA DANS UN BEAU TABLEAU MARKDOWN standard avec des en-têtes clairs (| Colonne 1 | Colonne 2 | \n | --- | --- |).
 - SOURCE : Si l'information provient du document, mentionne-le subtilement.
 - Tu DOIS tutoyer l'étudiant (utilise "tu").
-- CIBLAGE PRÉCIS DES QUESTIONS : Si l'étudiant fait référence à une question spécifique (ex: "QCM 3", "question 12", "la 4"), IDENTIFIE IMPÉRATIVEMENT ET EXACTEMENT la question correspondante dans le sujet d'annale fourni ci-dessous grâce à son numéro [QUESTION X]. Ne confonds JAMAIS deux questions différentes et ne prends pas une question d'un autre document. Traite précisément l'énoncé et les propositions A, B, C, D, E de la question demandée.`;
+- CIBLAGE ABSOLU DES QUESTIONS D'ANNALE (RÈGLE STRICTE) :
+  Si l'étudiant mentionne un numéro de question ou de QCM (ex: "question 11", "QCM 11", "explique la 11", "la question 11 stp") :
+  1. Tu DOIS CHERCHER EXCLUSIVEMENT le bloc commençant par [QUESTION 11] dans le sujet officiel de l'annale.
+  2. Ton explication DOIT PORTER PRÉCISÉMENT sur l'énoncé de CETTE question 11 et sur ses propositions spécifiques (A, B, C, D, E).
+  3. INTERDICTION FORMELLE d'aller chercher un chapitre au hasard ou une autre question dans un cours théorique ou un document annexe sous prétexte qu'un mot-clé s'y trouve. Les cours de référence ne servent qu'à apporter des justifications théoriques POUR LA QUESTION 11 ciblée, pas à remplacer son énoncé !
+  4. Commence toujours ton explication en citant l'intitulé exact de la question ciblée (ex: "### Question 11 : ...").`;
 
   let historyPrompt = "";
   if (history && history.length > 0) {

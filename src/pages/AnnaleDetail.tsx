@@ -118,8 +118,8 @@ export default function AnnaleDetail() {
             const num = q.questionNumber || (idx + 1);
             const opts = (q.options || []).join('\n  ');
             const answers = Array.isArray(q.correctAnswers) ? q.correctAnswers.join(', ') : (q.correctAnswer || 'Non spécifié');
-            const expl = q.explanation ? `\nExplication : ${q.explanation}` : '';
-            return `[QUESTION ${num}]\nÉnoncé : ${q.question}\nOptions :\n  ${opts}\nBonne(s) réponse(s) : ${answers}${expl}`;
+            const expl = q.explanation ? `\nExplication officielle : ${q.explanation}` : '';
+            return `========================================\n[QUESTION ${num}]\nÉnoncé : ${q.question}\nOptions :\n  ${opts}\nRéponse(s) correcte(s) : ${answers}${expl}\n========================================`;
           }).join('\n\n');
         }
 
@@ -133,12 +133,12 @@ export default function AnnaleDetail() {
             .in('course_id', courseIds);
 
           if (!sibError && siblingsData) {
-            combinedContext += `=== COURS DE RÉFÉRENCE (POUR APPUYER LES EXPLICATIONS) ===\n`;
+            combinedContext += `=== COURS THÉORIQUES DU DOSSIER (POUR COMPLÉTER LES EXPLICATIONS DE L'ANNALE) ===\n`;
             siblingsData.forEach(s => {
               const matchingNode = siblingCourses.find(c => c.id === s.course_id);
               const courseTitle = s.file_name || matchingNode?.name || 'Cours du dossier';
               if (s.extracted_content && s.extracted_content.trim()) {
-                combinedContext += `--- DOCUMENT DE COURS : ${courseTitle} ---\n${s.extracted_content.substring(0, 80000)}\n\n`;
+                combinedContext += `--- DOCUMENT DE COURS THÉORIQUE : ${courseTitle} ---\n${s.extracted_content.substring(0, 80000)}\n\n`;
               }
             });
           }
@@ -153,7 +153,7 @@ export default function AnnaleDetail() {
     }
 
     loadAnnaleData();
-  }, [id, user?.id, annaleNode?.parentId, displayTitle]);
+  }, [id, user?.id, annaleNode?.parentId, displayTitle, nodes.length]);
 
   // Handle QA updates
   const handleQAUpdate = async (newData: string) => {
