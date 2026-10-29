@@ -70,14 +70,34 @@ function appendWithSmartSpace(target: string, addition: string): string {
   return target + ' ' + addition;
 }
 
+export async function getPDFPageCount(file: File | Blob | ArrayBuffer): Promise<number> {
+  const arrayBuffer = file instanceof ArrayBuffer ? file : await (file as Blob).arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  return pdf.numPages;
+}
+
+export async function checkPDFPageCount(file: File | Blob | ArrayBuffer, maxAllowed = 50): Promise<number> {
+  const pageCount = await getPDFPageCount(file);
+  if (pageCount > maxAllowed) {
+    throw new Error(`Le fichier PDF dépasse la limite de ${maxAllowed} pages (${pageCount} pages détectées). Veuillez importer un document de ${maxAllowed} pages maximum depuis vos fichiers locaux, ou passez par l'importation Google Drive.`);
+  }
+  return pageCount;
+}
+
 export async function extractTextFromPDF(
   file: File | Blob | ArrayBuffer, 
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  options?: { maxPages?: number }
 ): Promise<string> {
   try {
     const arrayBuffer = file instanceof ArrayBuffer ? file : await (file as Blob).arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const numPages = pdf.numPages;
+
+    if (options?.maxPages && numPages > options.maxPages) {
+      throw new Error(`Le fichier PDF dépasse la limite de ${options.maxPages} pages (${numPages} pages détectées). Veuillez sélectionner un document plus court ou l'importer via Google Drive.`);
+    }
+
     const allPageTexts: string[] = new Array(numPages);
     
     // Process in batches to avoid memory/CPU saturation

@@ -112,7 +112,7 @@ export async function ensureQuota(): Promise<void> {
       .eq('id', userId)
       .maybeSingle();
 
-    const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
+    const maxGenerations = profile?.plan === 'premium' ? 100 : 10;
     const usage = await getDailyUsage();
 
     if (usage >= maxGenerations) {

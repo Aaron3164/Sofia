@@ -31,7 +31,7 @@ import {
   type SofiaChatSession
 } from '../lib/gemini';
 import { mdToHtml } from '../lib/markdown';
-import { extractTextFromPDF } from '../lib/pdf-extractor';
+import { extractTextFromPDF, checkPDFPageCount } from '../lib/pdf-extractor';
 import { WysiwygEditor } from '../components/library/WysiwygEditor';
 import './ChatSofia.css';
 
@@ -100,7 +100,7 @@ export default function ChatSofia() {
 
   // Quota tracking
   const [dailyUsage, setDailyUsage] = useState<number>(0);
-  const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
+  const maxGenerations = profile?.plan === 'premium' ? 100 : 10;
   const isQuotaReached = dailyUsage >= maxGenerations;
 
   useEffect(() => {
@@ -183,10 +183,22 @@ export default function ChatSofia() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset input value so selecting the same file again triggers onChange
+    e.target.value = '';
+
+    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      try {
+        await checkPDFPageCount(file, 50);
+      } catch (pageErr: any) {
+        alert(pageErr.message || 'Le fichier PDF dépasse la limite autorisée de 50 pages.');
+        return;
+      }
+    }
+
     setIsAttaching(true);
     try {
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        const text = await extractTextFromPDF(file);
+        const text = await extractTextFromPDF(file, undefined, { maxPages: 50 });
         setAttachedFile({
           name: file.name,
           content: text.slice(0, 120000)
@@ -216,7 +228,7 @@ export default function ChatSofia() {
       const errorMessage: SofiaChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `⚠️ **Limite quotidienne atteinte** (${dailyUsage}/${maxGenerations}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au Plan Premium pour 50 générations/jour !'}`,
+        content: `⚠️ **Limite quotidienne atteinte** (${dailyUsage}/${maxGenerations} générations). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au Plan Premium pour 100 générations/jour !'}`,
         createdAt: Date.now()
       };
       // Show error in current or new session

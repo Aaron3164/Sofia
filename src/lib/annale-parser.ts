@@ -547,6 +547,10 @@ export async function parseAnnalePDF(
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const numPages = pdf.numPages;
 
+  if (numPages > 50) {
+    throw new Error(`Le fichier d'annale dépasse la limite autorisée de 50 pages (${numPages} pages détectées). Veuillez importer un document de 50 pages maximum depuis vos fichiers locaux, ou passez par l'importation Google Drive.`);
+  }
+
   const pageTexts: string[] = [];
   const pageImagesMap = new Map<number, string[]>();
 
