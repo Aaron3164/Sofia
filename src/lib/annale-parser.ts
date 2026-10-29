@@ -541,11 +541,17 @@ import { parseAnnaleWithAI } from './gemini';
  */
 export async function parseAnnalePDF(
   file: File | Blob | ArrayBuffer,
-  onProgress?: (progressText: string, current: number, total: number) => void
+  onProgress?: (progressText: string, current: number, total: number) => void,
+  options?: { maxPages?: number }
 ): Promise<AnnaleParseResult> {
   const arrayBuffer = file instanceof ArrayBuffer ? file : await (file as Blob).arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const numPages = pdf.numPages;
+
+  const maxAllowed = options?.maxPages ?? 50;
+  if (numPages > maxAllowed) {
+    throw new Error(`Le fichier PDF dépasse la limite autorisée de ${maxAllowed} pages (${numPages} pages détectées). Veuillez importer un document de ${maxAllowed} pages maximum depuis vos fichiers locaux, ou passez par l'importation Google Drive.`);
+  }
 
   const pageTexts: string[] = [];
   const pageImagesMap = new Map<number, string[]>();

@@ -86,17 +86,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <div className="nav-section-label" style={{ marginTop: '0.75rem' }}>Outils</div>
 
-        <button
-          className="nav-item"
-          onClick={() => {
-            window.dispatchEvent(new CustomEvent('open-global-search'));
-            if (window.innerWidth <= 768 && onClose) onClose();
-          }}
-          style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
-        >
-          <span className="nav-item-icon"><Search size={17} /></span>
-          Recherche Globale
-        </button>
+        {(() => {
+          const maxGens = profile?.plan === 'premium' ? 50 : 5;
+          const quotaReached = usage !== null && usage >= maxGens;
+
+          return (
+            <button
+              className={`nav-item ${quotaReached ? 'disabled' : ''}`}
+              onClick={() => {
+                if (quotaReached) return;
+                window.dispatchEvent(new CustomEvent('open-global-search'));
+                if (window.innerWidth <= 768 && onClose) onClose();
+              }}
+              disabled={quotaReached}
+              title={quotaReached ? `Limite quotidienne atteinte (${usage}/${maxGens})` : 'Recherche Globale (Ctrl+K)'}
+              style={{ 
+                width: '100%', 
+                border: 'none', 
+                background: 'transparent', 
+                cursor: quotaReached ? 'not-allowed' : 'pointer', 
+                fontFamily: 'inherit', 
+                textAlign: 'left',
+                opacity: quotaReached ? 0.45 : 1
+              }}
+            >
+              <span className="nav-item-icon"><Search size={17} /></span>
+              Recherche Globale
+            </button>
+          );
+        })()}
 
         <NavLink
           to="/chat"

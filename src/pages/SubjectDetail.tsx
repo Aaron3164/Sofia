@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
-import { extractTextFromPDF } from '../lib/pdf-extractor';
+import { extractTextFromPDF, checkPDFPageCount } from '../lib/pdf-extractor';
 import { InteractiveMCQ } from '../components/library/InteractiveMCQ';
 import { InteractiveFlashcard } from '../components/library/InteractiveFlashcard';
 import { InteractiveQA } from '../components/library/InteractiveQA';
@@ -303,6 +303,14 @@ export default function SubjectDetail() {
 
     // Reset input value so selecting the same file again triggers onChange
     e.target.value = '';
+
+    // Check 50-page limit for local files (Google Drive files bypass this)
+    try {
+      await checkPDFPageCount(selected, 50);
+    } catch (pageErr: any) {
+      alert(pageErr.message || 'Le fichier PDF dépasse la limite de 50 pages.');
+      return;
+    }
 
     setFileName(selected.name);
     setIsGenerating(false);

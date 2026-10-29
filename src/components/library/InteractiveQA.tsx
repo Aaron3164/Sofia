@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, Bot, Plus, Trash2, MessageSquare, Paperclip, FileText, X, Loader2, Pencil } from 'lucide-react';
 import { askQuestion, generateChatTitle, getDailyUsage } from '../../lib/gemini';
 import { mdToHtml } from '../../lib/markdown';
-import { extractTextFromPDF } from '../../lib/pdf-extractor';
+import { extractTextFromPDF, checkPDFPageCount } from '../../lib/pdf-extractor';
 import { WysiwygEditor } from './WysiwygEditor';
 
 export interface QAMessage {
@@ -169,6 +169,13 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
 
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
       alert('Veuillez sélectionner un fichier au format PDF.');
+      return;
+    }
+
+    try {
+      await checkPDFPageCount(file, 50);
+    } catch (pageErr: any) {
+      alert(pageErr.message || 'Le fichier PDF dépasse la limite autorisée de 50 pages.');
       return;
     }
 
