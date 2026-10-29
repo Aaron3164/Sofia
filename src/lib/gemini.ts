@@ -7,6 +7,15 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
+// Helper to generate a deterministic cache key from arguments
+function getCacheKey(prefix: string, content: string): string {
+  let hash = 5381;
+  for (let i = 0; i < content.length; i++) {
+    hash = (hash * 33) ^ content.charCodeAt(i);
+  }
+  return `${prefix}_${(hash >>> 0).toString(36)}`;
+}
+
 /**
  * Sends prompt requests securely through the serverless backend proxy (/api/gemini)
  */
@@ -15,6 +24,19 @@ async function callGeminiProxy(
   contents: string[] | any[],
   config?: Record<string, any>
 ): Promise<{ text: string; groundingMetadata?: any }> {
+  // 1. Client-Side Session Cache: if exact same query and context was already answered, return instantly!
+  const cacheKey = getCacheKey('gemini_client_cache', `${model}:::${JSON.stringify(contents)}:::${JSON.stringify(config || {})}`);
+  try {
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      console.log('[CACHE HIT] Réponse réutilisée depuis le cache navigateur local (aucun quota consommé)');
+      return parsed;
+    }
+  } catch (e) {
+    // Ignore session cache read errors
+  }
+
   // Vérification stricte du quota côté client avant tout appel
   await ensureQuota();
 
@@ -41,20 +63,33 @@ async function callGeminiProxy(
 
   const data = await response.json();
 
-  // Met à jour la barre de quota dans la Sidebar en temps réel
-  window.dispatchEvent(new CustomEvent('ai-usage-updated'));
+  // Met à jour la barre de quota dans la Sidebar en temps réel (sauf si réponse servie par cache serveur)
+  if (!data.cached) {
+    window.dispatchEvent(new CustomEvent('ai-usage-updated'));
+  }
 
   if (!response.ok || data.error) {
     if (data.error === 'QUOTA_EXCEEDED' || response.status === 429) {
-      throw new Error(data.message || 'Limite quotidienne de générations atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
+      throw new Error(data.message || 'Limite quotidienne de générations atteinte (10 pour le plan gratuit, 100 pour le plan Premium).');
     }
     throw new Error(data.message || data.error || 'Erreur lors de la génération avec Gemini.');
   }
 
-  return { 
+  const result = { 
     text: data.text || '',
     groundingMetadata: data.groundingMetadata || null
   };
+
+  // Enregistre en cache navigateur pour réutilisation immédiate
+  try {
+    if (result.text) {
+      sessionStorage.setItem(cacheKey, JSON.stringify(result));
+    }
+  } catch (e) {
+    // SessionStorage may be full or disabled, ignore
+  }
+
+  return result;
 }
 
 /**
@@ -145,15 +180,6 @@ function getSystemInstruction(prefs?: AIPreferences) {
   const boldInstruction = "CONSIGNE IMPORTANTE SUR LES MOTS EN GRAS DANS LE TEXTE DU COURS : Les mots ou phrases encadrés par des astérisques **gras** (ex: **notion**) dans le texte de cours fourni ont été détectés en gras dans le document source (PDF). En général, ce sont des concepts, définitions ou mots-clés importants mis en valeur par l'auteur du cours. Tu dois généralement leur accorder une attention et une priorité particulières dans tes résumés, flashcards et questions, tout en conservant ton discernement et jugement pédagogique pour décider s'ils méritent ou non d'être retenus selon le contexte.";
 
   return `${personalities[personality]} ${modes[studyMode]}\n${boldInstruction}\n\n`;
-}
-
-// Helper to generate a cache key from arguments
-function getCacheKey(prefix: string, content: string): string {
-  let hash = 5381;
-  for (let i = 0; i < content.length; i++) {
-    hash = (hash * 33) ^ content.charCodeAt(i);
-  }
-  return `${prefix}_${(hash >>> 0).toString(36)}`;
 }
 
 /**

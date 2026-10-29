@@ -4,6 +4,26 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+// Server-side in-memory cache for repeated queries / documents
+// key -> { text, groundingMetadata, expiresAt }
+const responseCache = new Map();
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours TTL
+const MAX_CACHE_ENTRIES = 500;
+
+function cleanOldCache() {
+  const now = Date.now();
+  for (const [key, item] of responseCache.entries()) {
+    if (now > item.expiresAt) {
+      responseCache.delete(key);
+    }
+  }
+  // Trim oldest if exceeding max entries
+  if (responseCache.size > MAX_CACHE_ENTRIES) {
+    const keysToDelete = Array.from(responseCache.keys()).slice(0, 50);
+    keysToDelete.forEach(k => responseCache.delete(k));
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -24,6 +44,48 @@ export default async function handler(req, res) {
   }
 
   const token = authHeader.replace('Bearer ', '').trim();
+
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      body = {};
+    }
+  }
+  
+  const { model = 'models/gemini-3.5-flash-lite', contents, config } = body || {};
+
+  if (!contents) {
+    return res.status(400).json({ error: 'Contenu manquant pour la génération.' });
+  }
+
+  // Compute deterministic cache key from model, contents and config
+  let cacheKey = null;
+  try {
+    const rawKey = `${model}:::${JSON.stringify(contents)}:::${JSON.stringify(config || {})}`;
+    let hash = 5381;
+    for (let i = 0; i < rawKey.length; i++) {
+      hash = (hash * 33) ^ rawKey.charCodeAt(i);
+    }
+    cacheKey = `gemini_cache_${(hash >>> 0).toString(36)}_${rawKey.length}`;
+  } catch (e) {
+    console.warn('[Cache] Could not compute cacheKey:', e);
+  }
+
+  // Check server cache first: if hit, return immediately WITHOUT deducting user quota!
+  if (cacheKey && responseCache.has(cacheKey)) {
+    const cachedItem = responseCache.get(cacheKey);
+    if (Date.now() < cachedItem.expiresAt) {
+      return res.status(200).json({
+        text: cachedItem.text,
+        groundingMetadata: cachedItem.groundingMetadata,
+        cached: true
+      });
+    } else {
+      responseCache.delete(cacheKey);
+    }
+  }
 
   if (supabaseUrl && supabaseAnonKey) {
     // Client initialized with user's access token so auth.uid() is populated in Supabase RPC
@@ -53,7 +115,7 @@ export default async function handler(req, res) {
     } else if (quotaAllowed === false) {
       return res.status(429).json({ 
         error: 'QUOTA_EXCEEDED',
-        message: 'Limite quotidienne de générations IA atteinte (5/jour en gratuit, 50/jour en Premium). Revenez demain ou passez Premium !'
+        message: 'Limite quotidienne de générations IA atteinte (10/jour en gratuit, 100/jour en Premium). Revenez demain ou passez Premium !'
       });
     }
   }
@@ -95,9 +157,22 @@ export default async function handler(req, res) {
           config,
         });
 
+        const responseText = response.text || '';
+        const groundingMeta = response.candidates?.[0]?.groundingMetadata || null;
+
+        // Save in server cache for instant repeat reuse without hitting Gemini or consuming quota
+        if (cacheKey && responseText) {
+          cleanOldCache();
+          responseCache.set(cacheKey, {
+            text: responseText,
+            groundingMetadata: groundingMeta,
+            expiresAt: Date.now() + CACHE_TTL_MS
+          });
+        }
+
         return res.status(200).json({ 
-          text: response.text || '',
-          groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
+          text: responseText,
+          groundingMetadata: groundingMeta
         });
       } catch (err) {
         lastError = err;
