@@ -45,15 +45,11 @@ export default defineConfig(({ mode }) => {
 
             if (token && sbUrl && sbKey) {
               const supabase = createClient(sbUrl, sbKey, {
-                auth: { persistSession: false },
                 global: { headers: { Authorization: `Bearer ${token}` } }
               });
-              // Set auth session explicitly to ensure auth.uid() is populated in Postgres functions
-              await supabase.auth.setSession({ access_token: token, refresh_token: '' });
-              
               const { data: quotaAllowed, error: quotaError } = await supabase.rpc('check_and_increment_ai_usage');
               if (quotaError) {
-                console.error('[Vite Dev Gemini Proxy] Quota RPC error:', quotaError.message, quotaError.details);
+                console.warn('[Vite Dev Gemini Proxy] Quota RPC error:', quotaError.message);
               } else if (quotaAllowed === false) {
                 res.statusCode = 429;
                 res.setHeader('Content-Type', 'application/json');
