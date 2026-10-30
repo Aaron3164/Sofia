@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { explainMCQErrors } from '../../lib/gemini';
+import { explainMCQErrors, getDailyUsage } from '../../lib/gemini';
 import { BookOpen, Loader2, Sparkles, RotateCcw } from 'lucide-react';
 import { AIProgressCard } from '../common/AIProgressCard';
 
@@ -69,6 +69,19 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   const [isLoadingCorrections, setIsLoadingCorrections] = useState(false);
   const [showDetailedPanel, setShowDetailedPanel] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [dailyUsage, setDailyUsage] = useState<number>(0);
+
+  const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
+  const isQuotaReached = dailyUsage >= maxGenerations;
+
+  useEffect(() => {
+    const refreshUsage = () => {
+      getDailyUsage().then(count => setDailyUsage(count));
+    };
+    refreshUsage();
+    window.addEventListener('ai-usage-updated', refreshUsage);
+    return () => window.removeEventListener('ai-usage-updated', refreshUsage);
+  }, []);
 
   // Track changes and save to session
   useEffect(() => {
@@ -249,6 +262,11 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 
     if (wrongQuestions.length === 0) return;
 
+    if (isQuotaReached) {
+      alert(`Limite quotidienne de générations atteinte (${dailyUsage}/${maxGenerations} générations). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
+      return;
+    }
+
     let ctx = documentContext || '';
     if (!ctx && courseId) {
       try {
@@ -381,7 +399,8 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               </p>
               <button
                 onClick={handleFetchDetailedCorrections}
-                disabled={isLoadingCorrections}
+                disabled={isLoadingCorrections || (Object.keys(detailedCorrections).length === 0 && isQuotaReached)}
+                title={Object.keys(detailedCorrections).length === 0 && isQuotaReached ? `Limite quotidienne atteinte (${dailyUsage}/${maxGenerations} générations)` : undefined}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -393,8 +412,9 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
                   border: 'none',
                   fontWeight: 700,
                   fontSize: '0.95rem',
-                  cursor: isLoadingCorrections ? 'wait' : 'pointer',
-                  boxShadow: 'var(--shadow-accent)',
+                  cursor: isLoadingCorrections ? 'wait' : ((Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 'not-allowed' : 'pointer'),
+                  opacity: (Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 0.45 : 1,
+                  boxShadow: (Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 'none' : 'var(--shadow-accent)',
                   transition: 'all 0.2s ease'
                 }}
               >
@@ -409,7 +429,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
                     <span>
                       {Object.keys(detailedCorrections).length > 0 
                         ? (showDetailedPanel ? 'Masquer la correction détaillée' : 'Afficher la correction détaillée')
-                        : `Voir la correction détaillée (${wrongQuestions.length} item${wrongQuestions.length > 1 ? 's' : ''})`}
+                        : (isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : `Voir la correction détaillée (${wrongQuestions.length} item${wrongQuestions.length > 1 ? 's' : ''})`)}
                     </span>
                   </>
                 )}
