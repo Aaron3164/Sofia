@@ -1,6 +1,6 @@
 export interface SupportFAQItem {
   id: string;
-  category: 'premium' | 'courses' | 'annales' | 'flashcards' | 'planning' | 'stats' | 'general';
+  category: 'premium' | 'courses' | 'annales' | 'flashcards' | 'planning' | 'stats' | 'tools' | 'general';
   title: string;
   keywords: string[];
   answer: string;
@@ -9,12 +9,13 @@ export interface SupportFAQItem {
 
 export const SUPPORT_CATEGORIES = [
   { id: 'general', label: '👋 Guide Découverte & Astuces', color: '#6366f1' },
-  { id: 'premium', label: '💳 Abonnement & Quotas', color: '#8b5cf6' },
-  { id: 'courses', label: '📚 Cours & Import PDF/Drive', color: '#3b82f6' },
-  { id: 'annales', label: '📝 Annales & Examens Blancs', color: '#10b981' },
+  { id: 'tools', label: '🔍 Recherche Globale & Chat SofIA', color: '#8b5cf6' },
+  { id: 'courses', label: '📚 Cours, PDF & Google Drive', color: '#3b82f6' },
   { id: 'flashcards', label: '⚡ Flashcards & Anki SM-2', color: '#f59e0b' },
+  { id: 'annales', label: '📝 Annales & Examens Blancs', color: '#10b981' },
   { id: 'planning', label: '📅 Planning & Révisions', color: '#ec4899' },
-  { id: 'stats', label: '📊 Statistiques & Notes', color: '#06b6d4' }
+  { id: 'stats', label: '📊 Statistiques & Progression', color: '#06b6d4' },
+  { id: 'premium', label: '💳 Abonnement & Quotas', color: '#10b981' }
 ] as const;
 
 export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
@@ -146,19 +147,51 @@ export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
     answer: `Bienvenue sur SofIA ! Voici le parcours idéal pour maîtriser la plateforme en 3 étapes :\n\n1. **Consultez le cours de bienvenue** : Votre bibliothèque contient un dossier *"👋 Bienvenue & Découverte"* avec un cours interactif complet déjà configuré.\n2. **Testez les 3 modes d'apprentissage actif** :\n   • Le **Résumé** : Vos notions clés prêtes à être surlignées et téléchargées en PDF.\n   • Les **Flashcards Anki SM-2** : Appuyez sur Espace pour tester votre mémoire à long terme.\n   • Les **QCM** : Des questions d'examen avec explications pédagogiques détaillées.\n3. **Déposez votre premier cours** : Cliquez sur *"+ Nouveau cours"* pour importer un PDF local (max 50 pages) ou un lien Google Drive sans limite !`,
     actionHint: 'Vous pouvez relancer le tutoriel interactif à tout moment en cliquant sur le bouton ci-dessous.'
   },
+  // --- OUTILS : RECHERCHE GLOBALE & CHAT SOFIA ---
   {
     id: 'global-search',
-    category: 'general',
+    category: 'tools',
     title: 'Comment fonctionne la Recherche Globale (Ctrl+K) ?',
-    keywords: ['recherche', 'recherche globale', 'ctrl+k', 'chercher', 'synthese', 'mots cles'],
-    answer: `Appuyez sur **Ctrl+K** (ou cliquez sur "Recherche Globale" dans le menu) :\n\nTapez une notion, un médicament ou une loi (ex: *"Insuffisance mitrale"* ou *"Article 1240"*). SofIA scanne tous vos cours et vous génère une **synthèse transversale** reliant tous les passages pertinents retrouvés dans vos dossiers !`
+    keywords: ['recherche', 'recherche globale', 'ctrl+k', 'chercher', 'synthese', 'mots cles', 'croiser', 'transversale'],
+    answer: `Appuyez sur **Ctrl+K** (ou cliquez sur "Recherche Globale" dans le menu de gauche) :\n\n• **Recherche transversale instantanée** : Tapez une notion, un médicament, une pathologie ou un article de loi (ex: *"Insuffisance mitrale"*, *"Arrêt Perruche"*).\n• **Synthèse croisée IA** : SofIA scanne l'intégralité de vos cours et génère une fiche transversale reliant tous les passages pertinents retrouvés dans vos différents dossiers.\n• **Historique & Téléchargement PDF** : Retrouvez l'historique complet de vos fiches transversales et téléchargez-les en PDF prêt à réviser.`
   },
   {
-    id: 'chat-sofia-vs-course',
+    id: 'global-search-history-pdf',
+    category: 'tools',
+    title: 'Comment retrouver l\'historique et télécharger les fiches transversales ?',
+    keywords: ['historique', 'fiche', 'telecharger', 'pdf', 'synthese transversale', 'exporter', 'recherche globale'],
+    answer: `Dans la **Recherche Globale (Ctrl+K)** :\n\n1. Après avoir généré une synthèse transversale, cliquez sur le bouton **"Télécharger en PDF"** pour obtenir une fiche de révision imprimable haute définition.\n2. **Sans mention IA pour les abonnés Premium** : Vos fiches téléchargées ne comportent aucun filigrane ni mention d'IA, parfait pour vos classeurs.\n3. **Historique intégré** : Consultez l'onglet *Historique des fiches* pour rouvrir ou retélécharger n'importe quelle synthèse transversale déjà générée.`
+  },
+  {
+    id: 'chat-sofia-features',
+    category: 'tools',
+    title: 'Comment utiliser le Chat SofIA (/chat) et la Recherche Web ?',
+    keywords: ['chat', 'chat sofia', 'recherche web', 'google', 'discussion', 'tuteur', 'poser question'],
+    answer: `Le **Chat SofIA** est votre tuteur interactif disponible dans la barre latérale :\n\n• **Tuteur libre sans document** : Posez-lui n'importe quelle question sur vos cours, vos doutes méthodologiques ou vos dissertations.\n• **Bouton Recherche Web** : Activez l'option de recherche en direct pour que SofIA interroge Google en temps réel et vérifie les dernières recommandations officielles ou actualités juridiques/médicales.\n• **Différence avec un cours** : Dans un cours (onglet *Explications*), SofIA se base **strictement sur votre polycopié**. Dans le Chat général, elle puise dans l'ensemble du savoir académique.`
+  },
+  {
+    id: 'folder-revision-power',
+    category: 'courses',
+    title: 'Comment réviser tout un dossier d\'un coup (l\'éclair jaune ⚡) ?',
+    keywords: ['reviser dossier', 'eclair', 'reviser tout', 'multi cours', 'session globale', 'flashcards dossier'],
+    answer: `Dans votre Bibliothèque, chaque dossier dispose d'un bouton **Éclair jaune ⚡ "Réviser le dossier"** :\n\n• **Session globale multi-cours** : Il rassemble en un clic toutes les flashcards arrivées à échéance (Anki SM-2) dans l'ensemble des cours du dossier.\n• **Gain de temps maximal** : Au lieu d'ouvrir vos 10 chapitres un par un, vous effectuez une seule session de révision complète et optimisée pour votre journée.`
+  },
+  {
+    id: 'pdf-export-branding',
+    category: 'courses',
+    title: 'Téléchargement des résumés en PDF et avantage Premium',
+    keywords: ['telecharger pdf', 'export pdf', 'imprimer', 'fiche pdf', 'sans mention ia', 'filigrane', 'marque blanche'],
+    answer: `Chaque résumé de cours peut être téléchargé en fiche PDF haute définition :\n\n• **Plan Gratuit** : La fiche est imprimable et comporte la mention de génération assistée par SofIA.\n• **Plan Premium** : **Marque blanche intégrale** ! Aucune mention d'intelligence artificielle ni référence à SofIA n'apparaît sur le document final, vous permettant de conserver des fiches totalement neutres et professionnelles.`
+  },
+
+  // --- QUESTIONS GÉNÉRALES ---
+  {
+    id: 'how-to-start',
     category: 'general',
-    title: 'Quelle différence entre le Chat SofIA et l\'aide de cours ?',
-    keywords: ['chat', 'difference', 'chat sofia', 'recherche web', 'google', 'discussion'],
-    answer: `• **L'aide dans un cours** (onglet Explications) : Répond en se basant **strictement sur le polycopié ouvert** pour éviter tout hors-sujet.\n• **Le Chat SofIA** (dans la barre latérale \`/chat\`) : C'est votre tuteur universel tout-terrain ! Il peut répondre à n'importe quel sujet sans document requis et possède un bouton **"Recherche Web"** pour vérifier des informations en temps réel sur Google.`
+    title: 'Comment bien démarrer sur SofIA (Guide Découverte) ?',
+    keywords: ['demarrer', 'debuter', 'guide', 'decouverte', 'tutoriel', 'visite', 'bienvenue', 'onboarding'],
+    answer: `Bienvenue sur SofIA ! Voici le parcours idéal pour maîtriser la plateforme en 3 étapes :\n\n1. **Consultez le cours de bienvenue** : Votre bibliothèque contient un dossier *"👋 Bienvenue & Découverte"* avec un cours interactif complet déjà configuré.\n2. **Testez les 3 modes d'apprentissage actif** :\n   • Le **Résumé** : Vos notions clés prêtes à être surlignées et téléchargées en PDF.\n   • Les **Flashcards Anki SM-2** : Appuyez sur Espace pour tester votre mémoire à long terme.\n   • Les **QCM** : Des questions d'examen avec explications pédagogiques détaillées.\n3. **Déposez votre premier cours** : Cliquez sur *"+ Nouveau cours"* pour importer un PDF local (max 50 pages) ou un lien Google Drive sans limite !`,
+    actionHint: 'Vous pouvez relancer le tutoriel interactif à tout moment en cliquant sur le bouton ci-dessous.'
   }
 ];
 

@@ -28,12 +28,14 @@ export const SupportWidget: React.FC = () => {
   const [activeItem, setActiveItem] = useState<SupportFAQItem | null>(null);
 
   const categoryIcons: Record<string, React.ReactNode> = {
-    premium: <CreditCard size={17} color="#8b5cf6" />,
+    general: <Sparkles size={17} color="#6366f1" />,
+    tools: <Search size={17} color="#8b5cf6" />,
     courses: <BookOpen size={17} color="#3b82f6" />,
-    annales: <FileText size={17} color="#10b981" />,
     flashcards: <Zap size={17} color="#f59e0b" />,
+    annales: <FileText size={17} color="#10b981" />,
     planning: <Calendar size={17} color="#ec4899" />,
-    stats: <BarChart3 size={17} color="#06b6d4" />
+    stats: <BarChart3 size={17} color="#06b6d4" />,
+    premium: <CreditCard size={17} color="#10b981" />
   };
 
   // Filtered items based on optional search input
