@@ -62,63 +62,154 @@ export const SupportWidget: React.FC = () => {
     }
   };
 
+  const [isDismissed, setIsDismissed] = useState(() => {
+    return localStorage.getItem('sofia_support_button_dismissed') === 'true';
+  });
+
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDismissed(true);
+    localStorage.setItem('sofia_support_button_dismissed', 'true');
+  };
+
+  const handleRestore = () => {
+    setIsDismissed(false);
+    localStorage.removeItem('sofia_support_button_dismissed');
+  };
+
   return (
     <>
-      {/* Floating Trigger Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Aide et Guide SofIA"
-        style={{
-          position: 'fixed',
-          bottom: '1.75rem',
-          right: '1.75rem',
-          zIndex: 999,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.6rem',
-          padding: isOpen ? '0.75rem' : '0.75rem 1.15rem',
-          borderRadius: '2rem',
-          background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-          color: 'white',
-          border: '1px solid rgba(255,255,255,0.2)',
-          boxShadow: '0 8px 24px rgba(79, 70, 229, 0.35)',
-          cursor: 'pointer',
-          transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-          backdropFilter: 'blur(8px)'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)';
-          e.currentTarget.style.boxShadow = '0 12px 30px rgba(79, 70, 229, 0.45)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0) scale(1)';
-          e.currentTarget.style.boxShadow = '0 8px 24px rgba(79, 70, 229, 0.35)';
-        }}
-        title="Ouvrir le guide d'utilisation SofIA"
-      >
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {isOpen ? <X size={20} /> : <HelpCircle size={20} />}
+      {/* If dismissed, show a tiny unobtrusive dot in the bottom-right corner to reopen */}
+      {isDismissed ? (
+        <button
+          onClick={handleRestore}
+          aria-label="Afficher l'Aide SofIA"
+          style={{
+            position: 'fixed',
+            bottom: '1rem',
+            right: '1rem',
+            zIndex: 999,
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255, 255, 255, 0.65)',
+            border: '1px solid var(--border-color)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            opacity: 0.55,
+            backdropFilter: 'blur(8px)',
+            transition: 'opacity 0.2s, transform 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.55';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          title="Réafficher l'Aide & Support"
+        >
+          <HelpCircle size={15} color="var(--accent-primary)" />
+        </button>
+      ) : (
+        /* Floating Trigger Button - Translucent Glassmorphic Style harmonized with UI */
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '1.5rem',
+            right: '1.5rem',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.2rem'
+          }}
+        >
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label="Aide et Guide SofIA"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: isOpen ? '0.55rem' : '0.5rem 0.95rem',
+              borderRadius: '2rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.72)',
+              color: 'var(--text-primary)',
+              border: '1px solid rgba(226, 230, 240, 0.85)',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)',
+              cursor: 'pointer',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              backdropFilter: 'blur(12px)',
+              opacity: isOpen ? 1 : 0.82
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = '1';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+              e.currentTarget.style.borderColor = 'var(--accent-primary)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(109, 40, 217, 0.12)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = isOpen ? '1' : '0.82';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.72)';
+              e.currentTarget.style.borderColor = 'rgba(226, 230, 240, 0.85)';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)';
+            }}
+            title="Ouvrir le guide d'utilisation SofIA"
+          >
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {isOpen ? (
+                <X size={17} color="var(--text-secondary)" />
+              ) : (
+                <HelpCircle size={17} color="var(--accent-primary)" />
+              )}
+            </div>
+            {!isOpen && (
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '0.01em' }}>
+                Aide & Guide
+              </span>
+            )}
+          </button>
+
+          {/* Discreet close button to dismiss the floating badge if it blocks files */}
           {!isOpen && (
-            <span 
+            <button
+              onClick={handleDismiss}
               style={{
-                position: 'absolute',
-                top: '-3px',
-                right: '-3px',
-                width: '8px',
-                height: '8px',
+                width: '20px',
+                height: '20px',
                 borderRadius: '50%',
-                backgroundColor: '#10b981',
-                boxShadow: '0 0 6px #10b981'
+                border: 'none',
+                background: 'rgba(0, 0, 0, 0.05)',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                opacity: 0.6,
+                transition: 'opacity 0.15s, background 0.15s'
               }}
-            />
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.background = 'rgba(0, 0, 0, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.6';
+                e.currentTarget.style.background = 'rgba(0, 0, 0, 0.05)';
+              }}
+              title="Masquer le bouton (un point d'accès discret restera dans le coin)"
+            >
+              <X size={12} />
+            </button>
           )}
         </div>
-        {!isOpen && (
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.01em' }}>
-            Aide & Guide
-          </span>
-        )}
-      </button>
+      )}
 
       {/* Slide-Up Popover Container */}
       {isOpen && (
