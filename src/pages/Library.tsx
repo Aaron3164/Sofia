@@ -7,6 +7,7 @@ import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft,
 import { MoveNodeModal } from '../components/library/MoveNodeModal';
 import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportModal';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
+import { SupportWidget } from '../components/support/SupportWidget';
 import { getDailyUsage } from '../lib/gemini';
 import { supabase } from '../lib/supabase';
 import './Library.css';
@@ -361,6 +362,9 @@ export default function Library() {
           allNodes={nodes}
         />
       )}
+
+      {/* Instant Help & Guide Deterministic Widget */}
+      <SupportWidget />
     </div>
   );
 }

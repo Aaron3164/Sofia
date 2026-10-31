@@ -107,15 +107,20 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({ initialContent, on
       <div 
         className="wysiwyg-toolbar"
         style={{
+          position: 'sticky',
+          top: '0.25rem',
+          zIndex: 50,
           display: 'flex',
           alignItems: 'center',
           gap: '0.4rem',
           flexWrap: 'wrap',
-          padding: '0.55rem 0.75rem',
+          padding: '0.6rem 0.85rem',
           backgroundColor: 'var(--bg-elevated, #f8fafc)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           border: '1px solid var(--border-color, #e2e8f0)',
           borderRadius: '0.75rem',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+          boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
         }}
       >
         {/* Headings */}
@@ -310,7 +315,8 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({ initialContent, on
         className="wysiwyg-content-area"
         style={{
           width: '100%',
-          minHeight: '420px',
+          minHeight: '380px',
+          maxHeight: '65vh',
           padding: '1.25rem',
           borderRadius: '0.75rem',
           border: '2px solid var(--accent-primary)',
