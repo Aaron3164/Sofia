@@ -256,44 +256,24 @@ export const InteractiveGameTour: React.FC = () => {
     );
   }
 
-  // Determine if we are inside a course (/subject/) to position in the left column (Documents Complémentaires spot)
-  const isSubjectPage = location.pathname.startsWith('/subject/');
-
-  const containerStyle: React.CSSProperties = isSubjectPage
-    ? {
-        position: 'fixed',
-        bottom: '2.5rem',
-        left: 'calc(240px + 3rem)',
-        width: '310px',
-        maxWidth: 'calc(100vw - 260px)',
-        zIndex: 99999,
-        backgroundColor: 'var(--bg-elevated, #ffffff)',
-        borderRadius: '0.95rem',
-        border: '1.5px solid var(--accent-primary, #6366f1)',
-        boxShadow: '0 16px 36px rgba(0, 0, 0, 0.28), 0 0 16px rgba(99, 102, 241, 0.2)',
-        backdropFilter: 'blur(16px)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        animation: 'gameTourSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
-      }
-    : {
-        position: 'fixed',
-        top: '4.75rem',
-        right: '1.5rem',
-        width: '380px',
-        maxWidth: 'calc(100vw - 3rem)',
-        zIndex: 99999,
-        backgroundColor: 'var(--bg-elevated, #ffffff)',
-        borderRadius: '0.95rem',
-        border: '1.5px solid var(--accent-primary, #6366f1)',
-        boxShadow: '0 16px 36px rgba(0, 0, 0, 0.25), 0 0 16px rgba(99, 102, 241, 0.2)',
-        backdropFilter: 'blur(16px)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        animation: 'gameTourSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
-      };
+  // Always positioned at the exact spot requested (bottom-left, right by the sidebar and documents area)
+  const containerStyle: React.CSSProperties = {
+    position: 'fixed',
+    bottom: '2.5rem',
+    left: 'calc(240px + 2.5rem)',
+    width: '320px',
+    maxWidth: 'calc(100vw - 260px)',
+    zIndex: 99999,
+    backgroundColor: 'var(--bg-elevated, #ffffff)',
+    borderRadius: '0.95rem',
+    border: '1.5px solid var(--accent-primary, #6366f1)',
+    boxShadow: '0 16px 36px rgba(0, 0, 0, 0.28), 0 0 16px rgba(99, 102, 241, 0.2)',
+    backdropFilter: 'blur(16px)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    animation: 'gameTourSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+  };
 
   return (
     <div style={containerStyle}>
