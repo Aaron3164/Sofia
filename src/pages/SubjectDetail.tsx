@@ -90,6 +90,17 @@ export default function SubjectDetail() {
     return () => window.removeEventListener('ai-usage-updated', refreshUsage);
   }, [profile]);
 
+  // Listen for tab switch requests from the interactive game tour
+  useEffect(() => {
+    const handleTourTab = (e: any) => {
+      if (e.detail) {
+        setActiveTab(e.detail);
+      }
+    };
+    window.addEventListener('tour-switch-tab', handleTourTab);
+    return () => window.removeEventListener('tour-switch-tab', handleTourTab);
+  }, []);
+
   // Auto-redirect if this node is an Annale
   useEffect(() => {
     if (courseNode && courseNode.name.startsWith('🎓')) {

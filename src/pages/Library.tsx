@@ -50,14 +50,13 @@ export default function Library() {
 
     const handleOpenTour = async () => {
       // Re-inject fresh demo course & folder
-      await forceSeedDemoCourse(profile?.id);
+      const res = await forceSeedDemoCourse(profile?.id);
+      const courseId = res?.courseId || getDemoCourseId(profile?.id);
       if (refreshNodes) {
         await refreshNodes();
       }
-      if (currentFolderId) {
-        navigate('/');
-      }
-      setIsOnboardingTourOpen(true);
+      setIsOnboardingTourOpen(false);
+      window.dispatchEvent(new CustomEvent('start-game-tour', { detail: { courseId } }));
     };
 
     window.addEventListener('open-onboarding-tour', handleOpenTour);
@@ -75,7 +74,7 @@ export default function Library() {
     handleCloseTour();
     const demoId = getDemoCourseId(profile?.id);
     if (demoId) {
-      navigate(`/subject/${demoId}`);
+      window.dispatchEvent(new CustomEvent('start-game-tour', { detail: { courseId: demoId } }));
     }
   };
   
@@ -228,6 +227,7 @@ export default function Library() {
 
         <div className="action-buttons">
           <button 
+            data-tour="tour-revision-btn"
             className="btn btn-outline shadow-sm hover-lift" 
             onClick={() => setRevisionFolder({ id: currentFolderId, name: currentFolder ? currentFolder.name : 'Toute la bibliothèque' })}
             title="Lancer une révision globale des cartes de ce dossier"
@@ -248,6 +248,7 @@ export default function Library() {
             <Plus size={18} /> <span className="desktop-only">Dossier</span>
           </button>
           <button 
+            data-tour="tour-annale-btn"
             className="btn btn-outline shadow-sm" 
             onClick={() => {
               if (isQuotaReached) {
@@ -341,6 +342,7 @@ export default function Library() {
                   <div className="folder-actions" style={{ display: 'flex', gap: '0.4rem' }}>
                     {item.type === 'folder' && (
                       <button 
+                        data-tour="tour-revision-btn"
                         className="icon-button" 
                         onClick={(e) => {
                           e.stopPropagation();

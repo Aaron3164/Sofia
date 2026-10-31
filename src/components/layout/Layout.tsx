@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { GlobalSearchModal } from './GlobalSearchModal';
+import { InteractiveGameTour } from '../common/InteractiveGameTour';
 import { Menu } from 'lucide-react';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -32,6 +33,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       </main>
       
       <GlobalSearchModal />
+      <InteractiveGameTour />
     </>
   );
 };
