@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, ArrowRight, Check, X, BookOpen, Zap, CheckCircle2 } from 'lucide-react';
 import { ONBOARDING_STEPS } from '../../lib/OnboardingHelper';
 
@@ -10,6 +10,13 @@ interface OnboardingTourModalProps {
 
 export const OnboardingTourModal: React.FC<OnboardingTourModalProps> = ({ isOpen, onClose, onNavigateToCourse }) => {
   const [currentStep, setCurrentStep] = useState(0);
+
+  // Always reset to step 0 when modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(0);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -139,22 +146,44 @@ export const OnboardingTourModal: React.FC<OnboardingTourModalProps> = ({ isOpen
             borderTop: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            gap: '1rem'
           }}
         >
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-secondary)',
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              fontWeight: 500
-            }}
-          >
-            Passer le guide
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                fontSize: '0.84rem',
+                cursor: 'pointer',
+                fontWeight: 500
+              }}
+            >
+              Fermer
+            </button>
+            {onNavigateToCourse && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onNavigateToCourse();
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--accent-primary)',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  textDecoration: 'underline'
+                }}
+              >
+                Aller au cours démo
+              </button>
+            )}
+          </div>
 
           <button
             onClick={handleNext}

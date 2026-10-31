@@ -9,7 +9,7 @@ import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportMod
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
 import { SupportWidget } from '../components/support/SupportWidget';
 import { OnboardingTourModal } from '../components/common/OnboardingTourModal';
-import { getDemoCourseId } from '../lib/OnboardingHelper';
+import { getDemoCourseId, forceSeedDemoCourse } from '../lib/OnboardingHelper';
 import { getDailyUsage } from '../lib/gemini';
 import { supabase } from '../lib/supabase';
 import './Library.css';
@@ -19,7 +19,7 @@ export default function Library() {
   const navigate = useNavigate();
   const { alert, confirm, prompt } = useDialog();
   const { profile } = useAuth();
-  const { nodes, deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes } = useFileSystem();
+  const { nodes, deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes, refreshNodes } = useFileSystem();
   
   const currentFolderId = folderId || null;
   const [nodeToMove, setNodeToMove] = useState<FileNode | null>(null);
@@ -48,7 +48,15 @@ export default function Library() {
       setIsOnboardingTourOpen(true);
     }
 
-    const handleOpenTour = () => {
+    const handleOpenTour = async () => {
+      // Re-inject fresh demo course & folder
+      await forceSeedDemoCourse(profile?.id);
+      if (refreshNodes) {
+        await refreshNodes();
+      }
+      if (currentFolderId) {
+        navigate('/');
+      }
       setIsOnboardingTourOpen(true);
     };
 
@@ -56,7 +64,7 @@ export default function Library() {
     return () => {
       window.removeEventListener('open-onboarding-tour', handleOpenTour);
     };
-  }, [profile?.id]);
+  }, [profile?.id, currentFolderId, refreshNodes, navigate]);
 
   const handleCloseTour = () => {
     setIsOnboardingTourOpen(false);
