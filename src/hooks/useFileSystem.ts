@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase, deletePDFFromR2 } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { seedDemoCourseIfEmpty } from '../lib/OnboardingHelper';
 
 export type FileNode = {
   id: string;
@@ -21,15 +22,22 @@ export function useFileSystem() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Initial data loading & migration
-  useEffect(() => {
-    async function loadData() {
-      if (!user) {
-        // Fallback to local if not logged in
-        const saved = localStorage.getItem(STORAGE_KEY);
-        setNodes(saved ? JSON.parse(saved) : []);
-        setIsInitialLoad(false);
-        return;
+  const loadData = useCallback(async () => {
+    if (!user) {
+      // Fallback to local if not logged in
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const localNodes = saved ? JSON.parse(saved) : [];
+      if (localNodes.length > 0) {
+        setNodes(localNodes);
+      } else {
+        const seeded = await seedDemoCourseIfEmpty();
+        if (seeded) {
+          setNodes([seeded.folderNode, seeded.courseNode]);
+        }
       }
+      setIsInitialLoad(false);
+      return;
+    }
 
       // 1. Fetch from Supabase
       const { data: cloudNodes, error } = await supabase
@@ -56,35 +64,38 @@ export function useFileSystem() {
       } else {
         // 2. Migration Bridge: Check for local data to upload
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const localNodes = JSON.parse(saved);
-          if (localNodes.length > 0) {
-            console.log('Migrating local nodes to Supabase...');
-            const toInsert = localNodes.map((n: any) => ({
-              id: n.id,
-              user_id: user.id,
-              name: n.name,
-              type: n.type,
-              parent_id: n.parentId,
-              color: n.color,
-              "order": n.order,
-              created_at: new Date(n.createdAt).toISOString()
-            }));
+        const localNodes = saved ? JSON.parse(saved) : [];
+        if (localNodes.length > 0) {
+          console.log('Migrating local nodes to Supabase...');
+          const toInsert = localNodes.map((n: any) => ({
+            id: n.id,
+            user_id: user.id,
+            name: n.name,
+            type: n.type,
+            parent_id: n.parentId,
+            color: n.color,
+            "order": n.order,
+            created_at: new Date(n.createdAt).toISOString()
+          }));
 
-            const { error: insertError } = await supabase.from('nodes').insert(toInsert);
-            if (!insertError) {
-              setNodes(localNodes);
-              // Optional: Clear localStorage after migration? 
-              // Better stay safe for now.
-            }
+          const { error: insertError } = await supabase.from('nodes').insert(toInsert);
+          if (!insertError) {
+            setNodes(localNodes);
+          }
+        } else {
+          // Brand new user: Seed demo course!
+          const seeded = await seedDemoCourseIfEmpty(user.id);
+          if (seeded) {
+            setNodes([seeded.folderNode, seeded.courseNode]);
           }
         }
       }
       setIsInitialLoad(false);
-    }
-
-    loadData();
   }, [user]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Save local fallback (Buffer)
   useEffect(() => {
@@ -217,5 +228,5 @@ export function useFileSystem() {
     }
   };
 
-  return { nodes, addNode, deleteNode, getChildren, getNode, renameNode, moveNode, reorderNodes };
+  return { nodes, isInitialLoad, addNode, deleteNode, getChildren, getNode, renameNode, moveNode, reorderNodes, refreshNodes: loadData };
 }

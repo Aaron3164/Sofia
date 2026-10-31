@@ -11,7 +11,8 @@ import {
   Calendar,
   BarChart3,
   Search,
-  MessageSquare
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 import { 
   SUPPORT_CATEGORIES, 
@@ -288,6 +289,35 @@ export const SupportWidget: React.FC = () => {
                     </div>
                   )}
 
+                  {activeItem.id === 'how-to-start' && (
+                    <button
+                      onClick={() => {
+                        setIsOpen(false);
+                        window.dispatchEvent(new CustomEvent('open-onboarding-tour'));
+                      }}
+                      style={{
+                        marginTop: '0.75rem',
+                        width: '100%',
+                        padding: '0.65rem 1rem',
+                        borderRadius: '0.65rem',
+                        backgroundColor: 'var(--accent-primary)',
+                        color: 'white',
+                        border: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.84rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.45rem',
+                        boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
+                      }}
+                    >
+                      <span>Lancer la visite guidée interactive</span>
+                      <ChevronRight size={15} />
+                    </button>
+                  )}
+
                   {/* Auto Reply Notice */}
                   <div
                     style={{
@@ -401,9 +431,61 @@ export const SupportWidget: React.FC = () => {
             ) : (
               /* VIEW 3: HOME CATEGORIES GRID */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                  Bienvenue dans l'espace d'aide SofIA. Choisissez une thématique pour consulter les guides et réponses :
-                </p>
+                {/* Interactive Tour Quick Launcher */}
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-onboarding-tour'));
+                    setIsOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '0.85rem',
+                    background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(219, 39, 119, 0.12) 100%)',
+                    border: '1px solid rgba(79, 70, 229, 0.28)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s',
+                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.08)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.borderColor = 'rgba(79, 70, 229, 0.28)';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div
+                      style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '0.6rem',
+                        backgroundColor: 'var(--accent-primary)',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
+                    >
+                      <Sparkles size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                        Visite guidée interactive
+                      </div>
+                      <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)' }}>
+                        Redécouvrir les 4 piliers et astuces de SofIA
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
+                </button>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.55rem' }}>
                   {SUPPORT_CATEGORIES.map(cat => {

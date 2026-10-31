@@ -8,6 +8,7 @@ export interface SupportFAQItem {
 }
 
 export const SUPPORT_CATEGORIES = [
+  { id: 'general', label: '👋 Guide Découverte & Astuces', color: '#6366f1' },
   { id: 'premium', label: '💳 Abonnement & Quotas', color: '#8b5cf6' },
   { id: 'courses', label: '📚 Cours & Import PDF/Drive', color: '#3b82f6' },
   { id: 'annales', label: '📝 Annales & Examens Blancs', color: '#10b981' },
@@ -137,6 +138,14 @@ export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
   },
 
   // --- QUESTIONS GÉNÉRALES ---
+  {
+    id: 'how-to-start',
+    category: 'general',
+    title: 'Comment bien démarrer sur SofIA (Guide Découverte) ?',
+    keywords: ['demarrer', 'debuter', 'guide', 'decouverte', 'tutoriel', 'visite', 'bienvenue', 'onboarding'],
+    answer: `Bienvenue sur SofIA ! Voici le parcours idéal pour maîtriser la plateforme en 3 étapes :\n\n1. **Consultez le cours de bienvenue** : Votre bibliothèque contient un dossier *"👋 Bienvenue & Découverte"* avec un cours interactif complet déjà configuré.\n2. **Testez les 3 modes d'apprentissage actif** :\n   • Le **Résumé** : Vos notions clés prêtes à être surlignées et téléchargées en PDF.\n   • Les **Flashcards Anki SM-2** : Appuyez sur Espace pour tester votre mémoire à long terme.\n   • Les **QCM** : Des questions d'examen avec explications pédagogiques détaillées.\n3. **Déposez votre premier cours** : Cliquez sur *"+ Nouveau cours"* pour importer un PDF local (max 50 pages) ou un lien Google Drive sans limite !`,
+    actionHint: 'Vous pouvez relancer le tutoriel interactif à tout moment en cliquant sur le bouton ci-dessous.'
+  },
   {
     id: 'global-search',
     category: 'general',
