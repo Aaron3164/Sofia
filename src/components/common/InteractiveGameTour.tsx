@@ -27,9 +27,9 @@ export interface GameTourStep {
 export const GAME_TOUR_STEPS: GameTourStep[] = [
   {
     id: 'demo-resume',
-    badge: 'Étape 1 / 5 • Cours & Résumé',
-    title: 'Le Résumé Structuré & Export PDF 📝',
-    description: "Bienvenue dans votre cours démo ! SofIA extrait automatiquement les notions fondamentales et détecte les mots en gras. Vous pouvez surligner, modifier le contenu ou télécharger la fiche au format PDF prêt à imprimer (sans mention d'IA en Premium).",
+    badge: 'Étape 1 / 5 • Import & Résumé',
+    title: 'Importer un cours & Résumé Structuré 📝',
+    description: "Bienvenue dans SofIA ! Pour réviser, importez vos cours soit depuis votre explorateur de fichiers (PDF local), soit directement depuis Google Drive (0 Mo de stockage consommé). SofIA extrait automatiquement les notions clés, les mots en gras et génère votre fiche imprimable (sans mention d'IA en Premium).",
     tab: 'resume',
     targetPath: (cid) => `/subject/${cid}`,
     actionText: 'Continuer : Flashcards Anki ➔'
@@ -213,8 +213,8 @@ export const InteractiveGameTour: React.FC = () => {
       <div
         style={{
           position: 'fixed',
-          top: '4.5rem',
-          right: '1.5rem',
+          bottom: '2rem',
+          left: '260px',
           zIndex: 99999,
           display: 'flex',
           alignItems: 'center',
@@ -256,15 +256,34 @@ export const InteractiveGameTour: React.FC = () => {
     );
   }
 
-  return (
-    <div
-      style={{
+  // Determine if we are inside a course (/subject/) to position in the left column (Documents Complémentaires spot)
+  const isSubjectPage = location.pathname.startsWith('/subject/');
+
+  const containerStyle: React.CSSProperties = isSubjectPage
+    ? {
+        position: 'fixed',
+        bottom: '2.5rem',
+        left: 'calc(240px + 3rem)',
+        width: '310px',
+        maxWidth: 'calc(100vw - 260px)',
+        zIndex: 99999,
+        backgroundColor: 'var(--bg-elevated, #ffffff)',
+        borderRadius: '0.95rem',
+        border: '1.5px solid var(--accent-primary, #6366f1)',
+        boxShadow: '0 16px 36px rgba(0, 0, 0, 0.28), 0 0 16px rgba(99, 102, 241, 0.2)',
+        backdropFilter: 'blur(16px)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        animation: 'gameTourSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+      }
+    : {
         position: 'fixed',
         top: '4.75rem',
         right: '1.5rem',
-        zIndex: 99999,
         width: '380px',
         maxWidth: 'calc(100vw - 3rem)',
+        zIndex: 99999,
         backgroundColor: 'var(--bg-elevated, #ffffff)',
         borderRadius: '0.95rem',
         border: '1.5px solid var(--accent-primary, #6366f1)',
@@ -274,8 +293,10 @@ export const InteractiveGameTour: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         animation: 'gameTourSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
-      }}
-    >
+      };
+
+  return (
+    <div style={containerStyle}>
       {/* Header Bar */}
       <div
         style={{
