@@ -181,34 +181,46 @@ export async function forceSeedDemoCourse(userId?: string): Promise<SeedDemoResu
     const folderId = crypto.randomUUID();
     const courseId = crypto.randomUUID();
 
+    // 1. Immediately seed localStorage fallback so navigation never fails or blacks out
+    const localData = {
+      extractedContent: DEMO_COURSE_DATA.extractedContent,
+      generations: DEMO_COURSE_DATA.generations,
+      fileName: 'Guide_SofIA_Demo.pdf'
+    };
+    localStorage.setItem(`aura_subject_${courseId}`, JSON.stringify(localData));
+    localStorage.setItem(HAS_SEEDED_KEY, 'true');
+    localStorage.setItem(COURSE_ID_KEY, courseId);
+
+    const folderNodeObj = {
+      id: folderId,
+      name: DEMO_COURSE_DATA.folderName,
+      type: 'folder' as const,
+      parentId: null,
+      color: '#4f46e5',
+      order: -1,
+      createdAt: new Date().toISOString()
+    };
+
+    const courseNodeObj = {
+      id: courseId,
+      name: DEMO_COURSE_DATA.courseName,
+      type: 'course' as const,
+      parentId: folderId,
+      color: '#db2777',
+      order: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    // Update local storage aura_file_system
+    const STORAGE_KEY = 'aura_file_system';
+    const saved = localStorage.getItem(STORAGE_KEY);
+    let localNodes = saved ? JSON.parse(saved) : [];
+    localNodes = localNodes.filter((n: any) => n.name !== DEMO_COURSE_DATA.folderName && n.name !== DEMO_COURSE_DATA.courseName);
+    localNodes.unshift(folderNodeObj, courseNodeObj);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(localNodes));
+
     if (userId) {
-      // 1. Clean up any previous demo folder and its courses to avoid duplicate clutter
-      const { data: oldFolders } = await supabase
-        .from('nodes')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('name', DEMO_COURSE_DATA.folderName);
-
-      if (oldFolders && oldFolders.length > 0) {
-        const oldFolderIds = oldFolders.map(f => f.id);
-        const { data: oldCourses } = await supabase
-          .from('nodes')
-          .select('id')
-          .eq('user_id', userId)
-          .in('parent_id', oldFolderIds);
-
-        const courseIds = oldCourses ? oldCourses.map(c => c.id) : [];
-        const allIdsToDelete = [...oldFolderIds, ...courseIds];
-
-        if (courseIds.length > 0) {
-          await supabase.from('course_data').delete().in('course_id', courseIds);
-        }
-        if (allIdsToDelete.length > 0) {
-          await supabase.from('nodes').delete().in('id', allIdsToDelete);
-        }
-      }
-
-      // 2. Insert Folder & Course into Supabase (order -1 so it sits cleanly at the top)
+      // 2. Insert new Folder & Course into Supabase first
       const folderNode = {
         id: folderId,
         user_id: userId,
@@ -231,11 +243,10 @@ export async function forceSeedDemoCourse(userId?: string): Promise<SeedDemoResu
         created_at: new Date().toISOString()
       };
 
-      const { error: nodeError } = await supabase.from('nodes').insert([folderNode, courseNode]);
-      if (nodeError) throw nodeError;
+      await supabase.from('nodes').insert([folderNode, courseNode]);
 
       // 3. Insert Course Data
-      const { error: courseDataError } = await supabase.from('course_data').insert({
+      await supabase.from('course_data').insert({
         course_id: courseId,
         user_id: userId,
         file_name: 'Guide_SofIA_Demo.pdf',
@@ -243,47 +254,33 @@ export async function forceSeedDemoCourse(userId?: string): Promise<SeedDemoResu
         generations: DEMO_COURSE_DATA.generations
       });
 
-      if (courseDataError) console.warn('Course data seed error:', courseDataError);
+      // 4. Clean up any previous demo folder and its courses in the background
+      const { data: oldFolders } = await supabase
+        .from('nodes')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('name', DEMO_COURSE_DATA.folderName)
+        .neq('id', folderId);
+
+      if (oldFolders && oldFolders.length > 0) {
+        const oldFolderIds = oldFolders.map(f => f.id);
+        const { data: oldCourses } = await supabase
+          .from('nodes')
+          .select('id')
+          .eq('user_id', userId)
+          .in('parent_id', oldFolderIds);
+
+        const courseIds = oldCourses ? oldCourses.map(c => c.id) : [];
+        const allIdsToDelete = [...oldFolderIds, ...courseIds];
+
+        if (courseIds.length > 0) {
+          await supabase.from('course_data').delete().in('course_id', courseIds);
+        }
+        if (allIdsToDelete.length > 0) {
+          await supabase.from('nodes').delete().in('id', allIdsToDelete);
+        }
+      }
     }
-
-    // Save local storage fallback
-    const localData = {
-      extractedContent: DEMO_COURSE_DATA.extractedContent,
-      generations: DEMO_COURSE_DATA.generations,
-      fileName: 'Guide_SofIA_Demo.pdf'
-    };
-    localStorage.setItem(`aura_subject_${courseId}`, JSON.stringify(localData));
-    localStorage.setItem(HAS_SEEDED_KEY, 'true');
-    localStorage.setItem(COURSE_ID_KEY, courseId);
-
-    // Update local storage aura_file_system
-    const STORAGE_KEY = 'aura_file_system';
-    const saved = localStorage.getItem(STORAGE_KEY);
-    let localNodes = saved ? JSON.parse(saved) : [];
-    localNodes = localNodes.filter((n: any) => n.name !== DEMO_COURSE_DATA.folderName && n.name !== DEMO_COURSE_DATA.courseName);
-
-    const folderNodeObj = {
-      id: folderId,
-      name: DEMO_COURSE_DATA.folderName,
-      type: 'folder' as const,
-      parentId: null,
-      color: '#4f46e5',
-      order: -1,
-      createdAt: new Date().toISOString()
-    };
-
-    const courseNodeObj = {
-      id: courseId,
-      name: DEMO_COURSE_DATA.courseName,
-      type: 'course' as const,
-      parentId: folderId,
-      color: '#db2777',
-      order: 0,
-      createdAt: new Date().toISOString()
-    };
-
-    localNodes.unshift(folderNodeObj, courseNodeObj);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(localNodes));
 
     return {
       folderNode: folderNodeObj,

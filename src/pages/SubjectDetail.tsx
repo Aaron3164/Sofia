@@ -146,8 +146,23 @@ export default function SubjectDetail() {
           .single();
 
         if (error && error.code === 'PGRST116') {
-          // No record found in cloud, and we rely on GlobalMigration for the sync
-          setCustomInstructions('');
+          // If not in cloud yet or just seeded, check local storage before giving up
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (parsed.extractedContent) setExtractedContent(parsed.extractedContent);
+              if (parsed.generations) setGenerations(parsed.generations);
+              if (parsed.pdfUrl) setPdfUrl(parsed.pdfUrl);
+              if (parsed.fileName) setFileName(parsed.fileName);
+              if (parsed.naiveAttachments) setNaiveAttachments(parsed.naiveAttachments);
+              setCustomInstructions(parsed.customInstructions || '');
+            } catch (e) {
+              console.error('Failed to parse local fallback data');
+            }
+          } else {
+            setCustomInstructions('');
+          }
           setSyncStatus('connected');
         } else if (data) {
           setExtractedContent(data.extracted_content || '');

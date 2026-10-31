@@ -8,7 +8,6 @@ import { MoveNodeModal } from '../components/library/MoveNodeModal';
 import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportModal';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
 import { SupportWidget } from '../components/support/SupportWidget';
-import { getDemoCourseId, forceSeedDemoCourse } from '../lib/OnboardingHelper';
 import { getDailyUsage } from '../lib/gemini';
 import { supabase } from '../lib/supabase';
 import './Library.css';
@@ -18,7 +17,7 @@ export default function Library() {
   const navigate = useNavigate();
   const { alert, confirm, prompt } = useDialog();
   const { profile } = useAuth();
-  const { nodes, deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes, refreshNodes } = useFileSystem();
+  const { nodes, deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes } = useFileSystem();
   
   const currentFolderId = folderId || null;
   const [nodeToMove, setNodeToMove] = useState<FileNode | null>(null);
@@ -38,23 +37,7 @@ export default function Library() {
     return () => window.removeEventListener('ai-usage-updated', refreshUsage);
   }, []);
 
-  // Listen for open-onboarding-tour from support widget
-  useEffect(() => {
-    const handleOpenTour = async () => {
-      // Re-inject fresh demo course & folder
-      const res = await forceSeedDemoCourse(profile?.id);
-      const courseId = res?.courseId || getDemoCourseId(profile?.id);
-      if (refreshNodes) {
-        await refreshNodes();
-      }
-      window.dispatchEvent(new CustomEvent('start-game-tour', { detail: { courseId } }));
-    };
-
-    window.addEventListener('open-onboarding-tour', handleOpenTour);
-    return () => {
-      window.removeEventListener('open-onboarding-tour', handleOpenTour);
-    };
-  }, [profile?.id, refreshNodes]);
+  // Note: open-onboarding-tour is handled globally by InteractiveGameTour in Layout
   
   const currentFolder = getNode(currentFolderId);
   const items = getChildren(currentFolderId);

@@ -12,7 +12,7 @@ import {
   GraduationCap 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getDemoCourseId } from '../../lib/OnboardingHelper';
+import { getDemoCourseId, forceSeedDemoCourse } from '../../lib/OnboardingHelper';
 
 export interface GameTourStep {
   id: string;
@@ -82,6 +82,8 @@ export const InteractiveGameTour: React.FC = () => {
   const step = GAME_TOUR_STEPS[currentStep];
   const isLast = currentStep === GAME_TOUR_STEPS.length - 1;
 
+  const [isMinimized, setIsMinimized] = useState(false);
+
   // Execute step transitions (route change, tab switch, spotlights)
   const applyStepEffects = useCallback((stepIdx: number, courseId: string | null) => {
     const s = GAME_TOUR_STEPS[stepIdx];
@@ -129,6 +131,7 @@ export const InteractiveGameTour: React.FC = () => {
     setActiveCourseId(cId);
     setCurrentStep(0);
     setIsActive(true);
+    setIsMinimized(false);
     localStorage.setItem('sofia_game_tour_active', 'true');
     applyStepEffects(0, cId);
   }, [profile?.id, applyStepEffects]);
@@ -154,7 +157,7 @@ export const InteractiveGameTour: React.FC = () => {
     }
   };
 
-  // Listen for global start/stop events
+  // Listen for global start/stop/open events
   useEffect(() => {
     const onStart = (e: any) => {
       startTour(e.detail?.courseId);
@@ -162,15 +165,28 @@ export const InteractiveGameTour: React.FC = () => {
     const onStop = () => {
       stopTour();
     };
+    const onOpen = async () => {
+      try {
+        const res = await forceSeedDemoCourse(profile?.id);
+        const cId = res?.courseId || getDemoCourseId(profile?.id);
+        if (cId) {
+          startTour(cId);
+        }
+      } catch (err) {
+        console.error('Failed to launch tour from event:', err);
+      }
+    };
 
     window.addEventListener('start-game-tour', onStart);
     window.addEventListener('stop-game-tour', onStop);
+    window.addEventListener('open-onboarding-tour', onOpen);
 
     return () => {
       window.removeEventListener('start-game-tour', onStart);
       window.removeEventListener('stop-game-tour', onStop);
+      window.removeEventListener('open-onboarding-tour', onOpen);
     };
-  }, [startTour, stopTour]);
+  }, [profile?.id, startTour, stopTour]);
 
   // Clean up highlights on unmount
   useEffect(() => {
@@ -184,38 +200,86 @@ export const InteractiveGameTour: React.FC = () => {
   if (!isActive) return null;
 
   const stepIcons = [
-    <BookOpen size={20} color="#3b82f6" />,
-    <Zap size={20} color="#f59e0b" />,
-    <CheckCircle2 size={20} color="#10b981" />,
-    <BarChart3 size={20} color="#06b6d4" />,
-    <GraduationCap size={20} color="#ec4899" />
+    <BookOpen size={18} color="#3b82f6" />,
+    <Zap size={18} color="#f59e0b" />,
+    <CheckCircle2 size={18} color="#10b981" />,
+    <BarChart3 size={18} color="#06b6d4" />,
+    <GraduationCap size={18} color="#ec4899" />
   ];
+
+  // Minimized Floating Pill View
+  if (isMinimized) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          top: '4.5rem',
+          right: '1.5rem',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.6rem',
+          padding: '0.5rem 0.85rem',
+          backgroundColor: 'var(--bg-elevated, #ffffff)',
+          borderRadius: '2rem',
+          border: '1.5px solid var(--accent-primary, #6366f1)',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.25)',
+          backdropFilter: 'blur(12px)',
+          cursor: 'pointer'
+        }}
+        onClick={() => setIsMinimized(false)}
+        title="Agrandir le guide"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Sparkles size={16} color="var(--accent-primary)" />
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Visite guidée ({currentStep + 1}/5)
+          </span>
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            stopTour();
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            padding: '2px',
+            display: 'flex'
+          }}
+        >
+          <X size={14} />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
       style={{
         position: 'fixed',
-        bottom: '1.25rem',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        top: '4.75rem',
+        right: '1.5rem',
         zIndex: 99999,
-        width: '540px',
-        maxWidth: 'calc(100vw - 2rem)',
+        width: '380px',
+        maxWidth: 'calc(100vw - 3rem)',
         backgroundColor: 'var(--bg-elevated, #ffffff)',
-        borderRadius: '1rem',
+        borderRadius: '0.95rem',
         border: '1.5px solid var(--accent-primary, #6366f1)',
-        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.35), 0 0 20px rgba(99, 102, 241, 0.25)',
+        boxShadow: '0 16px 36px rgba(0, 0, 0, 0.25), 0 0 16px rgba(99, 102, 241, 0.2)',
         backdropFilter: 'blur(16px)',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        animation: 'gameTourSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        animation: 'gameTourSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
     >
       {/* Header Bar */}
       <div
         style={{
-          padding: '0.55rem 0.95rem',
+          padding: '0.5rem 0.85rem',
           background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(219, 39, 119, 0.12) 100%)',
           borderBottom: '1px solid var(--border-color)',
           display: 'flex',
@@ -223,64 +287,86 @@ export const InteractiveGameTour: React.FC = () => {
           justifyContent: 'space-between'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
           <div
             style={{
-              width: '26px',
-              height: '26px',
+              width: '24px',
+              height: '24px',
               borderRadius: '50%',
               backgroundColor: 'var(--bg-secondary)',
               border: '1px solid var(--border-color)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              flexShrink: 0
             }}
           >
-            {stepIcons[currentStep] || <Sparkles size={14} color="var(--accent-primary)" />}
+            {stepIcons[currentStep] || <Sparkles size={13} color="var(--accent-primary)" />}
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.45rem' }}>
-            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {step.badge}
             </span>
-            <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              • {step.title}
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {step.title}
             </span>
           </div>
         </div>
 
-        <button
-          onClick={stopTour}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-            padding: '0.2rem',
-            borderRadius: '0.3rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          title="Quitter le tutoriel"
-        >
-          <X size={16} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
+          <button
+            onClick={() => setIsMinimized(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              padding: '0.2rem',
+              borderRadius: '0.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.8rem',
+              lineHeight: 1
+            }}
+            title="Réduire"
+          >
+            ━
+          </button>
+          <button
+            onClick={stopTour}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              padding: '0.2rem',
+              borderRadius: '0.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Quitter le tutoriel"
+          >
+            <X size={15} />
+          </button>
+        </div>
       </div>
 
       {/* Body Content */}
-      <div style={{ padding: '0.75rem 1rem 0.55rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <p style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
+      <div style={{ padding: '0.65rem 0.85rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+        <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.45, color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
           {step.description}
         </p>
 
         {/* Stepper Progress Bar */}
-        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', marginTop: '0.15rem' }}>
+        <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', marginTop: '0.1rem' }}>
           {GAME_TOUR_STEPS.map((_, idx) => (
             <div
               key={idx}
               style={{
                 flex: 1,
-                height: '4px',
+                height: '3.5px',
                 borderRadius: '2px',
                 backgroundColor: idx <= currentStep ? 'var(--accent-primary)' : 'var(--border-color)',
                 transition: 'all 0.25s ease'
@@ -293,7 +379,7 @@ export const InteractiveGameTour: React.FC = () => {
       {/* Footer Navigation */}
       <div
         style={{
-          padding: '0.5rem 1rem',
+          padding: '0.45rem 0.85rem',
           backgroundColor: 'var(--bg-secondary)',
           borderTop: '1px solid var(--border-color)',
           display: 'flex',
@@ -307,12 +393,12 @@ export const InteractiveGameTour: React.FC = () => {
             background: 'transparent',
             border: 'none',
             color: 'var(--text-secondary)',
-            fontSize: '0.75rem',
+            fontSize: '0.72rem',
             cursor: 'pointer',
             fontWeight: 500
           }}
         >
-          Quitter le guide
+          Quitter
         </button>
 
         <button
@@ -320,23 +406,23 @@ export const InteractiveGameTour: React.FC = () => {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.45rem 1rem',
-            borderRadius: '0.55rem',
+            gap: '0.3rem',
+            padding: '0.4rem 0.85rem',
+            borderRadius: '0.5rem',
             backgroundColor: 'var(--accent-primary)',
             color: 'white',
             border: 'none',
             fontWeight: 700,
-            fontSize: '0.8rem',
+            fontSize: '0.76rem',
             cursor: 'pointer',
-            boxShadow: '0 3px 10px rgba(99, 102, 241, 0.35)',
+            boxShadow: '0 3px 8px rgba(99, 102, 241, 0.35)',
             transition: 'transform 0.15s'
           }}
           onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
         >
           <span>{step.actionText}</span>
-          {isLast ? <Check size={14} /> : <ArrowRight size={14} />}
+          {isLast ? <Check size={13} /> : <ArrowRight size={13} />}
         </button>
       </div>
     </div>
