@@ -120,7 +120,8 @@ Importez vos gros polycopiés via Google Drive : extraction 100% en mémoire viv
           "L'Active Recall (rappel actif) combiné à la répétition espacée",
           "Écouter un cours en dormant"
         ],
-        correctAnswer: 2,
+        correctAnswers: ["L'Active Recall (rappel actif) combiné à la répétition espacée"],
+        correctAnswer: "L'Active Recall (rappel actif) combiné à la répétition espacée",
         explanation: "L'Active Recall combiné à la répétition espacée (algorithme SM-2) permet d'atteindre plus de 85% de rétention durable."
       },
       {
@@ -132,7 +133,8 @@ Importez vos gros polycopiés via Google Drive : extraction 100% en mémoire viv
           "En supprimant ses dossiers",
           "En ouvrant les paramètres système"
         ],
-        correctAnswer: 0,
+        correctAnswers: ["En appuyant sur Ctrl+K (ou Cmd+K sur Mac)"],
+        correctAnswer: "En appuyant sur Ctrl+K (ou Cmd+K sur Mac)",
         explanation: "Le raccourci universel Ctrl+K ouvre la Recherche Globale pour scanner l'intégralité de vos cours et générer une synthèse transversale."
       }
     ],

@@ -212,22 +212,31 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
     const normalizedOption = normalize(option);
     const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
     
+    // Determine whether the numbers are 0-based (contains "0") or 1-based (all > 0)
+    const isZeroBased = correctOpts.some(c => c?.toString().trim() === '0');
+
     return correctOpts.some(c => {
       if (c === null || c === undefined) return false;
       const cStr = c.toString().trim();
       const normalizedC = normalize(cStr);
       
-      // 1. Match par texte (normalisé agressivement)
+      // 1. Match par texte direct (normalisé)
       if (normalizedC !== '' && normalizedC === normalizedOption) return true;
       
-      // 2. Match par index (0-based: "0", "1"...)
-      if (cStr === oIndex.toString()) return true;
-      
-      // 3. Match par index (1-based: "1", "2"...)
-      if (cStr === (oIndex + 1).toString()) return true;
+      // 2. Match par index numérique strict
+      if (/^\d+$/.test(cStr)) {
+        const val = parseInt(cStr, 10);
+        if (isZeroBased) {
+          if (val === oIndex) return true;
+        } else {
+          // If no 0 was present, it could be 0-based (e.g. index 2) or 1-based
+          // But 0-based is the standard in JS / JSON arrays
+          if (val === oIndex) return true;
+        }
+      }
 
-      // 4. Match par lettre ("a", "b", "c"...)
-      if (normalizedC === letters[oIndex]) return true;
+      // 3. Match par lettre ("a", "b", "c"...)
+      if (normalizedC.length === 1 && normalizedC === letters[oIndex]) return true;
       
       return false;
     });
