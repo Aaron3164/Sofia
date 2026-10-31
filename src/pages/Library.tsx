@@ -8,7 +8,6 @@ import { MoveNodeModal } from '../components/library/MoveNodeModal';
 import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportModal';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
 import { SupportWidget } from '../components/support/SupportWidget';
-import { OnboardingTourModal } from '../components/common/OnboardingTourModal';
 import { getDemoCourseId, forceSeedDemoCourse } from '../lib/OnboardingHelper';
 import { getDailyUsage } from '../lib/gemini';
 import { supabase } from '../lib/supabase';
@@ -26,7 +25,6 @@ export default function Library() {
   const [isAnnaleModalOpen, setIsAnnaleModalOpen] = useState(false);
   const [revisionFolder, setRevisionFolder] = useState<{ id: string | null; name: string } | null>(null);
   const [dailyUsage, setDailyUsage] = useState<number>(0);
-  const [isOnboardingTourOpen, setIsOnboardingTourOpen] = useState(false);
 
   const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
   const isQuotaReached = dailyUsage >= maxGenerations;
@@ -40,14 +38,8 @@ export default function Library() {
     return () => window.removeEventListener('ai-usage-updated', refreshUsage);
   }, []);
 
-  // Onboarding tour initialization & listener from support widget
+  // Listen for open-onboarding-tour from support widget
   useEffect(() => {
-    const tourKey = `sofia_onboarding_completed_${profile?.id || 'guest'}`;
-    const hasCompletedTour = localStorage.getItem(tourKey);
-    if (!hasCompletedTour) {
-      setIsOnboardingTourOpen(true);
-    }
-
     const handleOpenTour = async () => {
       // Re-inject fresh demo course & folder
       const res = await forceSeedDemoCourse(profile?.id);
@@ -55,7 +47,6 @@ export default function Library() {
       if (refreshNodes) {
         await refreshNodes();
       }
-      setIsOnboardingTourOpen(false);
       window.dispatchEvent(new CustomEvent('start-game-tour', { detail: { courseId } }));
     };
 
@@ -63,20 +54,7 @@ export default function Library() {
     return () => {
       window.removeEventListener('open-onboarding-tour', handleOpenTour);
     };
-  }, [profile?.id, currentFolderId, refreshNodes, navigate]);
-
-  const handleCloseTour = () => {
-    setIsOnboardingTourOpen(false);
-    localStorage.setItem(`sofia_onboarding_completed_${profile?.id || 'guest'}`, 'true');
-  };
-
-  const handleNavigateToDemoCourse = () => {
-    handleCloseTour();
-    const demoId = getDemoCourseId(profile?.id);
-    if (demoId) {
-      window.dispatchEvent(new CustomEvent('start-game-tour', { detail: { courseId: demoId } }));
-    }
-  };
+  }, [profile?.id, refreshNodes]);
   
   const currentFolder = getNode(currentFolderId);
   const items = getChildren(currentFolderId);
@@ -406,13 +384,6 @@ export default function Library() {
           allNodes={nodes}
         />
       )}
-
-      {/* Onboarding Discovery Tour Modal */}
-      <OnboardingTourModal
-        isOpen={isOnboardingTourOpen}
-        onClose={handleCloseTour}
-        onNavigateToCourse={handleNavigateToDemoCourse}
-      />
 
       {/* Instant Help & Guide Deterministic Widget */}
       <SupportWidget />

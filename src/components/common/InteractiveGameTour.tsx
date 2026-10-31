@@ -195,15 +195,16 @@ export const InteractiveGameTour: React.FC = () => {
     <div
       style={{
         position: 'fixed',
-        bottom: '1.75rem',
-        right: '1.75rem',
+        bottom: '1.25rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
         zIndex: 99999,
-        width: '490px',
-        maxWidth: 'calc(100vw - 2.5rem)',
+        width: '540px',
+        maxWidth: 'calc(100vw - 2rem)',
         backgroundColor: 'var(--bg-elevated, #ffffff)',
-        borderRadius: '1.25rem',
+        borderRadius: '1rem',
         border: '1.5px solid var(--accent-primary, #6366f1)',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3), 0 0 25px rgba(99, 102, 241, 0.25)',
+        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.35), 0 0 20px rgba(99, 102, 241, 0.25)',
         backdropFilter: 'blur(16px)',
         overflow: 'hidden',
         display: 'flex',
@@ -214,7 +215,7 @@ export const InteractiveGameTour: React.FC = () => {
       {/* Header Bar */}
       <div
         style={{
-          padding: '0.85rem 1.25rem',
+          padding: '0.55rem 0.95rem',
           background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(219, 39, 119, 0.12) 100%)',
           borderBottom: '1px solid var(--border-color)',
           display: 'flex',
@@ -222,11 +223,11 @@ export const InteractiveGameTour: React.FC = () => {
           justifyContent: 'space-between'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div
             style={{
-              width: '32px',
-              height: '32px',
+              width: '26px',
+              height: '26px',
               borderRadius: '50%',
               backgroundColor: 'var(--bg-secondary)',
               border: '1px solid var(--border-color)',
@@ -235,15 +236,15 @@ export const InteractiveGameTour: React.FC = () => {
               justifyContent: 'center'
             }}
           >
-            {stepIcons[currentStep] || <Sparkles size={18} color="var(--accent-primary)" />}
+            {stepIcons[currentStep] || <Sparkles size={14} color="var(--accent-primary)" />}
           </div>
-          <div>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.45rem' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {step.badge}
-            </div>
-            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {step.title}
-            </h4>
+            </span>
+            <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              • {step.title}
+            </span>
           </div>
         </div>
 
@@ -254,33 +255,33 @@ export const InteractiveGameTour: React.FC = () => {
             border: 'none',
             color: 'var(--text-secondary)',
             cursor: 'pointer',
-            padding: '0.35rem',
-            borderRadius: '0.4rem',
+            padding: '0.2rem',
+            borderRadius: '0.3rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}
           title="Quitter le tutoriel"
         >
-          <X size={18} />
+          <X size={16} />
         </button>
       </div>
 
       {/* Body Content */}
-      <div style={{ padding: '1.25rem 1.25rem 0.85rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-        <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
+      <div style={{ padding: '0.75rem 1rem 0.55rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <p style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
           {step.description}
         </p>
 
         {/* Stepper Progress Bar */}
-        <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', marginTop: '0.25rem' }}>
+        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', marginTop: '0.15rem' }}>
           {GAME_TOUR_STEPS.map((_, idx) => (
             <div
               key={idx}
               style={{
                 flex: 1,
-                height: '5px',
-                borderRadius: '3px',
+                height: '4px',
+                borderRadius: '2px',
                 backgroundColor: idx <= currentStep ? 'var(--accent-primary)' : 'var(--border-color)',
                 transition: 'all 0.25s ease'
               }}
@@ -292,7 +293,7 @@ export const InteractiveGameTour: React.FC = () => {
       {/* Footer Navigation */}
       <div
         style={{
-          padding: '0.85rem 1.25rem',
+          padding: '0.5rem 1rem',
           backgroundColor: 'var(--bg-secondary)',
           borderTop: '1px solid var(--border-color)',
           display: 'flex',
@@ -306,7 +307,7 @@ export const InteractiveGameTour: React.FC = () => {
             background: 'transparent',
             border: 'none',
             color: 'var(--text-secondary)',
-            fontSize: '0.8rem',
+            fontSize: '0.75rem',
             cursor: 'pointer',
             fontWeight: 500
           }}
@@ -319,23 +320,23 @@ export const InteractiveGameTour: React.FC = () => {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.45rem',
-            padding: '0.55rem 1.25rem',
-            borderRadius: '0.65rem',
+            gap: '0.35rem',
+            padding: '0.45rem 1rem',
+            borderRadius: '0.55rem',
             backgroundColor: 'var(--accent-primary)',
             color: 'white',
             border: 'none',
             fontWeight: 700,
-            fontSize: '0.84rem',
+            fontSize: '0.8rem',
             cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)',
+            boxShadow: '0 3px 10px rgba(99, 102, 241, 0.35)',
             transition: 'transform 0.15s'
           }}
           onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
         >
           <span>{step.actionText}</span>
-          {isLast ? <Check size={15} /> : <ArrowRight size={15} />}
+          {isLast ? <Check size={14} /> : <ArrowRight size={14} />}
         </button>
       </div>
     </div>
