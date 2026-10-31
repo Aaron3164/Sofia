@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Pencil, Download } from 'lucide-react';
 import { mdToHtml } from '../../lib/markdown';
 import { exportContentToPDF } from '../../lib/pdf-export';
+import { useAuth } from '../../context/AuthContext';
 import { WysiwygEditor } from './WysiwygEditor';
 import './StudyResume.css';
 
@@ -15,6 +16,7 @@ interface StudyResumeProps {
 export const StudyResume: React.FC<StudyResumeProps> = ({ content, courseId, courseTitle, onUpdate }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const { profile } = useAuth();
 
   // Restore scroll
   useEffect(() => {
@@ -36,9 +38,10 @@ export const StudyResume: React.FC<StudyResumeProps> = ({ content, courseId, cou
   const handleDownloadPDF = () => {
     exportContentToPDF({
       title: courseTitle || 'Fiche de Cours',
-      subtitle: 'Synthèse & Notions Clés - SofIA',
+      subtitle: profile?.plan === 'premium' ? 'Synthèse & Notions Clés' : 'Synthèse & Notions Clés - SofIA',
       htmlContent: content.includes('<') && content.includes('>') ? content : undefined,
-      markdownContent: !(content.includes('<') && content.includes('>')) ? content : undefined
+      markdownContent: !(content.includes('<') && content.includes('>')) ? content : undefined,
+      isPremium: profile?.plan === 'premium'
     });
   };
 

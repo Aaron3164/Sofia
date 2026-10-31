@@ -5,13 +5,15 @@ export interface ExportPdfOptions {
   subtitle?: string;
   htmlContent?: string;
   markdownContent?: string;
+  isPremium?: boolean;
 }
 
 /**
  * Downloads a clean, beautifully formatted PDF sheet using native browser print pipeline.
  * Zero external weight, supports Markdown, tables, KaTeX, images, and custom styling.
+ * For Premium users: Strips all "SofIA", "Généré...", and AI brandings so it looks 100% human-made.
  */
-export function exportContentToPDF({ title, subtitle, htmlContent, markdownContent }: ExportPdfOptions): void {
+export function exportContentToPDF({ title, subtitle, htmlContent, markdownContent, isPremium = false }: ExportPdfOptions): void {
   const content = htmlContent || (markdownContent ? mdToHtml(markdownContent) : '');
 
   // Hidden print iframe to avoid disturbing current view or navigation
@@ -32,12 +34,21 @@ export function exportContentToPDF({ title, subtitle, htmlContent, markdownConte
     return;
   }
 
+  const documentTitle = isPremium ? `${title}` : `${title} - SofIA`;
+
+  // Headers and Subtitles: Premium removes AI tags
+  const headerBrand = isPremium ? 'Fiche de Révision' : 'SofIA • Fiche de Révision';
+  const headerMeta = isPremium ? new Date().toLocaleDateString('fr-FR') : `Généré le ${new Date().toLocaleDateString('fr-FR')}`;
+  const cleanSubtitle = subtitle 
+    ? (isPremium ? subtitle.replace(/\s*-\s*SofIA/gi, '').replace(/\s*par\s*Sofia/gi, '').replace(/IA/gi, '').trim() : subtitle)
+    : '';
+
   const printHtml = `
     <!DOCTYPE html>
     <html lang="fr">
     <head>
       <meta charset="utf-8" />
-      <title>${title} - SofIA</title>
+      <title>${documentTitle}</title>
       <style>
         @page {
           size: A4 portrait;
@@ -187,21 +198,28 @@ export function exportContentToPDF({ title, subtitle, htmlContent, markdownConte
     </head>
     <body>
       <div class="header-sheet">
-        <div class="header-brand">SofIA • Fiche de Révision</div>
-        <div class="header-date">Généré le ${new Date().toLocaleDateString('fr-FR')}</div>
+        <div class="header-brand">${headerBrand}</div>
+        <div class="header-date">${headerMeta}</div>
       </div>
 
       <h1 class="sheet-title">${title}</h1>
-      ${subtitle ? `<div class="sheet-subtitle">${subtitle}</div>` : ''}
+      ${cleanSubtitle ? `<div class="sheet-subtitle">${cleanSubtitle}</div>` : ''}
 
       <div class="sheet-body">
         ${content}
       </div>
 
-      <div class="footer-sheet">
-        <span>Fiche d'étude active • Plateforme SofIA</span>
-        <span>www.sofia-learning.com</span>
-      </div>
+      ${!isPremium ? `
+        <div class="footer-sheet">
+          <span>Fiche d'étude active • Plateforme SofIA</span>
+          <span>www.sofia-learning.com</span>
+        </div>
+      ` : `
+        <div class="footer-sheet">
+          <span>Fiche d'étude personnelle</span>
+          <span>Synthèse thématique</span>
+        </div>
+      `}
     </body>
     </html>
   `;

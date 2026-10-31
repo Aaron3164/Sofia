@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, X, FileText, Folder, Sparkles, ArrowRight, BookOpen, Download } from 'lucide-react';
+import { Search, Loader2, X, FileText, Folder, Sparkles, ArrowRight, BookOpen, Download, History, Clock, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { globalSearch, getDailyUsage } from '../../lib/gemini';
 import { useFileSystem, type FileNode } from '../../hooks/useFileSystem';
@@ -7,6 +7,14 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { AIProgressCard } from '../common/AIProgressCard';
 import { exportContentToPDF } from '../../lib/pdf-export';
+
+export interface SynthesisHistoryItem {
+  id: string;
+  query: string;
+  createdAt: string;
+  synthesis: string;
+  matchedCount: number;
+}
 
 interface MatchedCourse {
   courseId: string;
@@ -24,7 +32,7 @@ interface MatchedCourse {
 export const GlobalSearchModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'direct' | 'ai'>('direct');
+  const [activeTab, setActiveTab] = useState<'direct' | 'ai' | 'history'>('direct');
   
   // Search states
   const [isSearchingDirect, setIsSearchingDirect] = useState(false);
@@ -32,6 +40,14 @@ export const GlobalSearchModal: React.FC = () => {
   const [directResults, setDirectResults] = useState<MatchedCourse[] | null>(null);
   const [aiResults, setAiResults] = useState<string | null>(null);
   const [searchedKeywords, setSearchedKeywords] = useState<string[]>([]);
+  const [synthesisHistory, setSynthesisHistory] = useState<SynthesisHistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('sofia_synthesis_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   
   const { nodes } = useFileSystem();
   const { profile } = useAuth();
@@ -337,6 +353,26 @@ export const GlobalSearchModal: React.FC = () => {
 
       const result = await globalSearch(query, fullContext, profile?.preferences);
       setAiResults(result);
+
+      // Save to Synthesis History
+      if (result) {
+        const newItem: SynthesisHistoryItem = {
+          id: crypto.randomUUID(),
+          query: query.trim(),
+          createdAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+          synthesis: result,
+          matchedCount: directResults.length
+        };
+        setSynthesisHistory(prev => {
+          const updated = [newItem, ...prev.filter(item => item.query.toLowerCase() !== query.toLowerCase().trim())].slice(0, 30);
+          try {
+            localStorage.setItem('sofia_synthesis_history', JSON.stringify(updated));
+          } catch (e) {
+            console.warn('Failed to save synthesis history:', e);
+          }
+          return updated;
+        });
+      }
     } catch (error: any) {
       console.error("AI Search Error:", error);
       if (error?.message?.includes('Quota')) {
@@ -347,6 +383,23 @@ export const GlobalSearchModal: React.FC = () => {
     } finally {
       setIsSearchingAI(false);
     }
+  };
+
+  const handleOpenHistoryItem = (item: SynthesisHistoryItem) => {
+    setQuery(item.query);
+    setAiResults(item.synthesis);
+    setActiveTab('ai');
+  };
+
+  const handleDeleteHistoryItem = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSynthesisHistory(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      try {
+        localStorage.setItem('sofia_synthesis_history', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
   };
 
   const handleOpenCourse = (courseId: string) => {
@@ -448,57 +501,70 @@ export const GlobalSearchModal: React.FC = () => {
           </div>
         </form>
 
-        {/* Navigation Tabs (Direct Results vs AI Synthesis) */}
-        {directResults !== null && (
-          <div 
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.6rem 1.5rem',
-              borderBottom: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-primary)',
-              fontSize: '0.85rem'
-            }}
-          >
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                type="button"
-                onClick={() => setActiveTab('direct')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.4rem',
-                  padding: '0.35rem 0.8rem', borderRadius: '0.5rem',
-                  border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
-                  backgroundColor: activeTab === 'direct' ? 'var(--accent-primary)' : 'transparent',
-                  color: activeTab === 'direct' ? 'white' : 'var(--text-secondary)'
-                }}
-              >
-                <BookOpen size={15} />
-                <span>Cours correspondants ({directResults.length})</span>
-              </button>
+        {/* Navigation Tabs (Direct Results vs AI Synthesis vs History) */}
+        <div 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.6rem 1.5rem',
+            borderBottom: '1px solid var(--border-color)',
+            backgroundColor: 'var(--bg-primary)',
+            fontSize: '0.85rem'
+          }}
+        >
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('direct')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                padding: '0.35rem 0.8rem', borderRadius: '0.5rem',
+                border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                backgroundColor: activeTab === 'direct' ? 'var(--accent-primary)' : 'transparent',
+                color: activeTab === 'direct' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              <BookOpen size={15} />
+              <span>Cours {directResults !== null ? `(${directResults.length})` : ''}</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('ai');
-                  if (!aiResults && !isSearchingAI) {
-                    handleTriggerAISynthesis();
-                  }
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.4rem',
-                  padding: '0.35rem 0.8rem', borderRadius: '0.5rem',
-                  border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
-                  backgroundColor: activeTab === 'ai' ? 'var(--accent-primary)' : 'transparent',
-                  color: activeTab === 'ai' ? 'white' : 'var(--text-secondary)'
-                }}
-              >
-                <Sparkles size={15} />
-                <span>Synthèse Sofia (IA)</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('ai');
+                if (!aiResults && !isSearchingAI && directResults && directResults.length > 0) {
+                  handleTriggerAISynthesis();
+                }
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                padding: '0.35rem 0.8rem', borderRadius: '0.5rem',
+                border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                backgroundColor: activeTab === 'ai' ? 'var(--accent-primary)' : 'transparent',
+                color: activeTab === 'ai' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              <Sparkles size={15} />
+              <span>Synthèse transversale</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('history')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                padding: '0.35rem 0.8rem', borderRadius: '0.5rem',
+                border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                backgroundColor: activeTab === 'history' ? 'var(--accent-primary)' : 'transparent',
+                color: activeTab === 'history' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              <History size={15} />
+              <span>Historique ({synthesisHistory.length})</span>
+            </button>
           </div>
-        )}
+        </div>
 
         {/* Content Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', backgroundColor: 'var(--bg-secondary)' }}>
@@ -660,14 +726,15 @@ export const GlobalSearchModal: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.65rem', borderBottom: '1px solid var(--border-color)' }}>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                      ✨ Synthèse transversale rédigée par Sofia
+                      {profile?.plan === 'premium' ? '✨ Synthèse transversale' : '✨ Synthèse transversale rédigée par Sofia'}
                     </span>
                     <button
                       onClick={() => {
                         exportContentToPDF({
                           title: `Synthèse : ${query}`,
-                          subtitle: `Croisement de ${directResults?.length || 0} cours - SofIA`,
-                          markdownContent: aiResults
+                          subtitle: profile?.plan === 'premium' ? `Croisement de ${directResults?.length || 0} cours` : `Croisement de ${directResults?.length || 0} cours - SofIA`,
+                          markdownContent: aiResults,
+                          isPremium: profile?.plan === 'premium'
                         });
                       }}
                       style={{
@@ -698,6 +765,131 @@ export const GlobalSearchModal: React.FC = () => {
                 </div>
               )}
             </div>
+          ) : activeTab === 'history' ? (
+            /* Synthesis History View */
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <History size={18} color="var(--accent-primary)" />
+                  <span>Historique des synthèses transversales</span>
+                </h4>
+                {synthesisHistory.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (confirm('Supprimer tout l\'historique des synthèses ?')) {
+                        setSynthesisHistory([]);
+                        localStorage.removeItem('sofia_synthesis_history');
+                      }
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--danger, #ef4444)',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.3rem'
+                    }}
+                  >
+                    <Trash2 size={13} /> Tout effacer
+                  </button>
+                )}
+              </div>
+
+              {synthesisHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                  <History size={36} color="var(--text-secondary)" style={{ opacity: 0.4, marginBottom: '0.75rem' }} />
+                  <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 0.35rem 0' }}>
+                    Aucune synthèse dans l'historique
+                  </p>
+                  <p style={{ fontSize: '0.84rem', maxWidth: '400px', margin: '0 auto' }}>
+                    Lorsque vous lancez une synthèse transversale dans vos cours, elle est automatiquement sauvegardée ici pour être consultée et téléchargée à tout moment.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {synthesisHistory.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleOpenHistoryItem(item)}
+                      style={{
+                        padding: '1rem 1.25rem',
+                        borderRadius: '0.85rem',
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '1rem',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {item.query}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.45rem', borderRadius: '4px', backgroundColor: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-primary)', fontWeight: 600 }}>
+                            {item.matchedCount} cours croisé{item.matchedCount > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                          <Clock size={12} />
+                          <span>Généré le {item.createdAt}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            exportContentToPDF({
+                              title: `Synthèse : ${item.query}`,
+                              subtitle: profile?.plan === 'premium' ? `Croisement de ${item.matchedCount} cours` : `Croisement de ${item.matchedCount} cours - SofIA`,
+                              markdownContent: item.synthesis,
+                              isPremium: profile?.plan === 'premium'
+                            });
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.3rem',
+                            padding: '0.35rem 0.65rem', borderRadius: '0.45rem',
+                            backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                            color: 'var(--text-primary)', cursor: 'pointer', fontSize: '0.76rem',
+                            fontWeight: 600
+                          }}
+                          title="Télécharger cette synthèse en PDF"
+                        >
+                          <Download size={13} color="var(--accent-primary)" />
+                          <span>PDF</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => handleDeleteHistoryItem(item.id, e)}
+                          style={{
+                            background: 'transparent', border: 'none',
+                            color: 'var(--text-secondary)', cursor: 'pointer',
+                            padding: '0.35rem', borderRadius: '0.35rem'
+                          }}
+                          title="Supprimer de l'historique"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             /* Initial state */
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
@@ -705,7 +897,7 @@ export const GlobalSearchModal: React.FC = () => {
                 Recherche globale ultrarapide dans tous vos cours
               </p>
               <p style={{ fontSize: '0.88rem', maxWidth: '420px', margin: '0 auto' }}>
-                Tapez un mot-clé pour voir instantanément les cours et extraits correspondants.
+                Tapez un mot-clé pour voir instantanément les cours et extraits correspondants, ou consultez l'onglet Historique pour retrouver vos synthèses passées.
               </p>
             </div>
           )}
