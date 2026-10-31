@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, X, FileText, Folder, Sparkles, ArrowRight, BookOpen } from 'lucide-react';
+import { Search, Loader2, X, FileText, Folder, Sparkles, ArrowRight, BookOpen, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { globalSearch, getDailyUsage } from '../../lib/gemini';
 import { useFileSystem, type FileNode } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { AIProgressCard } from '../common/AIProgressCard';
+import { exportContentToPDF } from '../../lib/pdf-export';
 
 interface MatchedCourse {
   courseId: string;
@@ -656,8 +657,35 @@ export const GlobalSearchModal: React.FC = () => {
                   />
                 </div>
               ) : aiResults ? (
-                <div className="flashcard-content" style={{ color: 'var(--text-primary)', lineHeight: 1.7, fontSize: '0.96rem' }}>
-                  {renderMarkdown(aiResults)}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.65rem', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      ✨ Synthèse transversale rédigée par Sofia
+                    </span>
+                    <button
+                      onClick={() => {
+                        exportContentToPDF({
+                          title: `Synthèse : ${query}`,
+                          subtitle: `Croisement de ${directResults?.length || 0} cours - SofIA`,
+                          markdownContent: aiResults
+                        });
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.35rem',
+                        padding: '0.35rem 0.75rem', borderRadius: '0.5rem',
+                        backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-color)',
+                        color: 'var(--text-primary)', cursor: 'pointer', fontSize: '0.8rem',
+                        fontWeight: 600
+                      }}
+                      title="Télécharger cette synthèse en PDF imprimable"
+                    >
+                      <Download size={14} color="var(--accent-primary)" />
+                      <span>Télécharger PDF</span>
+                    </button>
+                  </div>
+                  <div className="flashcard-content" style={{ color: 'var(--text-primary)', lineHeight: 1.7, fontSize: '0.96rem' }}>
+                    {renderMarkdown(aiResults)}
+                  </div>
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>

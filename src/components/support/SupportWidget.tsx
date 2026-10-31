@@ -397,6 +397,21 @@ export const SupportWidget: React.FC = () => {
                           💡 {m.faqItem.actionHint}
                         </div>
                       )}
+                      {m.role === 'bot' && (
+                        <div
+                          style={{
+                            marginTop: '0.55rem',
+                            paddingTop: '0.45rem',
+                            borderTop: '1px dashed var(--border-color)',
+                            fontSize: '0.68rem',
+                            color: 'var(--text-secondary)',
+                            fontStyle: 'italic',
+                            lineHeight: '1.3'
+                          }}
+                        >
+                          🤖 Réponse automatique du Guide SofIA. Si votre question reste sans réponse, vous pouvez contacter notre service client.
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

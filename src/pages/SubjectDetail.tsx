@@ -1021,7 +1021,14 @@ export default function SubjectDetail() {
                             documentContext={extractedContent} 
                           />
                         )}
-                        {tab.id === 'resume' && <StudyResume content={typeof content === 'string' ? content : JSON.stringify(content)} courseId={id} onUpdate={(d) => updateData('resume', d)} />}
+                        {tab.id === 'resume' && (
+                          <StudyResume 
+                            content={typeof content === 'string' ? content : JSON.stringify(content)} 
+                            courseId={id} 
+                            courseTitle={courseNode?.name || fileName || 'Fiche de Cours'}
+                            onUpdate={(d) => updateData('resume', d)} 
+                          />
+                        )}
                       </>
                     )}
                   </div>
