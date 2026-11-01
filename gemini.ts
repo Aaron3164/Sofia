@@ -198,15 +198,19 @@ export async function generateChatTitle(question: string): Promise<string> {
   }
 }
 
-export async function globalSearch(query: string, allCoursesContext: string, prefs?: AIPreferences): Promise<string> {
+export async function globalSearch(query: string, allCoursesContext: string, prefs?: AIPreferences, customInstructions?: string): Promise<string> {
   await ensureQuota();
   const ai = getGeminiClient();
   const systemInstruction = getSystemInstruction(prefs);
+  const customBlock = customInstructions && customInstructions.trim() 
+    ? `\nCONSIGNE PARTICULIÈRE DE L'ÉTUDIANT POUR CETTE SYNTHÈSE (À RESPECTER EN PRIORITÉ) :\n"${customInstructions.trim()}"\n` 
+    : '';
+
   const fullPrompt = `${systemInstruction}Tu es Sofia, une assistante universitaire experte et polyvalente.
 On te fournit ci-dessous le contenu textuel extrait de plusieurs de mes cours.
 
 L'étudiant (que tu tutoies) recherche l'information suivante ou pose cette question : "${query}".
-
+${customBlock}
 Ta mission :
 1. ANALYSE CRITIQUE : Analyse tous les cours fournis pour trouver les éléments pertinents.
 2. RÉPONSE SYNTHÉTIQUE : Réponds directement à la question de manière structurée et pédagogique.

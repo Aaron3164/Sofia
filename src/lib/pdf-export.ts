@@ -52,7 +52,18 @@ export function exportContentToPDF({ title, subtitle, htmlContent, markdownConte
       <style>
         @page {
           size: A4 portrait;
-          margin: 18mm 18mm 18mm 18mm;
+          margin: 15mm 18mm 15mm 18mm;
+          @bottom-left { content: none; }
+          @bottom-right { content: none; }
+          @top-left { content: none; }
+          @top-right { content: none; }
+        }
+
+        @media print {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
         }
 
         body {
@@ -63,6 +74,8 @@ export function exportContentToPDF({ title, subtitle, htmlContent, markdownConte
           margin: 0;
           padding: 0;
           background: #ffffff;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
 
         .header-sheet {
@@ -215,10 +228,7 @@ export function exportContentToPDF({ title, subtitle, htmlContent, markdownConte
           <span>www.sofia-learning.com</span>
         </div>
       ` : `
-        <div class="footer-sheet">
-          <span>Fiche d'étude personnelle</span>
-          <span>Synthèse thématique</span>
-        </div>
+        <div class="footer-sheet" style="display: none;"></div>
       `}
     </body>
     </html>

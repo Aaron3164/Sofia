@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, X, FileText, Folder, Sparkles, ArrowRight, BookOpen, Download, History, Clock, Trash2 } from 'lucide-react';
+import { Search, Loader2, X, FileText, Folder, Sparkles, ArrowRight, BookOpen, Download, History, Clock, Trash2, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { globalSearch, getDailyUsage } from '../../lib/gemini';
 import { useFileSystem, type FileNode } from '../../hooks/useFileSystem';
@@ -40,6 +40,8 @@ export const GlobalSearchModal: React.FC = () => {
   const [directResults, setDirectResults] = useState<MatchedCourse[] | null>(null);
   const [aiResults, setAiResults] = useState<string | null>(null);
   const [searchedKeywords, setSearchedKeywords] = useState<string[]>([]);
+  const [customInstructions, setCustomInstructions] = useState('');
+  const [showCustomInstructions, setShowCustomInstructions] = useState(false);
   const [synthesisHistory, setSynthesisHistory] = useState<SynthesisHistoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('sofia_synthesis_history');
@@ -351,7 +353,7 @@ export const GlobalSearchModal: React.FC = () => {
         currentLength += block.length;
       }
 
-      const result = await globalSearch(query, fullContext, profile?.preferences);
+      const result = await globalSearch(query, fullContext, profile?.preferences, customInstructions);
       setAiResults(result);
 
       // Save to Synthesis History
@@ -513,7 +515,7 @@ export const GlobalSearchModal: React.FC = () => {
             fontSize: '0.85rem'
           }}
         >
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               type="button"
               onClick={() => setActiveTab('direct')}
@@ -564,7 +566,109 @@ export const GlobalSearchModal: React.FC = () => {
               <span>Historique ({synthesisHistory.length})</span>
             </button>
           </div>
+
+          {/* Consignes IA Button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <button
+              type="button"
+              onClick={() => setShowCustomInstructions(!showCustomInstructions)}
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.35rem 0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                border: '1px solid',
+                borderColor: customInstructions.trim() ? 'var(--accent-primary)' : 'var(--border-color)',
+                color: customInstructions.trim() ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                backgroundColor: showCustomInstructions ? 'var(--bg-elevated)' : 'transparent',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontWeight: 600
+              }}
+              title="Ajouter des consignes spécifiques pour orienter la synthèse transversale"
+            >
+              <span>💡 Consignes IA</span>
+              {customInstructions.trim() && (
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCustomInstructions('');
+                  }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '15px', height: '15px', borderRadius: '50%',
+                    backgroundColor: 'var(--accent-primary)', color: 'white',
+                    fontSize: '9px', fontWeight: 'bold', cursor: 'pointer'
+                  }}
+                  title="Effacer la consigne"
+                >
+                  ✕
+                </span>
+              )}
+              <ChevronDown size={13} style={{ transform: showCustomInstructions ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </button>
+          </div>
         </div>
+
+        {/* Consignes IA Input Drawer */}
+        {showCustomInstructions && (
+          <div 
+            className="fade-in" 
+            style={{ 
+              padding: '0.75rem 1.5rem', 
+              backgroundColor: 'var(--bg-elevated)', 
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.4rem'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label htmlFor="global-search-instructions" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                💡 <span>Consignes / Mots-clés pour la synthèse transversale (Optionnel) :</span>
+              </label>
+              {customInstructions && (
+                <button 
+                  type="button"
+                  onClick={() => setCustomInstructions('')}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.75 }}
+                >
+                  Effacer
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                id="global-search-instructions"
+                type="text"
+                placeholder="ex: Insister sur la prise en charge thérapeutique, la comparaison des articles de loi..."
+                value={customInstructions}
+                onChange={(e) => setCustomInstructions(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '0.5rem 0.8rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.84rem'
+                }}
+              />
+              {activeTab === 'ai' && !isSearchingAI && (
+                <button
+                  type="button"
+                  onClick={handleTriggerAISynthesis}
+                  disabled={!directResults || directResults.length === 0}
+                  className="btn btn-primary"
+                  style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                >
+                  Régénérer
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Content Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', backgroundColor: 'var(--bg-secondary)' }}>
