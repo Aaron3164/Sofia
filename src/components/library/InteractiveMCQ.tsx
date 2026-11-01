@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { explainMCQErrors, getDailyUsage } from '../../lib/gemini';
+import { explainMCQErrors, getDailyUsage, evaluateOpenQuestionAnswer, type OpenQuestionEvaluation } from '../../lib/gemini';
 import { BookOpen, Loader2, Sparkles, RotateCcw } from 'lucide-react';
 import { AIProgressCard } from '../common/AIProgressCard';
 
 export interface MCQ {
+  type?: 'mcq' | 'open';
   question: string;
   options: string[];
   correctAnswers?: string[];
@@ -13,6 +14,7 @@ export interface MCQ {
   image?: string;
   images?: string[];
   explanation?: string;
+  expectedAnswer?: string;
 }
 
 interface InteractiveMCQProps {
@@ -50,6 +52,24 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
     }
     return {};
   });
+
+  const [writtenAnswers, setWrittenAnswers] = useState<Record<number, string>>(() => {
+    if (courseId) {
+      const saved = sessionStorage.getItem(`aura_mcq_written_${courseId}`);
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+
+  const [openEvaluations, setOpenEvaluations] = useState<Record<number, OpenQuestionEvaluation>>(() => {
+    if (courseId) {
+      const saved = sessionStorage.getItem(`aura_mcq_open_evals_${courseId}`);
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+
+  const [evaluatingIndices, setEvaluatingIndices] = useState<Record<number, boolean>>({});
   
   const [showResults, setShowResults] = useState(() => {
     if (courseId) {
@@ -87,10 +107,12 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   useEffect(() => {
     if (courseId) {
       sessionStorage.setItem(`aura_mcq_answers_${courseId}`, JSON.stringify(selectedAnswers));
+      sessionStorage.setItem(`aura_mcq_written_${courseId}`, JSON.stringify(writtenAnswers));
+      sessionStorage.setItem(`aura_mcq_open_evals_${courseId}`, JSON.stringify(openEvaluations));
       sessionStorage.setItem(`aura_mcq_results_${courseId}`, showResults.toString());
       sessionStorage.setItem(`aura_mcq_corrections_${courseId}`, JSON.stringify(detailedCorrections));
     }
-  }, [selectedAnswers, showResults, detailedCorrections, courseId]);
+  }, [selectedAnswers, writtenAnswers, openEvaluations, showResults, detailedCorrections, courseId]);
 
   // Ref to track actual data content and avoid wiping session storage on reference change
   const prevDataStrRef = useRef<string>('');
@@ -105,11 +127,15 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
     if (prevDataStrRef.current !== currentDataStr) {
       prevDataStrRef.current = currentDataStr;
       setSelectedAnswers({});
+      setWrittenAnswers({});
+      setOpenEvaluations({});
       setShowResults(false);
       setDetailedCorrections({});
       setShowDetailedPanel(false);
       if (courseId) {
         sessionStorage.removeItem(`aura_mcq_answers_${courseId}`);
+        sessionStorage.removeItem(`aura_mcq_written_${courseId}`);
+        sessionStorage.removeItem(`aura_mcq_open_evals_${courseId}`);
         sessionStorage.removeItem(`aura_mcq_results_${courseId}`);
         sessionStorage.removeItem(`aura_mcq_corrections_${courseId}`);
       }
@@ -242,9 +268,17 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
     });
   };
 
+  const isOpenQuestion = (q: MCQ) => q.type === 'open' || !q.options || q.options.length === 0;
+
+  const qcmIndices = mcqs.map((q, idx) => ({ q, idx })).filter(({ q }) => !isOpenQuestion(q)).map(({ idx }) => idx);
+  const openIndices = mcqs.map((q, idx) => ({ q, idx })).filter(({ q }) => isOpenQuestion(q)).map(({ idx }) => idx);
+
+  const qcmCount = qcmIndices.length;
+  const openCount = openIndices.length;
+
   const isQuestionCorrect = (qIndex: number) => {
     const q = mcqs[qIndex];
-    if (!q) return false;
+    if (!q || isOpenQuestion(q)) return false;
     const selected = (selectedAnswers[qIndex] || []).map(normalize);
     const correctOpts = getCorrectAnswers(q);
     const correctOptionTexts = q.options.filter((opt, i) => isCorrectOption(correctOpts, opt, i)).map(normalize);
@@ -255,13 +289,47 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
     );
   };
 
-  const score = mcqs.reduce((acc, _, idx) => {
+  const score = qcmIndices.reduce((acc, idx) => {
     return acc + (isQuestionCorrect(idx) ? 1 : 0);
   }, 0);
 
+  const evaluatedOpenCount = openIndices.filter(idx => Boolean(openEvaluations[idx])).length;
+
   const wrongQuestions = mcqs
     .map((q, idx) => ({ q, idx }))
-    .filter(({ idx }) => !isQuestionCorrect(idx));
+    .filter(({ q, idx }) => !isOpenQuestion(q) && !isQuestionCorrect(idx));
+
+  const handleEvaluateOpenAnswer = async (qIndex: number) => {
+    const q = mcqs[qIndex];
+    if (!q) return;
+
+    const answer = writtenAnswers[qIndex] || '';
+    if (!answer.trim()) {
+      alert("Veuillez rédiger une réponse avant de demander l'évaluation de Sofia.");
+      return;
+    }
+
+    if (isQuotaReached) {
+      alert(`Limite quotidienne de générations atteinte (${dailyUsage}/${maxGenerations} générations). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
+      return;
+    }
+
+    setEvaluatingIndices(prev => ({ ...prev, [qIndex]: true }));
+    try {
+      const evalResult = await evaluateOpenQuestionAnswer(
+        q.question,
+        q.expectedAnswer || q.explanation || '',
+        answer,
+        profile?.preferences
+      );
+      setOpenEvaluations(prev => ({ ...prev, [qIndex]: evalResult }));
+    } catch (err: any) {
+      console.error('Erreur évaluation réponse ouverte:', err);
+      alert(err.message || "Erreur lors de l'évaluation de la réponse avec Sofia.");
+    } finally {
+      setEvaluatingIndices(prev => ({ ...prev, [qIndex]: false }));
+    }
+  };
 
   const handleFetchDetailedCorrections = async () => {
     if (Object.keys(detailedCorrections).length > 0) {
@@ -319,13 +387,13 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 
   const handleValidate = async () => {
     setShowResults(true);
-    if (courseId && courseName) {
+    if (courseId && courseName && qcmCount > 0) {
       const newGrade = {
         id: crypto.randomUUID(),
         courseId,
         courseName,
         score,
-        total: mcqs.length,
+        total: qcmCount,
         date: new Date().toISOString(),
         mcqs,
         selectedAnswers
@@ -385,69 +453,89 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
           alignItems: 'center',
           gap: '1rem'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
-            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800 }}>
-              Votre Score : {score} / {mcqs.length}
-            </h2>
-            <span style={{ 
-              padding: '0.25rem 0.75rem', 
-              borderRadius: '2rem', 
-              fontSize: '0.9rem', 
-              fontWeight: 800,
-              backgroundColor: score === mcqs.length ? 'var(--success-light)' : (score >= mcqs.length / 2 ? 'var(--accent-light)' : 'var(--danger-light)'),
-              color: score === mcqs.length ? 'var(--success)' : (score >= mcqs.length / 2 ? 'var(--accent-primary)' : 'var(--danger)')
-            }}>
-              {Math.round((score / mcqs.length) * 100)}%
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' }}>
+            {qcmCount > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800 }}>
+                  Score QCM : {score} / {qcmCount}
+                </h2>
+                <span style={{ 
+                  padding: '0.25rem 0.75rem', 
+                  borderRadius: '2rem', 
+                  fontSize: '0.9rem', 
+                  fontWeight: 800,
+                  backgroundColor: score === qcmCount ? 'var(--success-light)' : (score >= qcmCount / 2 ? 'var(--accent-light)' : 'var(--danger-light)'),
+                  color: score === qcmCount ? 'var(--success)' : (score >= qcmCount / 2 ? 'var(--accent-primary)' : 'var(--danger)')
+                }}>
+                  {Math.round((score / qcmCount) * 100)}%
+                </span>
+              </div>
+            ) : (
+              <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>
+                Épreuve Rédactionnelle ({openCount} question{openCount > 1 ? 's' : ''})
+              </h2>
+            )}
+
+            {openCount > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                <span>✍️ {openCount} question{openCount > 1 ? 's' : ''} rédactionnelle{openCount > 1 ? 's' : ''}</span>
+                <span>•</span>
+                <span style={{ color: evaluatedOpenCount === openCount ? 'var(--success)' : 'var(--accent-primary)', fontWeight: 700 }}>
+                  {evaluatedOpenCount}/{openCount} évaluée{evaluatedOpenCount > 1 ? 's' : ''} par Sofia IA
+                </span>
+              </div>
+            )}
           </div>
 
-          {wrongQuestions.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', width: '100%', maxWidth: '520px' }}>
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                Tu as fait {wrongQuestions.length} erreur{wrongQuestions.length > 1 ? 's' : ''} sur cette session d'examen blanc.
-              </p>
-              <button
-                onClick={handleFetchDetailedCorrections}
-                disabled={isLoadingCorrections || (Object.keys(detailedCorrections).length === 0 && isQuotaReached)}
-                title={Object.keys(detailedCorrections).length === 0 && isQuotaReached ? `Limite quotidienne atteinte (${dailyUsage}/${maxGenerations} générations)` : undefined}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  padding: '0.8rem 1.6rem',
-                  borderRadius: '0.75rem',
-                  backgroundColor: 'var(--accent-primary)',
-                  color: 'white',
-                  border: 'none',
-                  fontWeight: 700,
-                  fontSize: '0.95rem',
-                  cursor: isLoadingCorrections ? 'wait' : ((Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 'not-allowed' : 'pointer'),
-                  opacity: (Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 0.45 : 1,
-                  boxShadow: (Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 'none' : 'var(--shadow-accent)',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                {isLoadingCorrections ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Sofia prépare l'explication...</span>
-                  </>
-                ) : (
-                  <>
-                    <BookOpen size={18} />
-                    <span>
-                      {Object.keys(detailedCorrections).length > 0 
-                        ? (showDetailedPanel ? 'Masquer la correction détaillée' : 'Afficher la correction détaillée')
-                        : (isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : `Voir la correction détaillée (${wrongQuestions.length} item${wrongQuestions.length > 1 ? 's' : ''})`)}
-                    </span>
-                  </>
-                )}
-              </button>
-            </div>
-          ) : (
-            <div style={{ color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.95rem' }}>
-              <span>🎉 Félicitations ! Score parfait de 100%, aucune erreur commise sur ce QCM.</span>
-            </div>
+          {qcmCount > 0 && (
+            wrongQuestions.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', width: '100%', maxWidth: '520px' }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  Tu as fait {wrongQuestions.length} erreur{wrongQuestions.length > 1 ? 's' : ''} sur les QCM de cette session.
+                </p>
+                <button
+                  onClick={handleFetchDetailedCorrections}
+                  disabled={isLoadingCorrections || (Object.keys(detailedCorrections).length === 0 && isQuotaReached)}
+                  title={Object.keys(detailedCorrections).length === 0 && isQuotaReached ? `Limite quotidienne atteinte (${dailyUsage}/${maxGenerations} générations)` : undefined}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.8rem 1.6rem',
+                    borderRadius: '0.75rem',
+                    backgroundColor: 'var(--accent-primary)',
+                    color: 'white',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    cursor: isLoadingCorrections ? 'wait' : ((Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 'not-allowed' : 'pointer'),
+                    opacity: (Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 0.45 : 1,
+                    boxShadow: (Object.keys(detailedCorrections).length === 0 && isQuotaReached) ? 'none' : 'var(--shadow-accent)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {isLoadingCorrections ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>Sofia prépare l'explication...</span>
+                    </>
+                  ) : (
+                    <>
+                      <BookOpen size={18} />
+                      <span>
+                        {Object.keys(detailedCorrections).length > 0 
+                          ? (showDetailedPanel ? 'Masquer la correction détaillée' : 'Afficher la correction détaillée')
+                          : (isQuotaReached ? `Limite atteinte (${dailyUsage}/${maxGenerations})` : `Voir la correction détaillée (${wrongQuestions.length} item${wrongQuestions.length > 1 ? 's' : ''})`)}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div style={{ color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.95rem' }}>
+                <span>🎉 Félicitations ! Score parfait de 100%, aucune erreur commise sur les QCM.</span>
+              </div>
+            )
           )}
         </div>
       )}
@@ -511,9 +599,11 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
       )}
 
       {mcqs.map((q, qIndex) => {
+        const isOpen = isOpenQuestion(q);
         const correctOpts = getCorrectAnswers(q);
         const selected = selectedAnswers[qIndex] || [];
-        const isWrong = showResults && !isQuestionCorrect(qIndex);
+        const isWrong = showResults && !isOpen && !isQuestionCorrect(qIndex);
+        const openEval = openEvaluations[qIndex];
 
         return (
           <div 
@@ -522,12 +612,30 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
             style={{ 
               padding: '1.5rem', 
               borderRadius: '1rem',
-              border: isWrong ? '1px solid rgba(239, 68, 68, 0.4)' : undefined
+              border: isWrong 
+                ? '1px solid rgba(239, 68, 68, 0.4)' 
+                : (showResults && isOpen && openEval?.status === 'correct' ? '1px solid rgba(16, 185, 129, 0.4)' : undefined)
             }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{qIndex + 1}. {q.question}</h3>
-              {showResults && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '1rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    backgroundColor: isOpen ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                    color: isOpen ? '#c084fc' : '#60a5fa',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    {isOpen ? '✍️ Question Rédactionnelle / QROC' : '☑️ QCM'}
+                  </span>
+                </div>
+                <h3 style={{ margin: '0.25rem 0 0 0', fontSize: '1.1rem' }}>{qIndex + 1}. {q.question}</h3>
+              </div>
+
+              {showResults && !isOpen && (
                 <span style={{ 
                   padding: '0.2rem 0.6rem', 
                   borderRadius: '1rem', 
@@ -540,11 +648,27 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
                   {!isWrong ? 'Correct (+1 pt)' : 'Erreur (0 pt)'}
                 </span>
               )}
+
+              {showResults && isOpen && openEval && (
+                <span style={{ 
+                  padding: '0.2rem 0.6rem', 
+                  borderRadius: '1rem', 
+                  fontSize: '0.75rem', 
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  backgroundColor: openEval.status === 'correct' ? 'var(--success-light)' : (openEval.status === 'partial' ? 'var(--accent-light)' : 'var(--danger-light)'),
+                  color: openEval.status === 'correct' ? 'var(--success)' : (openEval.status === 'partial' ? 'var(--accent-primary)' : 'var(--danger)')
+                }}>
+                  {openEval.grade} / {openEval.maxGrade}
+                </span>
+              )}
             </div>
             
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              {correctOpts.length > 1 ? "(Plusieurs réponses possibles)" : "(Une seule réponse possible)"}
-            </p>
+            {!isOpen && (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                {correctOpts.length > 1 ? "(Plusieurs réponses possibles)" : "(Une seule réponse possible)"}
+              </p>
+            )}
 
             {/* Illustrations / Schémas attachés à la question */}
             {((q.images && q.images.length > 0) || q.image) && (
@@ -579,78 +703,265 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               </div>
             )}
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {q.options.map((option, oIndex) => {
-                const isSelected = selected.includes(option);
-                const isCorrect = isCorrectOption(correctOpts, option, oIndex);
-                
-                let bgColor = 'var(--bg-primary)';
-                let borderColor = 'var(--border-color)';
-                let feedbackText = '';
-                
-                if (showResults) {
-                  if (isCorrect && isSelected) {
-                    bgColor = '#10b98120'; 
-                    borderColor = 'var(--success)';
-                    feedbackText = '✅ Bonne réponse cochée';
-                  } else if (isCorrect && !isSelected) {
-                    bgColor = '#f59e0b20'; // Orange transparent
-                    borderColor = 'var(--warning)';
-                    feedbackText = '⚠️ Réponse correcte oubliée';
-                  } else if (!isCorrect && isSelected) {
-                    bgColor = '#ef444420'; 
-                    borderColor = 'var(--danger)';
-                    feedbackText = '❌ Cochée par erreur';
-                  }
-                } else if (isSelected) {
-                  borderColor = 'var(--accent-primary)';
-                  bgColor = 'var(--bg-elevated)';
-                }
-
-                return (
-                  <button
-                    key={oIndex}
-                    onClick={() => handleSelect(qIndex, option)}
-                    disabled={showResults}
-                    style={{
-                      padding: '1rem',
-                      textAlign: 'left',
-                      borderRadius: '0.5rem',
-                      border: `1px solid ${borderColor}`,
-                      backgroundColor: bgColor,
-                      cursor: showResults ? 'default' : 'pointer',
-                      transition: 'all 0.2s',
-                      color: 'var(--text-primary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{ 
-                      width: '18px', height: '18px', flexShrink: 0, 
-                      border: `2px solid ${isSelected ? (showResults && !isCorrect ? 'var(--danger)' : 'var(--accent-primary)') : 'var(--text-secondary)'}`, 
-                      borderRadius: '4px',
-                      backgroundColor: isSelected ? (showResults && !isCorrect ? 'var(--danger)' : 'var(--accent-primary)') : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+            {/* Open question response OR MCQ options */}
+            {isOpen ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '0.5rem' }}>
+                {!showResults ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        Votre réponse rédigée :
+                      </label>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {writtenAnswers[qIndex]?.trim() ? `${writtenAnswers[qIndex].trim().split(/\s+/).length} mot(s)` : '0 mot'}
+                      </span>
+                    </div>
+                    <textarea
+                      value={writtenAnswers[qIndex] || ''}
+                      onChange={e => setWrittenAnswers(prev => ({ ...prev, [qIndex]: e.target.value }))}
+                      placeholder="Rédigez ici votre réponse (notions clés, étapes de raisonnement, diagnostic, conduite à tenir)..."
+                      rows={4}
+                      style={{
+                        width: '100%',
+                        padding: '0.9rem',
+                        borderRadius: '0.75rem',
+                        backgroundColor: 'var(--bg-primary)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.95rem',
+                        lineHeight: '1.6',
+                        resize: 'vertical',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {/* Student's answer */}
+                    <div style={{
+                      padding: '1rem 1.25rem',
+                      borderRadius: '0.75rem',
+                      backgroundColor: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)'
                     }}>
-                      {isSelected && <div style={{ width: '10px', height: '10px', backgroundColor: 'white', clipPath: 'polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%)' }} />}
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                        ✍️ Votre Réponse Rédigée :
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.95rem', color: writtenAnswers[qIndex]?.trim() ? 'var(--text-primary)' : 'var(--text-muted)', fontStyle: writtenAnswers[qIndex]?.trim() ? 'normal' : 'italic', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                        {writtenAnswers[qIndex]?.trim() || '(Aucune réponse saisie)'}
+                      </p>
                     </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <span>{option}</span>
-                      {showResults && feedbackText && (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: borderColor, marginTop: '0.25rem' }}>
-                          {feedbackText}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+
+                    {/* Official Expected Answer / Correction */}
+                    {(q.expectedAnswer || q.explanation) && (
+                      <div style={{
+                        padding: '1rem 1.25rem',
+                        borderRadius: '0.75rem',
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-color)',
+                        borderLeft: '4px solid var(--accent-primary)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.85rem' }}>
+                          <BookOpen size={16} />
+                          <span>Corrigé Officiel & Notions Attendues :</span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.925rem', color: 'var(--text-primary)', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                          {cleanExplanation(q.expectedAnswer || q.explanation || '')}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Sofia IA Evaluation Result or Action Button */}
+                    {openEval ? (
+                      <div className="fade-in" style={{
+                        padding: '1.25rem',
+                        borderRadius: '0.85rem',
+                        backgroundColor: openEval.status === 'correct' ? '#10b98112' : (openEval.status === 'partial' ? '#f59e0b12' : '#ef444412'),
+                        border: `1px solid ${openEval.status === 'correct' ? 'rgba(16, 185, 129, 0.4)' : (openEval.status === 'partial' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)')}`,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Sparkles size={18} style={{ color: openEval.status === 'correct' ? 'var(--success)' : (openEval.status === 'partial' ? 'var(--warning)' : 'var(--danger)') }} />
+                            <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                              Évaluation Sofia IA
+                            </span>
+                          </div>
+                          <span style={{
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '1rem',
+                            fontWeight: 800,
+                            fontSize: '0.9rem',
+                            backgroundColor: openEval.status === 'correct' ? 'var(--success-light)' : (openEval.status === 'partial' ? 'var(--accent-light)' : 'var(--danger-light)'),
+                            color: openEval.status === 'correct' ? 'var(--success)' : (openEval.status === 'partial' ? 'var(--accent-primary)' : 'var(--danger)')
+                          }}>
+                            {openEval.grade} / {openEval.maxGrade} ({openEval.scorePercentage}%)
+                          </span>
+                        </div>
+
+                        <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: '1.6' }}>
+                          {openEval.feedback}
+                        </p>
+
+                        {/* Acquired Points */}
+                        {openEval.pointsAcquired?.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--success)' }}>
+                              ✓ Notions & points validés :
+                            </span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                              {openEval.pointsAcquired.map((pt, pIdx) => (
+                                <span key={pIdx} style={{ fontSize: '0.78rem', padding: '0.2rem 0.55rem', borderRadius: '0.5rem', backgroundColor: '#10b98120', color: 'var(--success)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                  {pt}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Missing Points */}
+                        {openEval.pointsMissing?.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--warning)' }}>
+                              ⚠️ Éléments omis ou à approfondir :
+                            </span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                              {openEval.pointsMissing.map((pt, pIdx) => (
+                                <span key={pIdx} style={{ fontSize: '0.78rem', padding: '0.2rem 0.55rem', borderRadius: '0.5rem', backgroundColor: '#f59e0b20', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                  {pt}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+                          <button
+                            onClick={() => handleEvaluateOpenAnswer(qIndex)}
+                            disabled={evaluatingIndices[qIndex]}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.75rem',
+                              cursor: 'pointer',
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            {evaluatingIndices[qIndex] ? 'Réévaluation en cours...' : 'Réévaluer avec Sofia IA'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginTop: '0.5rem' }}>
+                        <button
+                          onClick={() => handleEvaluateOpenAnswer(qIndex)}
+                          disabled={evaluatingIndices[qIndex] || !writtenAnswers[qIndex]?.trim()}
+                          title={!writtenAnswers[qIndex]?.trim() ? 'Vous devez saisir une réponse pour demander l’évaluation' : undefined}
+                          className="btn btn-secondary"
+                          style={{
+                            fontSize: '0.85rem',
+                            padding: '0.5rem 1rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            cursor: (!writtenAnswers[qIndex]?.trim() || evaluatingIndices[qIndex]) ? 'not-allowed' : 'pointer',
+                            opacity: !writtenAnswers[qIndex]?.trim() ? 0.5 : 1
+                          }}
+                        >
+                          {evaluatingIndices[qIndex] ? (
+                            <>
+                              <Loader2 size={16} className="animate-spin" />
+                              <span>Sofia analyse votre rédaction...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles size={16} />
+                              <span>Évaluer ma rédaction avec Sofia IA</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {q.options.map((option, oIndex) => {
+                  const isSelected = selected.includes(option);
+                  const isCorrect = isCorrectOption(correctOpts, option, oIndex);
+                  
+                  let bgColor = 'var(--bg-primary)';
+                  let borderColor = 'var(--border-color)';
+                  let feedbackText = '';
+                  
+                  if (showResults) {
+                    if (isCorrect && isSelected) {
+                      bgColor = '#10b98120'; 
+                      borderColor = 'var(--success)';
+                      feedbackText = '✅ Bonne réponse cochée';
+                    } else if (isCorrect && !isSelected) {
+                      bgColor = '#f59e0b20'; // Orange transparent
+                      borderColor = 'var(--warning)';
+                      feedbackText = '⚠️ Réponse correcte oubliée';
+                    } else if (!isCorrect && isSelected) {
+                      bgColor = '#ef444420'; 
+                      borderColor = 'var(--danger)';
+                      feedbackText = '❌ Cochée par erreur';
+                    }
+                  } else if (isSelected) {
+                    borderColor = 'var(--accent-primary)';
+                    bgColor = 'var(--bg-elevated)';
+                  }
+
+                  return (
+                    <button
+                      key={oIndex}
+                      onClick={() => handleSelect(qIndex, option)}
+                      disabled={showResults}
+                      style={{
+                        padding: '1rem',
+                        textAlign: 'left',
+                        borderRadius: '0.5rem',
+                        border: `1px solid ${borderColor}`,
+                        backgroundColor: bgColor,
+                        cursor: showResults ? 'default' : 'pointer',
+                        transition: 'all 0.2s',
+                        color: 'var(--text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{ 
+                        width: '18px', height: '18px', flexShrink: 0, 
+                        border: `2px solid ${isSelected ? (showResults && !isCorrect ? 'var(--danger)' : 'var(--accent-primary)') : 'var(--text-secondary)'}`, 
+                        borderRadius: '4px',
+                        backgroundColor: isSelected ? (showResults && !isCorrect ? 'var(--danger)' : 'var(--accent-primary)') : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {isSelected && <div style={{ width: '10px', height: '10px', backgroundColor: 'white', clipPath: 'polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%)' }} />}
+                      </div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <span>{option}</span>
+                        {showResults && feedbackText && (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: borderColor, marginTop: '0.25rem' }}>
+                            {feedbackText}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Individual Quoted Source Correction Box for this wrong question */}
-            {showResults && detailedCorrections[qIndex] && (
+            {showResults && !isOpen && detailedCorrections[qIndex] && (
               <div 
                 className="fade-in"
                 style={{
@@ -682,7 +993,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
           onClick={handleValidate}
           style={{ padding: '1rem', fontSize: '1rem', marginTop: '1rem' }}
         >
-          Valider le QCM
+          {openCount > 0 && qcmCount > 0 ? "Valider l'Épreuve Mixte" : (openCount > 0 ? "Valider l'Épreuve Rédactionnelle" : "Valider le QCM")}
         </button>
       )}
       
@@ -693,13 +1004,15 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
             onClick={() => { 
               setShowResults(false); 
               setSelectedAnswers({}); 
+              setWrittenAnswers({});
+              setOpenEvaluations({});
               setDetailedCorrections({});
               setShowDetailedPanel(false);
             }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
           >
             <RotateCcw size={16} />
-            <span>Recommencer le QCM</span>
+            <span>Recommencer l'épreuve</span>
           </button>
 
           {wrongQuestions.length > 0 && (

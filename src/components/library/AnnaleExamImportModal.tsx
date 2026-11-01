@@ -194,7 +194,44 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
     onClose();
   };
 
-  const questionsWithAnswersCount = questions.filter(q => q.correctAnswers && q.correctAnswers.length > 0).length;
+  const handleToggleQuestionType = (qIndex: number) => {
+    setQuestions(prev => prev.map((q, idx) => {
+      if (idx !== qIndex) return q;
+      const isOpen = q.type === 'open' || (!q.options || q.options.length === 0);
+      if (isOpen) {
+        return {
+          ...q,
+          type: 'mcq',
+          options: [
+            'A. Première proposition',
+            'B. Deuxième proposition',
+            'C. Troisième proposition',
+            'D. Quatrième proposition',
+            'E. Cinquième proposition'
+          ],
+          correctAnswers: ['A']
+        };
+      } else {
+        return {
+          ...q,
+          type: 'open',
+          options: [],
+          correctAnswers: [],
+          expectedAnswer: q.expectedAnswer || q.explanation || ''
+        };
+      }
+    }));
+  };
+
+  const isOpenQuestion = (q: ExtractedQuestion) => q.type === 'open' || (!q.options || q.options.length === 0);
+  const qcmCount = questions.filter(q => !isOpenQuestion(q)).length;
+  const openCount = questions.filter(q => isOpenQuestion(q)).length;
+  const questionsWithAnswersCount = questions.filter(q => {
+    if (isOpenQuestion(q)) {
+      return Boolean((q.expectedAnswer || q.explanation || '').trim());
+    }
+    return (q.correctAnswers?.length || 0) > 0;
+  }).length;
   const totalImagesCount = questions.reduce((acc, q) => acc + (q.images?.length || 0), 0);
 
   return (
@@ -208,8 +245,8 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
               <GraduationCap size={22} />
             </div>
             <div>
-              <h2>Importer une Annale (QCM)</h2>
-              <p>Retranscription mot pour mot • Assistance IA • Schémas & figures inclus</p>
+              <h2>Importer une Annale {openCount > 0 && qcmCount > 0 ? '(Mixte QCM & Rédaction)' : (openCount > 0 ? '(Rédactionnelle)' : '(QCM)')}</h2>
+              <p>Retranscription mot pour mot • Épreuves hybrides (QCM & Rédaction) • Schémas inclus</p>
             </div>
           </div>
           <button 
@@ -379,7 +416,7 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                 <div className="annale-badge-list">
                   <span className="annale-pill-badge accent">
                     <FileText size={14} />
-                    {questions.length} questions
+                    {questions.length} questions {openCount > 0 ? `(${qcmCount} QCM, ${openCount} rédactionnelle${openCount > 1 ? 's' : ''})` : ''}
                   </span>
                   <span className={`annale-pill-badge ${questionsWithAnswersCount === questions.length ? 'success' : ''}`}>
                     <Check size={14} />
@@ -518,14 +555,41 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                     >
                       {/* Question Header & Stem */}
                       <div className="annale-question-header">
-                        <div className="annale-q-badge">
-                          <span>Question {q.questionNumber || qIndex + 1}</span>
-                          {q.pageNumber && (
-                            <span className="annale-page-tag">
-                              (Page {q.pageNumber})
-                            </span>
-                          )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <div className="annale-q-badge">
+                            <span>Question {q.questionNumber || qIndex + 1}</span>
+                            {q.pageNumber && (
+                              <span className="annale-page-tag">
+                                (Page {q.pageNumber})
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Question Type Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleQuestionType(qIndex)}
+                            style={{
+                              border: '1px solid var(--border-color)',
+                              backgroundColor: isOpenQuestion(q) ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                              color: isOpenQuestion(q) ? '#c084fc' : '#60a5fa',
+                              padding: '0.2rem 0.6rem',
+                              borderRadius: '1rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              transition: 'all 0.2s ease'
+                            }}
+                            title="Cliquer pour basculer entre QCM et Question Rédactionnelle"
+                          >
+                            <span>{isOpenQuestion(q) ? '✍️ Rédactionnelle (QROC)' : '☑️ QCM'}</span>
+                            <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>⇄ changer</span>
+                          </button>
                         </div>
+
                         <button 
                           onClick={() => handleDeleteQuestion(qIndex)}
                           style={{ color: 'var(--danger)', padding: '0.3rem', background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.6 }}
@@ -592,39 +656,72 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                         </span>
                       </div>
 
-                      {/* Options & Correct Answer Selection */}
-                      <div className="annale-options-list">
-                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Propositions (Cliquez sur la lettre pour cocher la bonne réponse) :</span>
-                          <span style={{ color: 'var(--success)' }}>
-                            {q.correctAnswers?.length || 0} bonne{ (q.correctAnswers?.length || 0) > 1 ? 's' : '' } réponse{ (q.correctAnswers?.length || 0) > 1 ? 's' : '' }
-                          </span>
+                      {/* Options or Open Response Correction */}
+                      {isOpenQuestion(q) ? (
+                        <div style={{
+                          marginTop: '0.75rem',
+                          padding: '1rem',
+                          borderRadius: '0.75rem',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px dashed rgba(168, 85, 247, 0.35)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.5rem'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c084fc' }}>
+                              ✍️ Corrigé officiel / Mots-clés attendus :
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                              Utilisé par Sofia IA pour évaluer la réponse
+                            </span>
+                          </div>
+                          <textarea
+                            value={q.expectedAnswer || q.explanation || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setQuestions(prev => prev.map((item, idx) => idx === qIndex ? { ...item, expectedAnswer: val, explanation: val } : item));
+                            }}
+                            placeholder="Notions indispensables, mots-clés exigibles ou réponse modèle de l'annale..."
+                            rows={3}
+                            className="annale-textarea"
+                            style={{ fontSize: '0.85rem' }}
+                          />
                         </div>
+                      ) : (
+                        <div className="annale-options-list">
+                          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Propositions (Cliquez sur la lettre pour cocher la bonne réponse) :</span>
+                            <span style={{ color: 'var(--success)' }}>
+                              {q.correctAnswers?.length || 0} bonne{ (q.correctAnswers?.length || 0) > 1 ? 's' : '' } réponse{ (q.correctAnswers?.length || 0) > 1 ? 's' : '' }
+                            </span>
+                          </div>
 
-                        {q.options.map((option, optIdx) => {
-                          const letter = letters[optIdx] || String.fromCharCode(65 + optIdx);
-                          const isCorrect = q.correctAnswers?.includes(letter);
+                          {q.options.map((option, optIdx) => {
+                            const letter = letters[optIdx] || String.fromCharCode(65 + optIdx);
+                            const isCorrect = q.correctAnswers?.includes(letter);
 
-                          return (
-                            <div key={optIdx} className="annale-option-row">
-                              <button 
-                                type="button"
-                                className={`annale-option-letter-btn ${isCorrect ? 'is-correct' : ''}`}
-                                onClick={() => handleToggleAnswer(qIndex, letter)}
-                                title={isCorrect ? 'Réponse correcte (cliquer pour décocher)' : 'Cliquer pour marquer comme réponse correcte'}
-                              >
-                                {isCorrect ? <Check size={16} /> : letter}
-                              </button>
-                              <input 
-                                type="text"
-                                value={option}
-                                onChange={e => handleOptionTextChange(qIndex, optIdx, e.target.value)}
-                                className={`annale-option-input ${isCorrect ? 'is-correct' : ''}`}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
+                            return (
+                              <div key={optIdx} className="annale-option-row">
+                                <button 
+                                  type="button"
+                                  className={`annale-option-letter-btn ${isCorrect ? 'is-correct' : ''}`}
+                                  onClick={() => handleToggleAnswer(qIndex, letter)}
+                                  title={isCorrect ? 'Réponse correcte (cliquer pour décocher)' : 'Cliquer pour marquer comme réponse correcte'}
+                                >
+                                  {isCorrect ? <Check size={16} /> : letter}
+                                </button>
+                                <input 
+                                  type="text"
+                                  value={option}
+                                  onChange={e => handleOptionTextChange(qIndex, optIdx, e.target.value)}
+                                  className={`annale-option-input ${isCorrect ? 'is-correct' : ''}`}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
 
                     </div>
                   );

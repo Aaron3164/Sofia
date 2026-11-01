@@ -13,6 +13,8 @@ export interface ExtractedQuestion {
   images?: string[];
   explanation?: string;
   pageNumber?: number;
+  type?: 'mcq' | 'open';
+  expectedAnswer?: string;
 }
 
 export interface AnnaleParseResult {
@@ -488,20 +490,17 @@ export function parseAnnaleQuestionsFromText(
         pageImagesCopy.delete(curBlock.pageNumber); // Consumed for this question
       }
 
+      const isMcq = options.length > 0;
       extractedQuestions.push({
         id: crypto.randomUUID(),
         questionNumber: curBlock.questionNumber,
         question: rawQuestionStem.trim() || `Question ${curBlock.questionNumber}`,
-        options: options.length > 0 ? options : [
-          'A. Proposition A',
-          'B. Proposition B',
-          'C. Proposition C',
-          'D. Proposition D',
-          'E. Proposition E'
-        ],
-        correctAnswers: finalCorrectAnswers,
+        options: isMcq ? options : [],
+        type: isMcq ? 'mcq' : 'open',
+        correctAnswers: isMcq ? finalCorrectAnswers : [],
         images: questionImages.length > 0 ? questionImages : undefined,
         explanation: inlineExplanation || undefined,
+        expectedAnswer: !isMcq ? (inlineExplanation || undefined) : undefined,
         pageNumber: curBlock.pageNumber
       });
     }
@@ -611,33 +610,34 @@ export async function parseAnnalePDF(
         }
 
         const rawOptions = Array.isArray(q.options) ? q.options : [];
-        const cleanOptions = rawOptions.map((opt: string, optIdx: number) => {
+        const isExplicitlyOpen = q.type === 'open' || q.type === 'redaction' || q.type === 'qroc';
+        const isMcq = !isExplicitlyOpen && rawOptions.length > 0;
+
+        const cleanOptions = isMcq ? rawOptions.map((opt: string, optIdx: number) => {
           const letter = String.fromCharCode(65 + optIdx);
           let cleaned = String(opt || '').trim();
           cleaned = cleaned.replace(/^[A-Ga-g][\.\)\:\-–—\/\s\]]*/, '').trim();
           cleaned = cleaned.replace(/^[☑■☒☐\[\]xX\s\-\–—\(\)]+/, '').trim();
           return `${letter}. ${cleaned}`;
-        });
+        }) : [];
 
         const rawAnswers = q.correctAnswers || q.correct_answers || [];
-        const cleanAnswers = Array.isArray(rawAnswers) 
-          ? rawAnswers.map((a: any) => String(a).toUpperCase().replace(/[^A-G]/g, '')).filter(Boolean)
-          : parseAnswerLetters(String(rawAnswers));
+        const cleanAnswers = isMcq
+          ? (Array.isArray(rawAnswers) 
+              ? rawAnswers.map((a: any) => String(a).toUpperCase().replace(/[^A-G]/g, '')).filter(Boolean)
+              : parseAnswerLetters(String(rawAnswers)))
+          : [];
 
         return {
           id: crypto.randomUUID(),
           questionNumber: qNum,
+          type: isMcq ? 'mcq' : 'open',
           question: String(q.question || `Question ${qNum}`).trim(),
-          options: cleanOptions.length > 0 ? cleanOptions : [
-            'A. Première proposition',
-            'B. Deuxième proposition',
-            'C. Troisième proposition',
-            'D. Quatrième proposition',
-            'E. Cinquième proposition'
-          ],
+          options: cleanOptions,
           correctAnswers: Array.from(new Set(cleanAnswers)).sort(),
           images: questionImages.length > 0 ? questionImages : undefined,
           explanation: q.explanation ? String(q.explanation).trim() : undefined,
+          expectedAnswer: q.expectedAnswer ? String(q.expectedAnswer).trim() : (q.explanation ? String(q.explanation).trim() : undefined),
           pageNumber: pageNum
         };
       });

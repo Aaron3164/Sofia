@@ -501,27 +501,55 @@ ${documentContext.substring(0, 250000)}`;
   }
 }
 
+export interface OpenQuestionEvaluation {
+  grade: number;
+  maxGrade: number;
+  scorePercentage: number;
+  status: 'correct' | 'partial' | 'incorrect';
+  feedback: string;
+  pointsAcquired: string[];
+  pointsMissing: string[];
+}
+
 /**
  * Intelligent AI parser for complex exam annales (handles inverted question layouts,
- * checkboxes ☑/■, multi-column tables, SIDES/EDN formats, and clinical vignettes).
+ * checkboxes ☑/■, multi-column tables, SIDES/EDN formats, open essay questions / QROC,
+ * and hybrid subjects containing both MCQ and written questions).
  */
 export async function parseAnnaleWithAI(rawPdfText: string): Promise<any[]> {
-  const prompt = `Tu es un assistant expert dans la numérisation et la structuration d'annales d'examens (notamment médicales et universitaires : PASS, LAS, DFGSM, EDN, ECN, etc.).
-Ta mission est d'analyser le texte brut issu d'une annale PDF et de le convertir en une liste structurée de QCM, STRICTEMENT MOT POUR MOT, sans rien inventer, résumer ou modifier.
+  const prompt = `Tu es un assistant expert dans la numérisation et la structuration d'annales d'examens (notamment médicales et universitaires : PASS, LAS, DFGSM, EDN, ECN, droit, prépa, etc.).
+Ta mission est d'analyser le texte brut issu d'une annale PDF et de le convertir en une liste structurée de questions d'examen, STRICTEMENT MOT POUR MOT, sans rien inventer, résumer ou modifier.
+
+IMPORTANT - NATURE DE L'ÉPREUVE (HYBRIDE / QCM / RÉDACTIONNELLE) :
+Les épreuves peuvent être composées :
+- De QCM (Questions à Choix Multiples) avec des propositions (A, B, C, D, E...).
+- De questions rédactionnelles ou ouvertes (QROC, questions à réponse courte, cas cliniques rédigés, questions de cours, sans propositions A-E prédéfinies).
+- D'un mélange HYBRIDE des deux (par exemple des QCM suivis de questions ouvertes, ou des cas progressifs avec des questions rédactionnelles et réciproquement).
+Tu dois IMPÉRATIVEMENT t'adapter et classifier chaque question :
+- Si la question a des propositions à cocher (A, B, C, D, E...) :
+  * "type": "mcq"
+  * "options": ["A. ...", "B. ..."]
+  * "correctAnswers": ["A", "C"] (les lettres des réponses vraies)
+- Si la question est rédactionnelle / ouverte (sans propositions A-E) :
+  * "type": "open"
+  * "options": [] (tableau vide)
+  * "correctAnswers": [] (tableau vide)
+  * "expectedAnswer": contient les éléments de correction, mots-clés ou réponse type trouvée dans le corrigé de l'annale (si présent).
 
 CONSIGNES PARTICULIÈRES SUR LES MISES EN PAGE D'ANNALES :
 1. ORDRE DES QUESTIONS ET PROPOSITIONS :
-   - Dans beaucoup d'annales (comme celle fournie), l'énoncé de la question se trouve parfois EN DESSOUS du tableau des propositions A-E, ou sous l'en-tête "Question X". Identifie correctement l'énoncé complet de la question et associe-le à ses propositions.
+   - Dans beaucoup d'annales (comme celle fournie), l'énoncé de la question se trouve parfois EN DESSOUS du tableau des propositions A-E, ou sous l'en-tête "Question X". Identifie correctement l'énoncé complet de la question et associe-le à ses propositions s'il s'agit d'un QCM.
    - Si un cas clinique ou une mise en situation précède une question (ex: "Un jeune homme de 21 ans est admis en urgence..."), inclus cet énoncé complet dans la question pour que l'étudiant ait tout le contexte.
-2. DÉTECTION DU CORRIGÉ (CASES COCHÉES / SYMBOLES) :
-   - Dans le texte, les cases à cocher indiquent souvent les réponses vraies et fausses :
+2. DÉTECTION DU CORRIGÉ (CASES COCHÉES / SYMBOLES / GRILLES) :
+   - Dans le texte, pour les QCM, les cases à cocher indiquent souvent les réponses vraies et fausses :
      * "☑" ou "[x]" = RÉPONSE VRAIE (cochée)
      * "■" ou "☐" ou "[ ]" = RÉPONSE FAUSSE (décochée / case vide ou noire)
      * "Réponse attendue" = les options cochées sont les réponses correctes.
    - S'il y a une grille de correction ou une ligne "Réponse : AC", utilise-la.
    - Remplis le tableau "correctAnswers" avec les lettres des bonnes réponses (ex: ["A", "C"]).
+   - Pour les questions ouvertes, s'il y a un corrigé ou des mots-clés attendus dans le document, renseigne-les dans "expectedAnswer" ou "explanation".
 3. NETTOYAGE DU TEXTE DES PROPOSITIONS :
-   - Retire les symboles de cases (☑, ■, ☐, , etc.) du texte des propositions pour ne garder que le libellé propre de la proposition.
+   - Pour les QCM, retire les symboles de cases (☑, ■, ☐, , etc.) du texte des propositions pour ne garder que le libellé propre de la proposition.
    - Format de chaque proposition dans "options" : "A. [texte]", "B. [texte]", etc.
 4. PAGES ET NUMÉROS :
    - Note le numéro de page où se trouve la question d'après les repères "--- Page X ---".
@@ -532,6 +560,7 @@ Un tableau JSON d'objets, ou un objet avec la clé "questions" :
 [
   {
     "questionNumber": 1,
+    "type": "mcq", // ou "open" pour les questions rédactionnelles sans choix A-E
     "question": "Énoncé complet mot pour mot de la question...",
     "options": [
       "A. Première proposition",
@@ -539,8 +568,9 @@ Un tableau JSON d'objets, ou un objet avec la clé "questions" :
       "C. Troisième proposition",
       "D. Quatrième proposition",
       "E. Cinquième proposition"
-    ],
-    "correctAnswers": ["A", "C"],
+    ], // [] si type === "open"
+    "correctAnswers": ["A", "C"], // [] si type === "open"
+    "expectedAnswer": "Éléments attendus de la correction (si question rédactionnelle)",
     "pageNumber": 1,
     "hasFigure": false, // Mettre true si et seulement si l'énoncé fait explicitement référence à une figure, schéma, radio, photo, tracé ou image
     "explanation": "..." 
@@ -574,6 +604,100 @@ ${rawPdfText.substring(0, 300000)}`;
   const parsed = JSON.parse(jsonStr);
   const questionsList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
   return questionsList;
+}
+
+/**
+ * Evaluates a student's written response to an open/essay question (QROC, cas clinique, question de cours)
+ * against the expected answer / grading criteria using Sofia IA.
+ */
+export async function evaluateOpenQuestionAnswer(
+  question: string,
+  expectedAnswer: string,
+  userAnswer: string,
+  userPreferences?: any
+): Promise<OpenQuestionEvaluation> {
+  const prefsStr = userPreferences ? (typeof userPreferences === 'object' ? JSON.stringify(userPreferences) : String(userPreferences)) : '';
+  const prompt = `Tu es un professeur et correcteur bienveillant et rigoureux, expert dans l'évaluation des concours et examens universitaires (médecine, sciences, droit, etc.).
+
+Voici une question d'examen, les éléments de correction / critères attendus, et la réponse rédigée par l'étudiant :
+
+QUESTION :
+${question}
+
+CORRIGÉ OFFICIEL / ÉLÉMENTS ATTENDUS :
+${expectedAnswer || "Non fourni dans l'annale. Analyse la réponse de l'étudiant en fonction des connaissances exactes et du consensus scientifique/académique sur cette question."}
+
+RÉPONSE RÉDIGÉE PAR L'ÉTUDIANT :
+${userAnswer ? userAnswer.trim() : "(Aucune réponse rédigée)"}
+
+${prefsStr ? `Préférences de l'étudiant : ${prefsStr}` : ''}
+
+TA MISSION :
+Évalue la réponse rédigée de manière objective, claire et constructive :
+1. Attribue une note ("grade") sur 20.
+2. Calcule le "scorePercentage" (entre 0 et 100).
+3. Détermine le statut :
+   - "correct" si note >= 14/20
+   - "partial" si note entre 8/20 et 13/20
+   - "incorrect" si note < 8/20
+4. Rédige un retour pédagogique ("feedback") synthétique (2 à 4 phrases bienveillantes expliquant ce qui est bon et ce qui doit être approfondi).
+5. "pointsAcquired" : liste des notions, mots-clés ou étapes correctement cités par l'étudiant (puces courtes).
+6. "pointsMissing" : liste des éléments clés manquants, omissions ou inexactitudes par rapport au corrigé (puces courtes).
+
+Format JSON STRICTEMENT ATTENDU :
+{
+  "grade": 15,
+  "maxGrade": 20,
+  "scorePercentage": 75,
+  "status": "correct",
+  "feedback": "Explication pédagogique...",
+  "pointsAcquired": ["Notion A", "Notion B"],
+  "pointsMissing": ["Notion C omise"]
+}`;
+
+  const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [prompt], {
+    responseMimeType: 'application/json',
+    temperature: 0.2
+  });
+
+  let jsonStr = response.text || '{}';
+  const firstBrace = jsonStr.indexOf('{');
+  const lastBrace = jsonStr.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    const parsed = JSON.parse(jsonStr);
+    const grade = typeof parsed.grade === 'number' ? parsed.grade : 10;
+    const maxGrade = typeof parsed.maxGrade === 'number' ? parsed.maxGrade : 20;
+    const scorePercentage = typeof parsed.scorePercentage === 'number' ? parsed.scorePercentage : Math.round((grade / maxGrade) * 100);
+    const status: 'correct' | 'partial' | 'incorrect' = 
+      parsed.status === 'correct' || parsed.status === 'partial' || parsed.status === 'incorrect'
+        ? parsed.status
+        : (grade >= 14 ? 'correct' : (grade >= 8 ? 'partial' : 'incorrect'));
+
+    return {
+      grade,
+      maxGrade,
+      scorePercentage,
+      status,
+      feedback: parsed.feedback || "Évaluation complétée par Sofia IA.",
+      pointsAcquired: Array.isArray(parsed.pointsAcquired) ? parsed.pointsAcquired : [],
+      pointsMissing: Array.isArray(parsed.pointsMissing) ? parsed.pointsMissing : []
+    };
+  } catch (err) {
+    console.error('Erreur parsing evaluation open question:', err);
+    return {
+      grade: 10,
+      maxGrade: 20,
+      scorePercentage: 50,
+      status: 'partial',
+      feedback: response.text || "Évaluation effectuée.",
+      pointsAcquired: [],
+      pointsMissing: []
+    };
+  }
 }
 
 export interface SofiaChatMessage {

@@ -201,6 +201,14 @@ export default function AnnaleDetail() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen]);
 
+  const qcmCount = questions.filter(q => q.type !== 'open' && q.options && q.options.length > 0).length;
+  const openCount = questions.length - qcmCount;
+  const examTabLabel = questions.length === 0 
+    ? 'Épreuve' 
+    : (qcmCount > 0 && openCount > 0 
+        ? 'Épreuve Mixte' 
+        : (openCount > 0 ? 'Épreuve Rédactionnelle' : 'Épreuve (QCM)'));
+
   return (
     <div className={`subject-detail-container ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       
@@ -251,14 +259,14 @@ export default function AnnaleDetail() {
                     color: 'var(--accent-primary)',
                     border: '1px solid rgba(219, 39, 119, 0.3)'
                   }}>
-                    Annale Officielle
+                    {qcmCount > 0 && openCount > 0 ? 'Annale Mixte' : (openCount > 0 ? 'Annale Rédactionnelle' : 'Annale Officielle')}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
                   <Folder size={12} />
                   <span>Dossier : <strong>{parentFolder?.name || 'Bibliothèque'}</strong></span>
                   <span>•</span>
-                  <span>{questions.length} questions extraites</span>
+                  <span>{questions.length} questions {openCount > 0 ? `(${qcmCount} QCM, ${openCount} rédactionnelle${openCount > 1 ? 's' : ''})` : 'extraites'}</span>
                 </div>
               </div>
             </div>
@@ -293,7 +301,7 @@ export default function AnnaleDetail() {
                 }}
               >
                 <GraduationCap size={15} />
-                <span>Épreuve (QCM)</span>
+                <span>{examTabLabel}</span>
               </button>
 
               <button
