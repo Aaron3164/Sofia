@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, Circle, Edit2, Plus, Palette, Trash2, X, Search } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -95,7 +96,7 @@ export default function PlanningCenter() {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column' }}>
       <header className="page-header" style={{ flexShrink: 0 }}>
         <h1>Centre de Planification</h1>
         <p className="subtitle">Plannings d'études, répétitions personnalisées et maîtrise des cours</p>
@@ -301,7 +302,7 @@ export default function PlanningCenter() {
       </div>
 
       {/* Modal: Add course to single day */}
-      {selectedDayForAdd && (
+      {selectedDayForAdd && createPortal(
         <div 
           style={{
             position: 'fixed',
@@ -311,7 +312,7 @@ export default function PlanningCenter() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: 9999,
             padding: '1rem'
           }}
           onClick={() => { setSelectedDayForAdd(null); setCourseSearchQuery(''); }}
@@ -406,11 +407,12 @@ export default function PlanningCenter() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal: Mastery Level & Color Picker */}
-      {colorPickerTargetCourse && (
+      {colorPickerTargetCourse && createPortal(
         <div 
           style={{
             position: 'fixed',
@@ -420,7 +422,7 @@ export default function PlanningCenter() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: 9999,
             padding: '1rem'
           }}
           onClick={() => setColorPickerTargetCourse(null)}
@@ -502,7 +504,8 @@ export default function PlanningCenter() {
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
