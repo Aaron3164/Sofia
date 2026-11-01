@@ -622,14 +622,12 @@ CONSIGNES DE RÉPONSE ET DE MISE EN PAGE STRICTES :
 6. DIRECTE & EFFICACE : Pas de salutations répétitives ni de politesses vides si la conversation est déjà en cours. Réponds avec pertinence, rigueur et élégance.`;
 }
 
-/**
- * Universal SofIA chat outside of specific course restrictions, with optional live Web Search.
- */
 export async function askChatSofia(
   messages: { role: 'user' | 'assistant'; content: string }[],
   options?: {
     useWebSearch?: boolean;
     attachmentContext?: string;
+    coursesContext?: string;
     preferences?: AIPreferences;
   }
 ): Promise<{ text: string; sources?: { title: string; url: string }[] }> {
@@ -641,8 +639,24 @@ export async function askChatSofia(
 
   let basePrompt = `${systemInstruction}\n\n`;
 
+  // 1. PRIORITÉ ABSOLUE : Les polycopiés et cours de l'étudiant
+  if (options?.coursesContext && options.coursesContext.trim()) {
+    basePrompt += `====================================================================
+BIBLIOTHÈQUE DE COURS DE L'ÉTUDIANT (SOURCE DE VÉRITÉ PRIORITAIRE) :
+Ci-dessous se trouvent des extraits pertinents issus des cours et documents PDF importés par l'étudiant.
+
+RÈGLE D'OR DE PRIORITÉ :
+1. Si la question de l'étudiant est traitée dans ces cours, BASE-TOI EN PRIORITÉ ABSOLUE SUR CES DONNÉES. Utilise leurs définitions, classifications et méthodes exactes, et cite explicitement le cours concerné (ex: "[D'après votre cours : Nom Du Cours]").
+2. Si ces cours n'en parlent que partiellement, commence par donner les éléments de son cours puis complète avec tes connaissances externes ou la recherche web.
+3. Si la question n'est PAS traitée dans ces cours ou si ces extraits ne sont pas pertinents pour sa question, utilise alors librement tes connaissances académiques générales et la recherche web pour lui répondre de manière exhaustive et complète.
+====================================================================
+${options.coursesContext.slice(0, 150000)}
+====================================================================\n\n`;
+  }
+
+  // 2. Fichier temporaire joint par l'étudiant dans le chat
   if (options?.attachmentContext && options.attachmentContext.trim()) {
-    basePrompt += `DOCUMENT OU FICHIER JOINT PAR L'ÉTUDIANT :\n"""\n${options.attachmentContext.slice(0, 100000)}\n"""\n\n`;
+    basePrompt += `DOCUMENT SPÉCIFIQUEMENT JOINT DANS CE MESSAGE :\n"""\n${options.attachmentContext.slice(0, 100000)}\n"""\n\n`;
   }
 
   const lastUserMsg = messages[messages.length - 1]?.content || '';

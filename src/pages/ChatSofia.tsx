@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
+import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
+import { supabase } from '../lib/supabase';
 import {
   askChatSofia,
   generateChatTitle,
@@ -71,6 +73,7 @@ const STARTER_PROMPTS = [
 export default function ChatSofia() {
   const { user, profile } = useAuth();
   const { alert, confirm } = useDialog();
+  const { nodes } = useFileSystem();
 
   const storageKey = `sofia_universal_chats_${user?.id || 'guest'}`;
 
@@ -274,10 +277,89 @@ export default function ChatSofia() {
         content: m.content
       }));
 
+      // Retrieve relevant course excerpts from the student's imported PDFs & courses
+      let relevantCoursesContext = '';
+      try {
+        const courseNodes = nodes.filter((n: FileNode) => n.type === 'course');
+        if (courseNodes.length > 0) {
+          // Normalize query tokens for matching
+          const cleanQ = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const tokens = cleanQ.split(/[\s,.'";:!?()\-+/]+/).filter(t => t.length >= 3);
+
+          if (tokens.length > 0) {
+            // Fetch cloud course data
+            const { data: cloudData } = await supabase
+              .from('course_data')
+              .select('course_id, file_name, extracted_content, generations');
+
+            const matchedBlocks: { name: string; text: string; score: number }[] = [];
+
+            for (const node of courseNodes) {
+              const cRow = cloudData?.find(r => r.course_id === node.id);
+              let content = cRow?.extracted_content || '';
+              let resume = cRow?.generations?.resume || '';
+
+              if (!content || !resume) {
+                const local = localStorage.getItem(`aura_subject_${node.id}`);
+                if (local) {
+                  try {
+                    const parsed = JSON.parse(local);
+                    if (!content) content = parsed.extractedContent || '';
+                    if (!resume) resume = parsed.generations?.resume || '';
+                  } catch {}
+                }
+              }
+
+              const combined = `${node.name} ${resume} ${content}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+              let score = 0;
+              for (const token of tokens) {
+                if (combined.includes(token)) score++;
+              }
+
+              if (score > 0) {
+                // Extract snippets around matched tokens
+                const snippetParts: string[] = [];
+                if (resume) snippetParts.push(resume.slice(0, 1500));
+                
+                // Add excerpts from raw content
+                for (const token of tokens) {
+                  const idx = combined.indexOf(token);
+                  if (idx !== -1 && content) {
+                    const start = Math.max(0, idx - 200);
+                    const end = Math.min(content.length, idx + 400);
+                    snippetParts.push(content.substring(start, end));
+                    if (snippetParts.length >= 3) break;
+                  }
+                }
+
+                matchedBlocks.push({
+                  name: node.name,
+                  text: snippetParts.join('\n...\n').slice(0, 4000),
+                  score
+                });
+              }
+            }
+
+            // Sort by relevance score and format
+            matchedBlocks.sort((a, b) => b.score - a.score);
+            const topBlocks = matchedBlocks.slice(0, 5);
+
+            if (topBlocks.length > 0) {
+              relevantCoursesContext = topBlocks.map(b => 
+                `--- COURS : ${b.name} ---\n${b.text}`
+              ).join('\n\n');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not scan user courses for chat context:', err);
+      }
+
       // Call Chat SofIA Universal API
       const result = await askChatSofia(historyToPass, {
         useWebSearch,
         attachmentContext: currentAttachment?.content,
+        coursesContext: relevantCoursesContext,
         preferences: profile?.preferences
       });
 
