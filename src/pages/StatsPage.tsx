@@ -1,28 +1,13 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, GraduationCap, Clock, Plus, Trash2, Folder, FileText, ChevronRight, ChevronDown, UploadCloud, RefreshCw, Paperclip, ExternalLink } from 'lucide-react';
+import { GraduationCap, Clock, Trash2, Folder, FileText, ChevronRight, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
-import { uploadPDF, supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
-type StatTab = 'annales' | 'qcm' | 'time';
-
-interface AnnaleGrade {
-  id: string;
-  folderId?: string; // Change from courseId to folderId
-  subject: string; // Utilisé pour l'Année / Session
-  score: number;
-  date: string;
-  attachments?: string[];
-}
-
-interface AnnaleFolder {
-  id: string;
-  name: string;
-  parentId: string | null;
-}
+type StatTab = 'qcm' | 'time';
 
 interface MCQGrade {
   id: string;
@@ -45,18 +30,8 @@ interface TimeSpent {
 export default function Statistics() {
   const { nodes } = useFileSystem();
   const { profile } = useAuth();
-  const { alert, confirm } = useDialog();
-  const [activeTab, setActiveTab] = useState<StatTab>('annales');
-  
-  // State for Annales
-  const [annales, setAnnales] = useState<AnnaleGrade[]>([]);
-  const [annaleFolders, setAnnaleFolders] = useState<AnnaleFolder[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [newAnnale, setNewAnnale] = useState({ subject: '', score: '', folderId: '' });
-  const [annaleFiles, setAnnaleFiles] = useState<File[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [isAddingFolder, setIsAddingFolder] = useState(false);
+  const { confirm } = useDialog();
+  const [activeTab, setActiveTab] = useState<StatTab>('qcm');
 
   // State for QCM
   const [mcqGrades, setMcqGrades] = useState<MCQGrade[]>([]);
@@ -64,16 +39,12 @@ export default function Statistics() {
 
   // State for Time
   const [timeData, setTimeData] = useState<TimeSpent>({});
-  const [isFormVisible, setIsFormVisible] = useState(false);
 
   // 1. Initial Load & Migration
   useEffect(() => {
     async function loadData() {
       if (!profile) {
         // Local only
-        const annalesStr = localStorage.getItem('aura_annales_grades');
-        if (annalesStr) setAnnales(JSON.parse(annalesStr));
-
         const mcqStr = localStorage.getItem('aura_mcq_grades');
         if (mcqStr) setMcqGrades(JSON.parse(mcqStr));
 
@@ -83,49 +54,10 @@ export default function Statistics() {
       }
 
       // Cloud Fetch
-      const [annalesRes, mcqRes, statsRes, foldersRes] = await Promise.all([
-        supabase.from('annales_grades').select('*').order('date', { ascending: false }),
+      const [mcqRes, statsRes] = await Promise.all([
         supabase.from('mcq_grades').select('*').order('date', { ascending: false }),
-        supabase.from('course_stats').select('*'),
-        supabase.from('annale_folders').select('*')
+        supabase.from('course_stats').select('*')
       ]);
-
-      if (foldersRes.data) {
-        setAnnaleFolders(foldersRes.data.map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          parentId: f.parent_id
-        })));
-      } else {
-        const localFolders = localStorage.getItem('aura_annale_folders');
-        if (localFolders) setAnnaleFolders(JSON.parse(localFolders));
-      }
-
-      // Migration Bridge Logic
-      if (!annalesRes.error && annalesRes.data.length === 0) {
-        const local = localStorage.getItem('aura_annales_grades');
-        if (local) {
-          const parsed = JSON.parse(local);
-          if (parsed.length > 0) {
-            await supabase.from('annales_grades').insert(parsed.map((p: any) => ({ 
-              ...p, 
-              user_id: profile.id,
-              folder_id: p.folderId || p.courseId,
-              attachments: p.attachments || []
-            })));
-            setAnnales(parsed);
-          }
-        }
-      } else if (annalesRes.data) {
-        setAnnales(annalesRes.data.map((a: any) => ({
-          id: a.id,
-          folderId: a.folder_id,
-          subject: a.subject,
-          score: a.score,
-          date: a.date,
-          attachments: a.attachments || []
-        })));
-      }
 
       if (!mcqRes.error && mcqRes.data.length === 0) {
         const local = localStorage.getItem('aura_mcq_grades');
@@ -171,112 +103,6 @@ export default function Statistics() {
     loadData();
   }, [profile, nodes]);
 
-  const handleAddAnnale = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAnnale.subject || !newAnnale.score) {
-      await alert('Veuillez entrer une session et une note.');
-      return;
-    }
-    
-    const scoreNum = parseFloat(newAnnale.score);
-    if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 20) {
-      await alert('La note doit être comprise entre 0 et 20.');
-      return;
-    }
-
-    setIsUploading(true);
-    let attachmentUrls: string[] = [];
-    
-    try {
-      if (annaleFiles.length > 0) {
-        const uploadPromises = annaleFiles.map(file => uploadPDF(file, `annales/${currentFolderId || 'root'}`));
-        const results = await Promise.all(uploadPromises);
-        attachmentUrls = results.filter((url): url is string => url !== null);
-      }
-
-      const newEntry: AnnaleGrade = {
-        id: crypto.randomUUID(),
-        folderId: currentFolderId || undefined,
-        subject: newAnnale.subject,
-        score: scoreNum,
-        date: new Date().toISOString(),
-        attachments: attachmentUrls
-      };
-
-      const updated = [newEntry, ...annales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setAnnales(updated);
-      localStorage.setItem('aura_annales_grades', JSON.stringify(updated));
-      
-      if (profile) {
-        await supabase.from('annales_grades').insert([{ 
-          id: newEntry.id,
-          user_id: profile.id,
-          folder_id: newEntry.folderId,
-          subject: newEntry.subject,
-          score: newEntry.score,
-          date: newEntry.date,
-          attachments: newEntry.attachments
-        }]);
-      }
-      
-      setNewAnnale({ subject: '', score: '', folderId: '' });
-      setAnnaleFiles([]);
-    } catch (error) {
-      console.error('Error adding annale:', error);
-      await alert('Erreur lors du téléchargement des fichiers.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleAddFolder = async () => {
-    if (!newFolderName.trim()) return;
-    
-    const newFolder: AnnaleFolder = {
-      id: crypto.randomUUID(),
-      name: newFolderName,
-      parentId: currentFolderId
-    };
-
-    const updated = [...annaleFolders, newFolder];
-    setAnnaleFolders(updated);
-    localStorage.setItem('aura_annale_folders', JSON.stringify(updated));
-    setNewFolderName('');
-    setIsAddingFolder(false);
-
-    if (profile) {
-      await supabase.from('annale_folders').insert([{
-        id: newFolder.id,
-        user_id: profile.id,
-        name: newFolder.name,
-        parent_id: newFolder.parentId
-      }]);
-    }
-  };
-
-  const handleDeleteFolder = async (folderId: string) => {
-    if (!await confirm('Toutes les annales dans ce dossier deviendront orphelines. Continuer ?')) return;
-
-    const updatedFolders = annaleFolders.filter(f => f.id !== folderId);
-    setAnnaleFolders(updatedFolders);
-    localStorage.setItem('aura_annale_folders', JSON.stringify(updatedFolders));
-    
-    if (profile) {
-      await supabase.from('annale_folders').delete().eq('id', folderId);
-    }
-    
-    if (currentFolderId === folderId) setCurrentFolderId(null);
-  };
-
-  const handleDeleteAnnale = async (id: string) => {
-    const updated = annales.filter(a => a.id !== id);
-    setAnnales(updated);
-    localStorage.setItem('aura_annales_grades', JSON.stringify(updated));
-    if (profile) {
-      await supabase.from('annales_grades').delete().eq('id', id);
-    }
-  };
-
   const handleDeleteQcm = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (await confirm('Voulez-vous vraiment supprimer cet examen blanc de votre historique ?')) {
@@ -291,8 +117,7 @@ export default function Statistics() {
   };
 
   const tabs = [
-    { id: 'annales', label: '🏆 Notes aux Annales' },
-    { id: 'qcm', label: '📝 Examens Blancs (QCM)' },
+    { id: 'qcm', label: '📝 Examens Blancs & Annales (QCM)' },
     { id: 'time', label: '⏱️ Temps passé' },
   ];
 
@@ -324,210 +149,6 @@ export default function Statistics() {
       </div>
 
       <div className="glass-panel" style={{ flex: 1, padding: '2rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        
-        {activeTab === 'annales' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                <BookOpen size={20} className="text-accent" />
-                Vos Notes aux Annales
-              </h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  onClick={() => setIsFormVisible(!isFormVisible)} 
-                  className={`btn ${isFormVisible ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}
-                >
-                  <Plus size={16} style={{ marginRight: '0.5rem' }} /> {isFormVisible ? 'Masquer' : 'Ajouter une Note'}
-                </button>
-                <button 
-                  onClick={() => setIsAddingFolder(true)} 
-                  className="btn btn-outline"
-                  style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}
-                >
-                  <Folder size={16} style={{ marginRight: '0.5rem' }} /> Nouveau Dossier
-                </button>
-              </div>
-            </div>
-
-            {/* Explorateur de Dossiers / Fil d'Ariane */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', padding: '0.75rem 1.25rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.5rem', border: '1px solid var(--border-color)' }}>
-              <button 
-                onClick={() => setCurrentFolderId(null)}
-                style={{ background: 'none', border: 'none', color: !currentFolderId ? 'var(--accent-primary)' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: !currentFolderId ? 700 : 400 }}
-              >
-                Racine
-              </button>
-              {(() => {
-                const getAncestors = (folderId: string): AnnaleFolder[] => {
-                  const folder = annaleFolders.find(f => f.id === folderId);
-                  if (!folder) return [];
-                  if (!folder.parentId) return [folder];
-                  return [...getAncestors(folder.parentId), folder];
-                };
-                const ancestors = currentFolderId ? getAncestors(currentFolderId) : [];
-                return ancestors.map(folder => (
-                  <div key={folder.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <ChevronRight size={14} color="var(--text-secondary)" />
-                    <button 
-                      onClick={() => setCurrentFolderId(folder.id)}
-                      style={{ background: 'none', border: 'none', color: currentFolderId === folder.id ? 'var(--accent-primary)' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: currentFolderId === folder.id ? 700 : 400 }}
-                    >
-                      {folder.name}
-                    </button>
-                  </div>
-                ));
-              })()}
-            </div>
-
-            {isAddingFolder && (
-              <div style={{ display: 'flex', gap: '0.5rem', padding: '1rem', backgroundColor: 'var(--accent-primary)10', borderRadius: '0.5rem', border: '1px solid var(--accent-primary)' }}>
-                <input 
-                  type="text" 
-                  value={newFolderName} 
-                  onChange={e => setNewFolderName(e.target.value)}
-                  placeholder="Nom du dossier..."
-                  className="input"
-                  autoFocus
-                  style={{ flex: 1 }}
-                />
-                <button onClick={handleAddFolder} className="btn btn-primary">Créer</button>
-                <button onClick={() => setIsAddingFolder(false)} className="btn btn-outline">Annuler</button>
-              </div>
-            )}
-
-            {isFormVisible && (
-              <form onSubmit={handleAddAnnale} className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', backgroundColor: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '1rem', border: '2px border-color var(--accent-primary)', borderStyle: 'solid', borderWidth: '1px' }}>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  <div style={{ flex: '1 1 200px' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Session / Matière</label>
-                    <input 
-                      type="text" 
-                      value={newAnnale.subject} 
-                      onChange={e => setNewAnnale(prev => ({ ...prev, subject: e.target.value }))}
-                      placeholder="Ex: 2023 Rattrapage"
-                      className="input"
-                      style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-                    />
-                  </div>
-
-                  <div style={{ flex: '0 0 100px' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Note (/20)</label>
-                    <input 
-                      type="number" 
-                      step="0.5"
-                      value={newAnnale.score} 
-                      onChange={e => setNewAnnale(prev => ({ ...prev, score: e.target.value }))}
-                      placeholder="14.5"
-                      className="input"
-                      style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Fichiers PDF</label>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <input 
-                      type="file" 
-                      multiple 
-                      accept=".pdf"
-                      onChange={e => {
-                        setAnnaleFiles(Array.from(e.target.files || []));
-                        e.target.value = '';
-                      }}
-                      style={{ display: 'none' }}
-                      id="annale-upload"
-                    />
-                    <label 
-                      htmlFor="annale-upload" 
-                      className="btn btn-outline"
-                      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                    >
-                      <UploadCloud size={18} />
-                      {annaleFiles.length > 0 ? `${annaleFiles.length} fichiers` : 'Choisir PDF'}
-                    </label>
-                    
-                    <button 
-                      type="submit" 
-                      className="btn btn-primary" 
-                      disabled={isUploading}
-                      style={{ padding: '0.75rem 1.5rem', marginLeft: 'auto' }}
-                    >
-                      {isUploading ? <RefreshCw size={18} className="spin" /> : <Plus size={18} />}
-                      {isUploading ? 'Chargement...' : `Ajouter à ${currentFolderId ? annaleFolders.find(f => f.id === currentFolderId)?.name : 'la racine'}`}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {(() => {
-                const currentSubFolders = annaleFolders.filter(f => (f.parentId || null) === (currentFolderId || null));
-                const currentAnnales = annales.filter(a => (a.folderId || null) === (currentFolderId || null));
-
-                if (currentSubFolders.length === 0 && currentAnnales.length === 0) {
-                  return (
-                    <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)', border: '2px dashed var(--border-color)', borderRadius: '1rem' }}>
-                      <Folder size={40} style={{ opacity: 0.3, marginBottom: '1rem' }} />
-                      <p>Ce dossier est vide.</p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {currentFolderId && (
-                      <button 
-                        onClick={() => {
-                          const folder = annaleFolders.find(f => f.id === currentFolderId);
-                          setCurrentFolderId(folder?.parentId || null);
-                        }}
-                        className="btn btn-outline"
-                        style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', padding: '0.25rem 0.5rem' }}
-                      >
-                        <ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} /> Retour
-                      </button>
-                    )}
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                      {currentSubFolders.map(f => (
-                        <div 
-                          key={f.id} 
-                          className="hover-lift glass-panel" 
-                          style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', cursor: 'pointer', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '1rem' }}
-                          onClick={() => setCurrentFolderId(f.id)}
-                        >
-                          <Folder size={24} color="var(--accent-primary)" />
-                          <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              {annales.filter(a => a.folderId === f.id).length} notes
-                            </div>
-                          </div>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }} 
-                            className="icon-button delete-btn" 
-                            style={{ padding: '0.3rem', opacity: 0.5 }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {currentAnnales.map(a => (
-                        <AnnaleGradeItem key={a.id} a={a} onDelete={handleDeleteAnnale} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        )}
 
         {activeTab === 'qcm' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -933,45 +554,3 @@ function TimeTreeRoot({ nodes, timeData, formatSeconds }: any) {
     </div>
   );
 }
-
-function AnnaleGradeItem({ a, onDelete }: any) {
-  return (
-    <div className="hover-lift" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '0.5rem', border: '1px solid var(--border-color)' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-        <h4 style={{ margin: 0, fontSize: '1rem' }}>{a.subject}</h4>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            {format(new Date(a.date), 'dd MMMM yyyy', { locale: fr })}
-          </span>
-          {a.attachments && a.attachments.length > 0 && (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {a.attachments.map((url: string, idx: number) => (
-                <button 
-                  key={idx}
-                  onClick={() => window.open(url, '_blank')}
-                  className="btn btn-outline"
-                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', height: 'auto', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                  title="Ouvrir le PDF"
-                >
-                  <Paperclip size={12} />
-                  Doc {idx + 1}
-                  <ExternalLink size={10} />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: a.score >= 10 ? 'var(--success)' : 'var(--danger)' }}>
-          {a.score} / 20
-        </div>
-        <button onClick={() => onDelete(a.id)} className="icon-button delete-btn" style={{ padding: '0.4rem' }}>
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// (Old components removed to simplify code)
