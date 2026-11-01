@@ -228,5 +228,12 @@ export function useFileSystem() {
     }
   };
 
-  return { nodes, isInitialLoad, addNode, deleteNode, getChildren, getNode, renameNode, moveNode, reorderNodes, refreshNodes: loadData };
+  const updateNodeColor = async (id: string, newColor: string) => {
+    setNodes(prev => prev.map(n => n.id === id ? { ...n, color: newColor } : n));
+    if (user) {
+      await supabase.from('nodes').update({ color: newColor }).eq('id', id);
+    }
+  };
+
+  return { nodes, isInitialLoad, addNode, deleteNode, getChildren, getNode, renameNode, moveNode, reorderNodes, updateNodeColor, refreshNodes: loadData };
 }

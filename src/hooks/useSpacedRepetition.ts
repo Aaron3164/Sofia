@@ -170,10 +170,47 @@ export function useSpacedRepetition() {
     }
   };
 
+  const addCourseToDate = async (courseId: string, courseName: string, dateStr: string) => {
+    const newItem: RepetitionItem = {
+      id: crypto.randomUUID(),
+      courseId,
+      courseName,
+      date: dateStr,
+      step: 1,
+      completed: false,
+    };
+
+    setItems(prev => [...prev, newItem].sort((a, b) => a.date.localeCompare(b.date)));
+
+    if (user) {
+      const { error } = await supabase.from('spaced_repetition').insert([{
+        id: newItem.id,
+        user_id: user.id,
+        course_id: newItem.courseId,
+        course_name: newItem.courseName,
+        date: newItem.date,
+        step: newItem.step,
+        completed: newItem.completed
+      }]);
+      if (error) console.error('Error adding course to date:', error);
+    }
+
+    return newItem;
+  };
+
+  const deleteScheduleItem = async (id: string) => {
+    setItems(prev => prev.filter(item => item.id !== id));
+    if (user) {
+      await supabase.from('spaced_repetition').delete().eq('id', id);
+    }
+  };
+
   return { 
     items, 
     loading: isInitialLoad,
     scheduleCourse, 
+    addCourseToDate,
+    deleteScheduleItem,
     markCompleted, 
     updateItemDate,
     getItemsForDate, 

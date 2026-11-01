@@ -1,20 +1,38 @@
 import { useState } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, Circle, Edit2 } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, Circle, Edit2, Plus, Palette, Trash2, X, Search } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
+import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useDialog } from '../context/DialogContext';
 import { useNavigate } from 'react-router-dom';
 import { PomodoroTimer } from '../components/planning/PomodoroTimer';
 
 type PlanMode = 'spaced' | 'pomodoro';
 
+// 5 mastery levels: Red (Not mastered) -> Orange -> Yellow -> Light Green -> Green (Mastered)
+const MASTERY_LEVELS = [
+  { level: 1, label: 'Non maîtrisé', color: '#ef4444', text: '#ffffff' }, // Rouge
+  { level: 2, label: 'En difficulté', color: '#f97316', text: '#ffffff' }, // Orange
+  { level: 3, label: 'En cours', color: '#eab308', text: '#000000' }, // Jaune
+  { level: 4, label: 'Bien assimilé', color: '#84cc16', text: '#000000' }, // Vert clair
+  { level: 5, label: 'Maîtrisé', color: '#10b981', text: '#ffffff' }, // Vert foncé
+];
+
+const DEFAULT_COURSE_COLOR = '#84cc16'; // niveau 4 par défaut ou couleur du cours
+
 export default function PlanningCenter() {
   const [mode, setMode] = useState<PlanMode>('spaced');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const { alert, prompt } = useDialog();
-  const { items, markCompleted, updateItemDate } = useSpacedRepetition();
+  const { alert, prompt, confirm } = useDialog();
+  const { items, markCompleted, updateItemDate, addCourseToDate, deleteScheduleItem } = useSpacedRepetition();
+  const { nodes, updateNodeColor } = useFileSystem();
   const navigate = useNavigate();
+
+  // Modals state
+  const [selectedDayForAdd, setSelectedDayForAdd] = useState<string | null>(null);
+  const [courseSearchQuery, setCourseSearchQuery] = useState('');
+  const [colorPickerTargetCourse, setColorPickerTargetCourse] = useState<{ id: string; name: string; currentColor: string } | null>(null);
 
   const modes = [
     { id: 'spaced', label: '🗓️ Répétition espacée' },
@@ -43,13 +61,44 @@ export default function PlanningCenter() {
     }
   };
 
+  const handleDeleteItem = async (e: React.MouseEvent, item: any) => {
+    e.stopPropagation();
+    if (await confirm(`Retirer "${item.courseName}" de la planification pour ce jour ?`)) {
+      deleteScheduleItem(item.id);
+    }
+  };
+
+  const handleAddCourseSingleDay = (course: FileNode) => {
+    if (!selectedDayForAdd) return;
+    addCourseToDate(course.id, course.name, selectedDayForAdd);
+    setSelectedDayForAdd(null);
+    setCourseSearchQuery('');
+  };
+
+  const handleSetCourseColor = (newColor: string) => {
+    if (!colorPickerTargetCourse) return;
+    updateNodeColor(colorPickerTargetCourse.id, newColor);
+    setColorPickerTargetCourse(null);
+  };
+
+  // Get color for a course (or fallback)
+  const getCourseColor = (courseId: string) => {
+    const node = nodes.find(n => n.id === courseId);
+    return node?.color || DEFAULT_COURSE_COLOR;
+  };
+
+  const allCourses = nodes.filter(n => n.type === 'course');
+  const filteredCourses = allCourses.filter(c => 
+    c.name.toLowerCase().includes(courseSearchQuery.toLowerCase())
+  );
+
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
       <header className="page-header" style={{ flexShrink: 0 }}>
         <h1>Centre de Planification</h1>
-        <p className="subtitle">Plannings d'études et méthodes automatisés par l'IA</p>
+        <p className="subtitle">Plannings d'études, répétitions personnalisées et maîtrise des cours</p>
       </header>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem', flexShrink: 0 }}>
@@ -68,11 +117,24 @@ export default function PlanningCenter() {
       <div className="glass-panel" style={{ padding: '2rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', flexShrink: 0, marginBottom: '2rem' }}>
         {mode === 'spaced' ? (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 0 }}>
-                <CalendarIcon size={20} className="text-accent" />
-                Calendrier des Révisions
-              </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <CalendarIcon size={20} className="text-accent" />
+                  Calendrier des Révisions
+                </h3>
+                {/* Mastery Legend */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Niveau de maîtrise :</span>
+                  {MASTERY_LEVELS.map(m => (
+                    <div key={m.level} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: m.color, display: 'inline-block' }} />
+                      <span style={{ color: 'var(--text-secondary)' }}>{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <button className="icon-button" onClick={prevMonth}><ChevronLeft size={20} /></button>
                 <h4 style={{ minWidth: '150px', textAlign: 'center', textTransform: 'capitalize' }}>
@@ -100,62 +162,123 @@ export default function PlanningCenter() {
                 return (
                   <div 
                     key={idx}
+                    className="day-card"
                     style={{
                       border: isToday ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)',
                       borderRadius: '0.5rem',
                       padding: '0.5rem',
-                      minHeight: '100px',
+                      minHeight: '110px',
                       backgroundColor: isCurrentMonth ? 'var(--bg-secondary)' : 'var(--bg-primary)',
-                      opacity: isCurrentMonth ? 1 : 0.4,
+                      opacity: isCurrentMonth ? 1 : 0.45,
                       display: 'flex',
-                      flexDirection: 'column'
+                      flexDirection: 'column',
+                      position: 'relative'
                     }}
                   >
-                    <div style={{ textAlign: 'right', fontWeight: isToday ? 'bold' : 'normal', marginBottom: '0.5rem' }}>
-                      {format(day, 'd')}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <button
+                        onClick={() => setSelectedDayForAdd(dayStr)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0.15rem 0.35rem',
+                          borderRadius: '0.25rem',
+                          color: 'var(--text-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                          fontSize: '0.65rem'
+                        }}
+                        title={`Ajouter un cours le ${format(day, 'd MMMM', { locale: fr })}`}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--accent-primary)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                      >
+                        <Plus size={12} />
+                        <span>Cours</span>
+                      </button>
+                      <div style={{ fontWeight: isToday ? 'bold' : 'normal', fontSize: '0.85rem' }}>
+                        {format(day, 'd')}
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, overflowY: 'auto' }}>
-                      {dayItems.map(item => (
-                        <div 
-                          key={item.id}
-                          className="hover-lift"
-                          style={{
-                            fontSize: '0.75rem',
-                            padding: '0.4rem',
-                            backgroundColor: item.completed ? 'var(--bg-elevated)' : 'var(--accent-primary)',
-                            color: item.completed ? 'var(--text-secondary)' : 'white',
-                            borderRadius: '0.25rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.35rem',
-                            opacity: item.completed ? 0.6 : 1,
-                            border: item.completed ? '1px solid var(--border-color)' : 'none'
-                          }}
-                          title={`Cours: ${item.courseName} (J+${item.step})`}
-                        >
-                          <button 
-                            style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-                            onClick={(e) => { e.stopPropagation(); markCompleted(item.id, !item.completed); }}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1, overflowY: 'auto' }}>
+                      {dayItems.map(item => {
+                        const courseColor = getCourseColor(item.courseId);
+                        const masteryObj = MASTERY_LEVELS.find(m => m.color.toLowerCase() === courseColor.toLowerCase());
+                        const textColor = item.completed 
+                          ? 'var(--text-secondary)' 
+                          : (masteryObj ? masteryObj.text : '#ffffff');
+
+                        return (
+                          <div 
+                            key={item.id}
+                            className="hover-lift"
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '0.35rem 0.45rem',
+                              backgroundColor: item.completed ? 'var(--bg-elevated)' : courseColor,
+                              color: textColor,
+                              borderRadius: '0.35rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              opacity: item.completed ? 0.6 : 1,
+                              border: item.completed ? '1px solid var(--border-color)' : '1px solid rgba(0,0,0,0.1)',
+                              boxShadow: item.completed ? 'none' : '0 1px 3px rgba(0,0,0,0.15)'
+                            }}
+                            title={`Cours: ${item.courseName} (J+${item.step}) - Cliquer sur la palette pour changer le niveau de maîtrise`}
                           >
-                            {item.completed ? <CheckCircle size={12} /> : <Circle size={12} />}
-                          </button>
-                          <span 
-                            style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, cursor: 'pointer' }}
-                            onClick={() => navigate(`/subject/${item.courseId}`)}
-                          >
-                            {item.courseName}
-                          </span>
-                          <button 
-                            className="reschedule-btn"
-                            style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.6, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                            onClick={(e) => handleReschedule(e, item)}
-                            title="Changer de date"
-                          >
-                            <Edit2 size={10} />
-                          </button>
-                          <span style={{ fontWeight: 'bold', opacity: 0.8, fontSize: '0.65rem' }}>J{item.step}</span>
-                        </div>
-                      ))}
+                            <button 
+                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
+                              onClick={(e) => { e.stopPropagation(); markCompleted(item.id, !item.completed); }}
+                              title={item.completed ? "Marquer non fait" : "Marquer comme révisé"}
+                            >
+                              {item.completed ? <CheckCircle size={12} /> : <Circle size={12} />}
+                            </button>
+                            
+                            <span 
+                              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, cursor: 'pointer', fontWeight: 500 }}
+                              onClick={() => navigate(`/subject/${item.courseId}`)}
+                            >
+                              {item.courseName}
+                            </span>
+
+                            {/* Color / Mastery picker button */}
+                            <button
+                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setColorPickerTargetCourse({ id: item.courseId, name: item.courseName, currentColor: courseColor });
+                              }}
+                              title="Changer le niveau de maîtrise (couleur)"
+                            >
+                              <Palette size={11} />
+                            </button>
+
+                            {/* Reschedule button */}
+                            <button 
+                              className="reschedule-btn"
+                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                              onClick={(e) => handleReschedule(e, item)}
+                              title="Reporter à un autre jour"
+                            >
+                              <Edit2 size={10} />
+                            </button>
+
+                            {/* Delete single day item button */}
+                            <button 
+                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                              onClick={(e) => handleDeleteItem(e, item)}
+                              title="Retirer de ce jour"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+
+                            <span style={{ fontWeight: 'bold', opacity: 0.85, fontSize: '0.65rem', flexShrink: 0 }}>J{item.step}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -176,6 +299,212 @@ export default function PlanningCenter() {
           </>
         )}
       </div>
+
+      {/* Modal: Add course to single day */}
+      {selectedDayForAdd && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem'
+          }}
+          onClick={() => { setSelectedDayForAdd(null); setCourseSearchQuery(''); }}
+        >
+          <div 
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              backgroundColor: 'var(--bg-elevated)',
+              borderRadius: '1rem',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Ajouter un cours au planning</h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Date : {format(new Date(selectedDayForAdd), 'EEEE d MMMM yyyy', { locale: fr })}
+                </p>
+              </div>
+              <button 
+                className="icon-button"
+                onClick={() => { setSelectedDayForAdd(null); setCourseSearchQuery(''); }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+              <input
+                type="text"
+                placeholder="Rechercher un cours..."
+                value={courseSearchQuery}
+                onChange={(e) => setCourseSearchQuery(e.target.value)}
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '0.6rem 0.75rem 0.6rem 2.2rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.9rem'
+                }}
+              />
+            </div>
+
+            <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {filteredCourses.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  {allCourses.length === 0 ? "Aucun cours dans votre bibliothèque." : "Aucun cours correspondant."}
+                </div>
+              ) : (
+                filteredCourses.map(course => {
+                  const color = getCourseColor(course.id);
+                  return (
+                    <div 
+                      key={course.id}
+                      onClick={() => handleAddCourseSingleDay(course)}
+                      className="hover-lift"
+                      style={{
+                        padding: '0.75rem 1rem',
+                        backgroundColor: 'var(--bg-primary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '0.5rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                        <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.9rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {course.name}
+                        </span>
+                      </div>
+                      <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', height: 'auto' }}>
+                        Ajouter
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Mastery Level & Color Picker */}
+      {colorPickerTargetCourse && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem'
+          }}
+          onClick={() => setColorPickerTargetCourse(null)}
+        >
+          <div 
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              backgroundColor: 'var(--bg-elevated)',
+              borderRadius: '1rem',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Niveau de maîtrise du cours</h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {colorPickerTargetCourse.name}
+                </p>
+              </div>
+              <button 
+                className="icon-button"
+                onClick={() => setColorPickerTargetCourse(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Sélectionnez le niveau de maîtrise (du rouge au vert). Cette couleur s'appliquera automatiquement à tous les créneaux de ce cours sur le calendrier.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {MASTERY_LEVELS.map(m => {
+                const isSelected = colorPickerTargetCourse.currentColor.toLowerCase() === m.color.toLowerCase();
+                return (
+                  <button
+                    key={m.level}
+                    onClick={() => handleSetCourseColor(m.color)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.7rem 1rem',
+                      borderRadius: '0.5rem',
+                      border: isSelected ? `2px solid ${m.color}` : '1px solid var(--border-color)',
+                      backgroundColor: isSelected ? 'var(--bg-primary)' : 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span 
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: '50%',
+                        backgroundColor: m.color,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        flexShrink: 0
+                      }} 
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: isSelected ? 700 : 500, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                        Niveau {m.level} — {m.label}
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: m.color }}>Actuel</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
