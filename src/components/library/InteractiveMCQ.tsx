@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { 
   explainMCQErrors, 
   getDailyUsage, 
@@ -58,10 +57,10 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 }) => {
   const { profile } = useAuth();
   
-  // Persistence logic
+  // Persistence logic (Stored in localStorage so completion, answers, and grades persist across page reloads & navigation)
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string[]>>(() => {
     if (courseId) {
-      const saved = sessionStorage.getItem(`aura_mcq_answers_${courseId}`);
+      const saved = localStorage.getItem(`aura_mcq_answers_${courseId}`);
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -69,7 +68,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 
   const [writtenAnswers, setWrittenAnswers] = useState<Record<number, string>>(() => {
     if (courseId) {
-      const saved = sessionStorage.getItem(`aura_mcq_written_${courseId}`);
+      const saved = localStorage.getItem(`aura_mcq_written_${courseId}`);
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -77,7 +76,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 
   const [openEvaluations, setOpenEvaluations] = useState<Record<number, OpenQuestionEvaluation>>(() => {
     if (courseId) {
-      const saved = sessionStorage.getItem(`aura_mcq_open_evals_${courseId}`);
+      const saved = localStorage.getItem(`aura_mcq_open_evals_${courseId}`);
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -85,7 +84,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 
   const [placedPins, setPlacedPins] = useState<Record<number, MarkerPin[]>>(() => {
     if (courseId) {
-      const saved = sessionStorage.getItem(`aura_mcq_pins_${courseId}`);
+      const saved = localStorage.getItem(`aura_mcq_pins_${courseId}`);
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -95,7 +94,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 
   const [labelingEvaluations, setLabelingEvaluations] = useState<Record<number, OpenQuestionEvaluation>>(() => {
     if (courseId) {
-      const saved = sessionStorage.getItem(`aura_mcq_label_evals_${courseId}`);
+      const saved = localStorage.getItem(`aura_mcq_label_evals_${courseId}`);
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -103,7 +102,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 
   const [manualLabelingScores, setManualLabelingScores] = useState<Record<number, number>>(() => {
     if (courseId) {
-      const saved = sessionStorage.getItem(`aura_mcq_label_scores_${courseId}`);
+      const saved = localStorage.getItem(`aura_mcq_label_scores_${courseId}`);
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -113,7 +112,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   
   const [showResults, setShowResults] = useState(() => {
     if (courseId) {
-      return sessionStorage.getItem(`aura_mcq_results_${courseId}`) === 'true';
+      return localStorage.getItem(`aura_mcq_results_${courseId}`) === 'true';
     }
     return false;
   });
@@ -121,7 +120,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   // Detailed corrections state (quoted directly from source)
   const [detailedCorrections, setDetailedCorrections] = useState<Record<number, string>>(() => {
     if (courseId) {
-      const saved = sessionStorage.getItem(`aura_mcq_corrections_${courseId}`);
+      const saved = localStorage.getItem(`aura_mcq_corrections_${courseId}`);
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -143,21 +142,21 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
     return () => window.removeEventListener('ai-usage-updated', refreshUsage);
   }, []);
 
-  // Track changes and save to session
+  // Track changes and save to localStorage
   useEffect(() => {
     if (courseId) {
-      sessionStorage.setItem(`aura_mcq_answers_${courseId}`, JSON.stringify(selectedAnswers));
-      sessionStorage.setItem(`aura_mcq_written_${courseId}`, JSON.stringify(writtenAnswers));
-      sessionStorage.setItem(`aura_mcq_pins_${courseId}`, JSON.stringify(placedPins));
-      sessionStorage.setItem(`aura_mcq_open_evals_${courseId}`, JSON.stringify(openEvaluations));
-      sessionStorage.setItem(`aura_mcq_label_evals_${courseId}`, JSON.stringify(labelingEvaluations));
-      sessionStorage.setItem(`aura_mcq_label_scores_${courseId}`, JSON.stringify(manualLabelingScores));
-      sessionStorage.setItem(`aura_mcq_results_${courseId}`, showResults.toString());
-      sessionStorage.setItem(`aura_mcq_corrections_${courseId}`, JSON.stringify(detailedCorrections));
+      localStorage.setItem(`aura_mcq_answers_${courseId}`, JSON.stringify(selectedAnswers));
+      localStorage.setItem(`aura_mcq_written_${courseId}`, JSON.stringify(writtenAnswers));
+      localStorage.setItem(`aura_mcq_pins_${courseId}`, JSON.stringify(placedPins));
+      localStorage.setItem(`aura_mcq_open_evals_${courseId}`, JSON.stringify(openEvaluations));
+      localStorage.setItem(`aura_mcq_label_evals_${courseId}`, JSON.stringify(labelingEvaluations));
+      localStorage.setItem(`aura_mcq_label_scores_${courseId}`, JSON.stringify(manualLabelingScores));
+      localStorage.setItem(`aura_mcq_results_${courseId}`, showResults.toString());
+      localStorage.setItem(`aura_mcq_corrections_${courseId}`, JSON.stringify(detailedCorrections));
     }
   }, [selectedAnswers, writtenAnswers, placedPins, openEvaluations, labelingEvaluations, manualLabelingScores, showResults, detailedCorrections, courseId]);
 
-  // Ref to track actual data content and avoid wiping session storage on reference change
+  // Ref to track actual data content and avoid wiping localStorage on re-render
   const prevDataStrRef = useRef<string>('');
 
   // Reset state ONLY on genuine new generation/content change
@@ -180,14 +179,14 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
       setDetailedCorrections({});
       setShowDetailedPanel(false);
       if (courseId) {
-        sessionStorage.removeItem(`aura_mcq_answers_${courseId}`);
-        sessionStorage.removeItem(`aura_mcq_written_${courseId}`);
-        sessionStorage.removeItem(`aura_mcq_pins_${courseId}`);
-        sessionStorage.removeItem(`aura_mcq_open_evals_${courseId}`);
-        sessionStorage.removeItem(`aura_mcq_label_evals_${courseId}`);
-        sessionStorage.removeItem(`aura_mcq_label_scores_${courseId}`);
-        sessionStorage.removeItem(`aura_mcq_results_${courseId}`);
-        sessionStorage.removeItem(`aura_mcq_corrections_${courseId}`);
+        localStorage.removeItem(`aura_mcq_answers_${courseId}`);
+        localStorage.removeItem(`aura_mcq_written_${courseId}`);
+        localStorage.removeItem(`aura_mcq_pins_${courseId}`);
+        localStorage.removeItem(`aura_mcq_open_evals_${courseId}`);
+        localStorage.removeItem(`aura_mcq_label_evals_${courseId}`);
+        localStorage.removeItem(`aura_mcq_label_scores_${courseId}`);
+        localStorage.removeItem(`aura_mcq_results_${courseId}`);
+        localStorage.removeItem(`aura_mcq_corrections_${courseId}`);
       }
     }
   }, [data, courseId]);
@@ -501,24 +500,11 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
         selectedAnswers
       };
 
-      if (profile) {
-        await supabase.from('mcq_grades').insert([{
-          id: newGrade.id,
-          user_id: profile.id,
-          course_id: newGrade.courseId,
-          course_name: newGrade.courseName,
-          score: newGrade.score,
-          total: newGrade.total,
-          date: newGrade.date,
-          mcqs: newGrade.mcqs,
-          selected_answers: newGrade.selectedAnswers
-        }]);
-      } else {
-        const savedStr = localStorage.getItem('aura_mcq_grades');
-        const saved = savedStr ? JSON.parse(savedStr) : [];
-        saved.push(newGrade);
-        localStorage.setItem('aura_mcq_grades', JSON.stringify(saved));
-      }
+      // Save locally to aura_mcq_grades for statistics
+      const savedStr = localStorage.getItem('aura_mcq_grades');
+      const saved = savedStr ? JSON.parse(savedStr) : [];
+      saved.push(newGrade);
+      localStorage.setItem('aura_mcq_grades', JSON.stringify(saved));
     }
   };
 
