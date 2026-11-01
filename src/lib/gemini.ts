@@ -156,20 +156,30 @@ function getCacheKey(prefix: string, content: string): string {
   return `${prefix}_${(hash >>> 0).toString(36)}`;
 }
 
+export interface CourseSchemaInput {
+  id: string; // e.g. "FIGURE_1"
+  url: string; // Base64 data URL
+  pageNumber: number;
+}
+
 /**
- * Uploads a file (or passes the URI) to Gemini and generates flashcards.
+ * Uploads a file (or passes the URI) to Gemini and generates flashcards, MCQs, or an exhaustive summary.
+ * If schemas are provided, passes them multimodally in chronological page order so Sofia can inspect and
+ * re-insert important diagrams into the summary with ![Légende](FIGURE_X).
  */
 export async function generateStudyMaterials(
   promptContext: string,
   mode: 'flashcards' | 'mcq' | 'resume',
   prefs?: AIPreferences,
   cardCount?: number,
-  customInstructions?: string
+  customInstructions?: string,
+  schemas?: CourseSchemaInput[]
 ): Promise<string> {
   await ensureQuota();
   const systemInstruction = getSystemInstruction(prefs);
 
   const randomSeed = Math.random().toString(36).substring(7);
+  const hasSchemas = Boolean(schemas && schemas.length > 0);
 
   const prompts = {
     flashcards: `[Session unique: ${randomSeed}] Crée exactement ${cardCount || 30} flashcards de révision à partir de ce texte. Extraie les concepts, détails et définitions les plus importants sans faire de doublons ni de répétitions. Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte.
@@ -181,11 +191,18 @@ CONSIGNE VERSO (back) : Les réponses doivent rester CONCISES (entre 2 et 15 mot
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "front" (question) et "back" (réponse).`,
     mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "question", "options" (tableau de 4 ou 5 chaînes), et "correctAnswers" (tableau contenant les réponses exactes).`,
-    resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du texte fourni. 
+    resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du cours fourni. 
     
-CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le texte section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
+CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le cours section par section, paragraphe par paragraphe. Si une information est dans le texte ou les schémas, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
 
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. COMMENCE IMMÉDIATEMENT PAR LE TITRE DU RÉSUMÉ OU LE PREMIER CHAPITRE. 
+
+${hasSchemas ? `RÈGLE CRITIQUE D'INTÉGRATION DES SCHÉMAS ET ILLUSTRATIONS DU COURS :
+Tu as reçu les schémas, diagrammes, graphiques et illustrations clés du document, insérés chronologiquement avec leur identifiant (ex: FIGURE_1, FIGURE_2...).
+Si tu juges qu'un schéma extrait est pédagogiquement important, éclairant ou incontournable pour illustrer une notion ou une section de ton résumé, INSÈRE-LE DIRECTEMENT dans ton texte à l'endroit exact le plus pertinent avec la syntaxe Markdown suivante :
+![Légende explicative détaillée du schéma](FIGURE_X)
+(en remplaçant FIGURE_X par l'identifiant exact fourni).
+Ne crée pas de fausses figures ou d'identifiants fictifs. Réinsère les schémas véritablement utiles pour la clarté et la mémorisation de l'étudiant.` : ''}
 
 Consignes de formatage strictes :
 - Utilise '# ', '## ', '### ', '#### ' pour la structure hiérarchique.
@@ -198,23 +215,109 @@ Consignes de formatage strictes :
 Rédige tout en français de manière extrêmement précise, complète et académique.`
   };
 
-  let fullPrompt = `${systemInstruction}${prompts[mode]}\n\nContent Context:\n${promptContext}`;
+  let fullPromptHeader = `${systemInstruction}${prompts[mode]}`;
   
   if (customInstructions && customInstructions.trim().length > 0) {
-    fullPrompt += `\n\nCONSIGNE COMPLÉMENTAIRE DE L'ÉTUDIANT : Tout en respectant à 100% le prompt principal ci-dessus et en balayant l'ensemble du cours, accorde un soin, une profondeur et une densité légèrement supérieures aux notions, consignes ou mots-clés suivants : ${customInstructions.trim()}.`;
+    fullPromptHeader += `\n\nCONSIGNE COMPLÉMENTAIRE DE L'ÉTUDIANT : Tout en respectant à 100% le prompt principal ci-dessus et en balayant l'ensemble du cours, accorde un soin, une profondeur et une densité légèrement supérieures aux notions, consignes ou mots-clés suivants : ${customInstructions.trim()}.`;
 
     const isClinicalRequested = /cas clinique|scénario|scenario|histoire|énoncé|enoncé|patient|mise en situation/i.test(customInstructions);
     if (mode === 'mcq' && isClinicalRequested) {
-      fullPrompt += `\n\nFORMAT SPÉCIFIQUE CAS CLINIQUE : Puisque la consigne de l'étudiant demande un cas clinique ou un énoncé fictif, rédige l'énoncé complet du cas clinique dans une propriété "scenario" à la racine de ton JSON, et place les questions dans la propriété "questions". Format attendu : {"scenario": "Texte complet de l'énoncé...", "questions": [...]}`;
+      fullPromptHeader += `\n\nFORMAT SPÉCIFIQUE CAS CLINIQUE : Puisque la consigne de l'étudiant demande un cas clinique ou un énoncé fictif, rédige l'énoncé complet du cas clinique dans une propriété "scenario" à la racine de ton JSON, et place les questions dans la propriété "questions". Format attendu : {"scenario": "Texte complet de l'énoncé...", "questions": [...]}`;
     }
   }
 
   const isJSON = mode === 'flashcards' || mode === 'mcq';
 
+  // Build request contents (multimodal if schemas are present)
+  let requestContents: any[];
+
+  if (hasSchemas && schemas) {
+    const parts: any[] = [];
+    parts.push({ text: `${fullPromptHeader}\n\nDOCUMENT DE COURS COMPLET (TEXTE ET SCHÉMAS PAR ORDRE CHRONOLOGIQUE) :\n` });
+
+    // Group schemas by pageNumber for chronological interleaving
+    const schemasByPage = new Map<number, CourseSchemaInput[]>();
+    schemas.forEach(s => {
+      const list = schemasByPage.get(s.pageNumber) || [];
+      list.push(s);
+      schemasByPage.set(s.pageNumber, list);
+    });
+
+    // Check if promptContext is structured with "--- Page X ---"
+    const pageSplits = promptContext.split(/(?=--- Page \d+ ---)/g);
+
+    if (pageSplits.length > 1) {
+      for (const section of pageSplits) {
+        const pageMatch = section.match(/--- Page (\d+) ---/);
+        const pageNum = pageMatch ? parseInt(pageMatch[1], 10) : null;
+
+        parts.push({ text: section });
+
+        if (pageNum && schemasByPage.has(pageNum)) {
+          const pageSchemas = schemasByPage.get(pageNum)!;
+          for (const s of pageSchemas) {
+            const commaIdx = s.url.indexOf(',');
+            const base64Data = commaIdx !== -1 ? s.url.substring(commaIdx + 1) : s.url;
+            const mimeMatch = s.url.match(/^data:([^;]+);/);
+            const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+            parts.push({ text: `\n[Schéma extrait du cours - Page ${pageNum} - Identifiant: ${s.id}]\n` });
+            parts.push({
+              inlineData: {
+                mimeType,
+                data: base64Data
+              }
+            });
+          }
+          schemasByPage.delete(pageNum);
+        }
+      }
+
+      // Any remaining schemas that didn't match a page header
+      schemasByPage.forEach((remainingList, pageNum) => {
+        for (const s of remainingList) {
+          const commaIdx = s.url.indexOf(',');
+          const base64Data = commaIdx !== -1 ? s.url.substring(commaIdx + 1) : s.url;
+          const mimeMatch = s.url.match(/^data:([^;]+);/);
+          const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+          parts.push({ text: `\n[Schéma extrait du cours - Page ${pageNum} - Identifiant: ${s.id}]\n` });
+          parts.push({
+            inlineData: {
+              mimeType,
+              data: base64Data
+            }
+          });
+        }
+      });
+    } else {
+      // Single continuous text: add text then all schemas in order
+      parts.push({ text: promptContext });
+      for (const s of schemas) {
+        const commaIdx = s.url.indexOf(',');
+        const base64Data = commaIdx !== -1 ? s.url.substring(commaIdx + 1) : s.url;
+        const mimeMatch = s.url.match(/^data:([^;]+);/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+        parts.push({ text: `\n[Schéma extrait du cours - Page ${s.pageNumber} - Identifiant: ${s.id}]\n` });
+        parts.push({
+          inlineData: {
+            mimeType,
+            data: base64Data
+          }
+        });
+      }
+    }
+
+    requestContents = [{ role: 'user', parts }];
+  } else {
+    requestContents = [`${fullPromptHeader}\n\nContent Context:\n${promptContext}`];
+  }
+
   try {
     const response = await callGeminiProxy(
       'models/gemini-3.5-flash-lite',
-      [fullPrompt],
+      requestContents,
       {
         temperature: mode === 'resume' ? 0.2 : 0.7,
         responseMimeType: isJSON ? 'application/json' : undefined
@@ -222,6 +325,23 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
     );
     
     let generatedText = response.text || '';
+
+    // In resume mode, replace FIGURE_X with actual data URL so the image renders directly
+    if (mode === 'resume' && hasSchemas && schemas) {
+      const schemaMap = new Map<string, string>();
+      schemas.forEach(s => {
+        schemaMap.set(s.id.toUpperCase(), s.url);
+      });
+
+      generatedText = generatedText.replace(/!\[(.*?)\]\((FIGURE_?\d+)\)/gi, (match, alt, rawFigId) => {
+        const normId = rawFigId.toUpperCase().replace('_0', '_');
+        const url = schemaMap.get(normId) || schemaMap.get(rawFigId.toUpperCase());
+        if (url) {
+          return `![${alt}](${url})`;
+        }
+        return match;
+      });
+    }
     
     if (isJSON) {
       // Robust JSON extraction: look for either { or [

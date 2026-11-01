@@ -190,12 +190,29 @@ export function exportContentToPDF({ title, subtitle, htmlContent, markdownConte
           color: #1e293b;
         }
 
-        .sheet-body img {
-          max-width: 100%;
-          height: auto;
-          margin: 10px 0;
-          border-radius: 6px;
+        .sheet-body figure, .sheet-body .resume-figure {
+          margin: 14px auto;
+          text-align: center;
           page-break-inside: avoid;
+        }
+
+        .sheet-body img {
+          max-width: 80%;
+          max-height: 380px;
+          height: auto;
+          margin: 0 auto;
+          display: block;
+          border-radius: 6px;
+          border: 1px solid #cbd5e1;
+          page-break-inside: avoid;
+        }
+
+        .sheet-body figcaption {
+          font-size: 8.5pt;
+          color: #64748b;
+          margin-top: 5px;
+          font-style: italic;
+          text-align: center;
         }
 
         .footer-sheet {

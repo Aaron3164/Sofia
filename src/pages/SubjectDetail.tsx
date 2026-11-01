@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
-import { extractTextFromPDF, checkPDFPageCount } from '../lib/pdf-extractor';
+import { checkPDFPageCount, extractCourseContentFromPDF } from '../lib/pdf-extractor';
 import { InteractiveMCQ } from '../components/library/InteractiveMCQ';
 import { InteractiveFlashcard } from '../components/library/InteractiveFlashcard';
 import { InteractiveQA } from '../components/library/InteractiveQA';
@@ -45,8 +45,8 @@ export default function SubjectDetail() {
   const [flashcardCount, setFlashcardCount] = useState<number>(30);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [generations, setGenerations] = useState<Record<GenerationTab, string | null>>({
-    flashcards: null, mcq: null, explications: null, resume: null
+  const [generations, setGenerations] = useState<Record<string, any>>({
+    flashcards: null, mcq: null, explications: null, resume: null, extracted_images: []
   });
   const [naiveAttachments, setNaiveAttachments] = useState<{ id: string, name: string, url: string }[]>([]);
   const [isUploadingNaive, setIsUploadingNaive] = useState(false);
@@ -349,7 +349,7 @@ export default function SubjectDetail() {
     
     try {
       // Execute upload to cloud and text extraction safely
-      const [url, text] = await Promise.all([
+      const [url, extractedData] = await Promise.all([
         (async () => {
           try {
             const res = await uploadPDF(selected, id || 'general');
@@ -365,22 +365,31 @@ export default function SubjectDetail() {
             return null;
           }
         })(),
-        extractTextFromPDF(selected, (current, total) => {
+        extractCourseContentFromPDF(selected, (current, total) => {
           setExtractionProgress({ current, total });
         }).catch(err => {
           console.error('Extraction error:', err);
-          return 'Erreur d\'extraction du texte du PDF.';
+          return { text: 'Erreur d\'extraction du texte du PDF.', schemas: [] };
         })
       ]);
       
       const finalPdfUrl = url || localUrl;
+      const text = typeof extractedData === 'string' ? extractedData : extractedData.text;
+      const schemas = typeof extractedData === 'object' && extractedData.schemas ? extractedData.schemas : [];
+
       setPdfUrl(finalPdfUrl);
       setExtractedContent(text);
+
+      const updatedGenerations = {
+        ...generations,
+        extracted_images: schemas
+      };
+      setGenerations(updatedGenerations);
 
       // Save to Local Storage Buffer immediately (Backup)
       localStorage.setItem(storageKey, JSON.stringify({
         extractedContent: text,
-        generations,
+        generations: updatedGenerations,
         pdfUrl: finalPdfUrl,
         fileName: selected.name
       }));
@@ -390,7 +399,8 @@ export default function SubjectDetail() {
         await saveToCloud({ 
           pdf_url: url || undefined, 
           extracted_content: text, 
-          file_name: selected.name 
+          file_name: selected.name,
+          generations: updatedGenerations
         });
       }
       
@@ -464,12 +474,14 @@ export default function SubjectDetail() {
     setIsGenerating(true);
     try {
       if (activeTab === 'flashcards' || activeTab === 'mcq' || activeTab === 'resume') {
+        const courseSchemas = generations?.extracted_images || [];
         const result = await generateStudyMaterials(
           extractedContent.substring(0, 300000), 
           activeTab,
           profile?.preferences,
           activeTab === 'flashcards' ? flashcardCount : undefined,
-          customInstructions
+          customInstructions,
+          courseSchemas
         );
         const newGenerations = { 
           ...generations, 

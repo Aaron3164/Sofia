@@ -1,7 +1,19 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import { compressImage } from './image-utils';
 
 // Set up the worker path using CDN with explicit https to avoid HTTP/HTTPS CORS issues
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+export interface ExtractedCourseSchema {
+  id: string; // e.g. "FIGURE_1", "FIGURE_2"
+  url: string; // Base64 data URL
+  pageNumber: number;
+}
+
+export interface ExtractedCourseData {
+  text: string;
+  schemas: ExtractedCourseSchema[];
+}
 
 function isItemBold(item: any, styles: any): boolean {
   if (!item) return false;
@@ -84,11 +96,231 @@ export async function checkPDFPageCount(file: File | Blob | ArrayBuffer, maxAllo
   return pageCount;
 }
 
-export async function extractTextFromPDF(
-  file: File | Blob | ArrayBuffer, 
+/**
+ * Filter out non-illustration graphics such as solid black background bars,
+ * header lines, solid white boxes, or decoration borders.
+ */
+function isValidDocumentIllustration(canvas: HTMLCanvasElement, _imgObj?: any): boolean {
+  const w = canvas.width;
+  const h = canvas.height;
+
+  if (w < 100 || h < 100) return false;
+
+  // Reject extreme aspect ratios (lines, thin banners, table borders)
+  const ratio = w / h;
+  if (ratio > 5.5 || ratio < 0.18) return false;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return false;
+
+  try {
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    const totalPixels = w * h;
+
+    // Sample up to 800 pixels evenly spaced
+    const step = Math.max(1, Math.floor(totalPixels / 800));
+    let rSum = 0, gSum = 0, bSum = 0;
+    let count = 0;
+
+    for (let i = 0; i < data.length; i += step * 4) {
+      rSum += data[i];
+      gSum += data[i + 1];
+      bSum += data[i + 2];
+      count++;
+    }
+
+    if (count === 0) return false;
+
+    const rAvg = rSum / count;
+    const gAvg = gSum / count;
+    const bAvg = bSum / count;
+
+    let varianceSum = 0;
+    let colorfulOrMidtones = 0;
+
+    for (let i = 0; i < data.length; i += step * 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const diff = Math.abs(r - rAvg) + Math.abs(g - gAvg) + Math.abs(b - bAvg);
+      varianceSum += diff;
+
+      // Count pixels that are NOT pure black (<15) and NOT pure white (>240)
+      if ((r > 15 || g > 15 || b > 15) && (r < 240 || g < 240 || b < 240)) {
+        colorfulOrMidtones++;
+      }
+    }
+
+    const avgVariance = varianceSum / count;
+
+    // If average variance is very low, it's a solid rectangle (solid black header, solid gray fill, etc.)
+    if (avgVariance < 16) {
+      return false;
+    }
+
+    // If virtually all pixels are pure solid black or pure white with no gradient/details
+    if ((colorfulOrMidtones / count) < 0.05 && avgVariance < 28) {
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Extracts all embedded images from a PDF page using PDF.js operator lists and objects.
+ */
+async function extractImagesFromPage(
+  page: any,
+  pageNumber: number,
+  startIndex: number,
+  maxAllowed: number
+): Promise<ExtractedCourseSchema[]> {
+  const schemas: ExtractedCourseSchema[] = [];
+  if (maxAllowed <= 0) return schemas;
+
+  try {
+    const ops = await page.getOperatorList();
+    const imageObjIds: string[] = [];
+
+    // Find all paintImage operator calls
+    for (let i = 0; i < ops.fnArray.length; i++) {
+      const fn = ops.fnArray[i];
+      if (
+        fn === (pdfjsLib as any).OPS.paintImageXObject ||
+        fn === (pdfjsLib as any).OPS.paintInlineImageXObject
+      ) {
+        const objId = ops.argsArray[i]?.[0];
+        if (objId && typeof objId === 'string' && !imageObjIds.includes(objId)) {
+          imageObjIds.push(objId);
+        }
+      }
+    }
+
+    // Resolve each image object
+    for (const objId of imageObjIds) {
+      if (schemas.length >= maxAllowed) break;
+
+      try {
+        const imgObj = await new Promise<any>((resolve) => {
+          let resolved = false;
+
+          const check = (obj: any) => {
+            if (!resolved && obj) {
+              resolved = true;
+              resolve(obj);
+            }
+          };
+
+          if (page.objs && typeof page.objs.get === 'function') {
+            try {
+              page.objs.get(objId, check);
+            } catch {}
+          }
+
+          if (page.commonObjs && typeof page.commonObjs.get === 'function') {
+            try {
+              page.commonObjs.get(objId, check);
+            } catch {}
+          }
+
+          setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              resolve(null);
+            }
+          }, 1500);
+        });
+
+        if (!imgObj || imgObj.isMask || imgObj.mask) continue;
+
+        const width = imgObj.width || 0;
+        const height = imgObj.height || 0;
+        if (width < 100 || height < 100) continue;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) continue;
+
+        if (imgObj.bitmap && typeof ctx.drawImage === 'function') {
+          ctx.drawImage(imgObj.bitmap, 0, 0);
+        } else if (imgObj.data) {
+          const dataLen = imgObj.data.length;
+          let imgData: ImageData | null = null;
+
+          if (dataLen === width * height * 4) {
+            imgData = new ImageData(new Uint8ClampedArray(imgObj.data), width, height);
+          } else if (dataLen === width * height * 3) {
+            const rgba = new Uint8ClampedArray(width * height * 4);
+            let p = 0;
+            for (let k = 0; k < dataLen; k += 3) {
+              rgba[p++] = imgObj.data[k];
+              rgba[p++] = imgObj.data[k + 1];
+              rgba[p++] = imgObj.data[k + 2];
+              rgba[p++] = 255;
+            }
+            imgData = new ImageData(rgba, width, height);
+          } else if (dataLen === width * height) {
+            const rgba = new Uint8ClampedArray(width * height * 4);
+            let p = 0;
+            for (let k = 0; k < dataLen; k++) {
+              const val = imgObj.data[k];
+              rgba[p++] = val;
+              rgba[p++] = val;
+              rgba[p++] = val;
+              rgba[p++] = 255;
+            }
+            imgData = new ImageData(rgba, width, height);
+          }
+
+          if (imgData) {
+            ctx.putImageData(imgData, 0, 0);
+          } else {
+            continue;
+          }
+        } else {
+          continue;
+        }
+
+        // Verify that this is a genuine illustration and not a solid black box or background banner
+        if (!isValidDocumentIllustration(canvas, imgObj)) {
+          continue;
+        }
+
+        const rawDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        // Compress image to ensure lightweight payload
+        const compressed = await compressImage(rawDataUrl, 850, 850, 0.78);
+        const figId = `FIGURE_${startIndex + schemas.length + 1}`;
+        schemas.push({
+          id: figId,
+          url: compressed,
+          pageNumber
+        });
+      } catch (err) {
+        console.warn(`Could not extract image ${objId} on page ${pageNumber}:`, err);
+      }
+    }
+  } catch (err) {
+    console.warn(`Error scanning images on page ${pageNumber}:`, err);
+  }
+
+  return schemas;
+}
+
+/**
+ * Extracts both text and genuine course schemas/illustrations page by page in exact chronological order.
+ */
+export async function extractCourseContentFromPDF(
+  file: File | Blob | ArrayBuffer,
   onProgress?: (current: number, total: number) => void,
-  options?: { maxPages?: number }
-): Promise<string> {
+  options?: { maxPages?: number; maxSchemas?: number }
+): Promise<ExtractedCourseData> {
   try {
     const arrayBuffer = file instanceof ArrayBuffer ? file : await (file as Blob).arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -97,81 +329,104 @@ export async function extractTextFromPDF(
     if (options?.maxPages && numPages > options.maxPages) {
       throw new Error(`Le fichier PDF dépasse la limite de ${options.maxPages} pages (${numPages} pages détectées). Veuillez sélectionner un document plus court ou l'importer via Google Drive.`);
     }
+
     const allPageTexts: string[] = new Array(numPages);
-    
-    // Process in batches to avoid memory/CPU saturation
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < numPages; i += BATCH_SIZE) {
-      const batch = [];
-      for (let j = i; j < Math.min(i + BATCH_SIZE, numPages); j++) {
-        batch.push((async (pageIdx: number) => {
-          const page = await pdf.getPage(pageIdx + 1);
-          const content = await page.getTextContent();
-          const items = (content.items || []) as any[];
-          const styles = content.styles || {};
+    const allSchemas: ExtractedCourseSchema[] = [];
+    const MAX_TOTAL_SCHEMAS = options?.maxSchemas || 25;
 
-          let pageText = '';
-          let inBold = false;
-          let boldBuffer = '';
+    // Process page by page in sequential order to guarantee chronological schema numbering and order
+    for (let pageIdx = 0; pageIdx < numPages; pageIdx++) {
+      const pageNum = pageIdx + 1;
+      const page = await pdf.getPage(pageNum);
 
-          for (let k = 0; k < items.length; k++) {
-            const item = items[k];
-            if (!item || typeof item.str !== 'string') continue;
+      // 1. Text extraction with bold formatting
+      const content = await page.getTextContent();
+      const items = (content.items || []) as any[];
+      const styles = content.styles || {};
 
-            const str = item.str;
-            if (!str && !item.hasEOL) continue;
+      let pageText = '';
+      let inBold = false;
+      let boldBuffer = '';
 
-            const isBold = isItemBold(item, styles);
+      for (let k = 0; k < items.length; k++) {
+        const item = items[k];
+        if (!item || typeof item.str !== 'string') continue;
 
-            if (isBold) {
-              if (!inBold) {
-                inBold = true;
-                boldBuffer = str;
-              } else {
-                boldBuffer = appendWithSmartSpace(boldBuffer, str);
-              }
-            } else {
-              if (inBold) {
-                const formatted = formatBoldChunk(boldBuffer);
-                pageText = appendWithSmartSpace(pageText, formatted);
-                inBold = false;
-                boldBuffer = '';
-              }
+        const str = item.str;
+        if (!str && !item.hasEOL) continue;
 
-              if (str) {
-                pageText = appendWithSmartSpace(pageText, str);
-              }
-            }
+        const isBold = isItemBold(item, styles);
 
-            if (item.hasEOL) {
-              if (inBold) {
-                const formatted = formatBoldChunk(boldBuffer);
-                pageText = appendWithSmartSpace(pageText, formatted);
-                inBold = false;
-                boldBuffer = '';
-              }
-              if (!pageText.endsWith('\n')) {
-                pageText += '\n';
-              }
-            }
+        if (isBold) {
+          if (!inBold) {
+            inBold = true;
+            boldBuffer = str;
+          } else {
+            boldBuffer = appendWithSmartSpace(boldBuffer, str);
           }
-
+        } else {
           if (inBold) {
             const formatted = formatBoldChunk(boldBuffer);
             pageText = appendWithSmartSpace(pageText, formatted);
+            inBold = false;
+            boldBuffer = '';
           }
 
-          allPageTexts[pageIdx] = `--- Page ${pageIdx + 1} ---\n${pageText.trim()}\n\n`;
-          if (onProgress) onProgress(pageIdx + 1, numPages);
-        })(j));
+          if (str) {
+            pageText = appendWithSmartSpace(pageText, str);
+          }
+        }
+
+        if (item.hasEOL) {
+          if (inBold) {
+            const formatted = formatBoldChunk(boldBuffer);
+            pageText = appendWithSmartSpace(pageText, formatted);
+            inBold = false;
+            boldBuffer = '';
+          }
+          if (!pageText.endsWith('\n')) {
+            pageText += '\n';
+          }
+        }
       }
-      await Promise.all(batch);
+
+      if (inBold) {
+        const formatted = formatBoldChunk(boldBuffer);
+        pageText = appendWithSmartSpace(pageText, formatted);
+      }
+
+      allPageTexts[pageIdx] = `--- Page ${pageNum} ---\n${pageText.trim()}\n\n`;
+
+      // 2. Extract schemas for this page if quota not reached
+      const remainingQuota = MAX_TOTAL_SCHEMAS - allSchemas.length;
+      if (remainingQuota > 0) {
+        try {
+          const pageSchemas = await extractImagesFromPage(page, pageNum, allSchemas.length, remainingQuota);
+          allSchemas.push(...pageSchemas);
+        } catch (imgErr) {
+          console.warn(`Erreur extraction images page ${pageNum}:`, imgErr);
+        }
+      }
+
+      if (onProgress) onProgress(pageNum, numPages);
     }
-    
-    return allPageTexts.join('');
+
+    return {
+      text: allPageTexts.join(''),
+      schemas: allSchemas
+    };
   } catch (error) {
-    console.error('Error extracting PDF text:', error);
+    console.error('Error extracting PDF content:', error);
     throw new Error('Failed to parse PDF document.');
   }
+}
+
+export async function extractTextFromPDF(
+  file: File | Blob | ArrayBuffer, 
+  onProgress?: (current: number, total: number) => void,
+  options?: { maxPages?: number }
+): Promise<string> {
+  const result = await extractCourseContentFromPDF(file, onProgress, options);
+  return result.text;
 }
 

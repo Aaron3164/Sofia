@@ -12,7 +12,7 @@ import {
   getGoogleDrivePreviewUrl, 
   fetchGoogleDrivePDFBuffer
 } from '../../lib/google-drive';
-import { extractTextFromPDF } from '../../lib/pdf-extractor';
+import { extractCourseContentFromPDF } from '../../lib/pdf-extractor';
 import { useFileSystem } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -56,7 +56,8 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
   const saveDriveCourse = async (
     fileId: string, 
     fileName: string, 
-    extractedContent: string
+    extractedContent: string,
+    schemas: any[] = []
   ): Promise<string> => {
     const previewUrl = getGoogleDrivePreviewUrl(fileId);
     let targetCourseId = currentCourseId;
@@ -68,16 +69,25 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
       targetCourseId = newNode.id;
     }
 
+    const generations = { 
+      flashcards: null, 
+      mcq: null, 
+      explications: null, 
+      resume: null, 
+      extracted_images: schemas 
+    };
+
     // Sauvegarde en LocalStorage (Buffer immédiat)
-    const storageKey = `subject_data_${targetCourseId}`;
+    const storageKey = `aura_subject_${targetCourseId}`;
     const localData = {
       extractedContent,
-      generations: { flashcards: null, mcq: null, explications: null, resume: null },
+      generations,
       pdfUrl: previewUrl,
       fileName,
       naiveAttachments: []
     };
     localStorage.setItem(storageKey, JSON.stringify(localData));
+    localStorage.setItem(`subject_data_${targetCourseId}`, JSON.stringify(localData));
 
     // Sauvegarde atomique sur Supabase si l'utilisateur est authentifié
     if (user) {
@@ -88,6 +98,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
           pdf_url: previewUrl,
           file_name: fileName,
           extracted_content: extractedContent,
+          generations,
           updated_at: new Date().toISOString()
         }, { onConflict: 'course_id' });
       } catch (err) {
@@ -119,19 +130,22 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
       // 1. Récupération du buffer en mémoire (aucun upload sur R2 !)
       const buffer = await fetchGoogleDrivePDFBuffer(fileId);
       
-      // 2. Extraction du texte pour l'IA Sofia
-      setStatusMessage('Lecture du PDF et extraction du texte pour Sofia IA...');
-      const text = await extractTextFromPDF(buffer, (current, total) => {
+      // 2. Extraction du texte et des schémas pour Sofia IA
+      setStatusMessage('Lecture du PDF, extraction du texte et des schémas...');
+      const extracted = await extractCourseContentFromPDF(buffer, (current, total) => {
         setProgress({ current, total });
       }).catch(err => {
         console.warn('Extraction partielle ou erreur OCR:', err);
-        return 'Document importé depuis Google Drive.';
+        return { text: 'Document importé depuis Google Drive.', schemas: [] };
       });
+
+      const text = typeof extracted === 'string' ? extracted : extracted.text;
+      const schemas = typeof extracted === 'object' && extracted.schemas ? extracted.schemas : [];
 
       // 3. Enregistrement du cours
       setStatusMessage('Création du cours Sofia...');
       const finalTitle = courseTitle.trim() || 'Cours Google Drive';
-      const targetCourseId = await saveDriveCourse(fileId, finalTitle, text);
+      const targetCourseId = await saveDriveCourse(fileId, finalTitle, text, schemas);
 
       if (onSuccess) {
         onSuccess({

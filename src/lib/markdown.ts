@@ -130,6 +130,9 @@ export const mdToHtml = (md: string) => {
   // Default glass indigo blue highlight (restored to the original #6366f125 / #4f46e5)
   html = html.replace(/==(.*?)==/gim, '<mark class="ai-highlight" style="background-color: #6366f125; color: #4f46e5; border: 1px solid rgba(99, 102, 241, 0.25); padding: 0.12em 0.38em; border-radius: 0.35em; font-weight: 600;">$1</mark>');
 
+  // Images & Schemas
+  html = html.replace(/!\[(.*?)\]\((.*?)\)/gim, '<figure class="resume-figure" style="margin: 1.5rem auto; text-align: center; max-width: 100%;"><img src="$2" alt="$1" style="max-width: 100%; max-height: 480px; object-fit: contain; border-radius: 0.75rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid rgba(148, 163, 184, 0.2); margin: 0 auto; display: block;" /><figcaption style="font-size: 0.82rem; color: #64748b; margin-top: 0.5rem; font-style: italic; font-weight: 500;">$1</figcaption></figure>');
+
   // Paragraphs — wrap only non-HTML lines to avoid double-wrapping
   html = html.split('\n').map(line => {
     const trimmed = line.trim();
@@ -141,6 +144,9 @@ export const mdToHtml = (md: string) => {
       trimmed.startsWith('<li') || 
       trimmed.startsWith('<hr') || 
       trimmed.startsWith('<div') || 
+      trimmed.startsWith('<figure') ||
+      trimmed.startsWith('<img') ||
+      trimmed.startsWith('<figcaption') ||
       trimmed.startsWith('<table') ||
       trimmed.startsWith('<thead') ||
       trimmed.startsWith('<tbody') ||
@@ -158,6 +164,8 @@ export const mdToHtml = (md: string) => {
 
   // Sanitize the final HTML to prevent XSS (Cross-Site Scripting)
   return DOMPurify.sanitize(html, {
-    ADD_ATTR: ['target', 'style'] // Allow inline styles (used by katex, tables, highlights)
+    ADD_TAGS: ['figure', 'figcaption', 'img', 'mark', 'u'],
+    ADD_ATTR: ['target', 'style', 'src', 'alt', 'class'],
+    ADD_DATA_URI_TAGS: ['img']
   });
 };
