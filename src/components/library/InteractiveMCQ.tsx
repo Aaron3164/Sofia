@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { 
   explainMCQErrors, 
   getDailyUsage, 
@@ -500,11 +501,24 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
         selectedAnswers
       };
 
-      // Save locally to aura_mcq_grades for statistics
-      const savedStr = localStorage.getItem('aura_mcq_grades');
-      const saved = savedStr ? JSON.parse(savedStr) : [];
-      saved.push(newGrade);
-      localStorage.setItem('aura_mcq_grades', JSON.stringify(saved));
+      if (profile) {
+        await supabase.from('mcq_grades').insert([{
+          id: newGrade.id,
+          user_id: profile.id,
+          course_id: newGrade.courseId,
+          course_name: newGrade.courseName,
+          score: newGrade.score,
+          total: newGrade.total,
+          date: newGrade.date,
+          mcqs: newGrade.mcqs,
+          selected_answers: newGrade.selectedAnswers
+        }]);
+      } else {
+        const savedStr = localStorage.getItem('aura_mcq_grades');
+        const saved = savedStr ? JSON.parse(savedStr) : [];
+        saved.push(newGrade);
+        localStorage.setItem('aura_mcq_grades', JSON.stringify(saved));
+      }
     }
   };
 
