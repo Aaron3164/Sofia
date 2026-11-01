@@ -197,12 +197,13 @@ CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le cours
 
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. COMMENCE IMMÉDIATEMENT PAR LE TITRE DU RÉSUMÉ OU LE PREMIER CHAPITRE. 
 
-${hasSchemas ? `RÈGLE CRITIQUE D'INTÉGRATION DES SCHÉMAS ET ILLUSTRATIONS DU COURS :
-Tu as reçu les schémas, diagrammes, graphiques et illustrations clés du document, insérés chronologiquement avec leur identifiant (ex: FIGURE_1, FIGURE_2...).
-Si tu juges qu'un schéma extrait est pédagogiquement important, éclairant ou incontournable pour illustrer une notion ou une section de ton résumé, INSÈRE-LE DIRECTEMENT dans ton texte à l'endroit exact le plus pertinent avec la syntaxe Markdown suivante :
-![Légende explicative détaillée du schéma](FIGURE_X)
-(en remplaçant FIGURE_X par l'identifiant exact fourni).
-Ne crée pas de fausses figures ou d'identifiants fictifs. Réinsère les schémas véritablement utiles pour la clarté et la mémorisation de l'étudiant.` : ''}
+${hasSchemas ? `RÈGLE ABSOLUE ET OBLIGATOIRE - INTÉGRATION VISUELLE DES SCHÉMAS DU COURS :
+Tu as reçu ci-dessous les schémas, illustrations, diagrammes et graphiques extraits du cours avec leur identifiant (ex: FIGURE_1, FIGURE_2...).
+L'étudiant exige que sa fiche de révision contienne les visuels clés du cours d'origine.
+Tu DOIS IMPÉRATIVEMENT insérer les schémas les plus importants directement au cœur de tes explications là où le concept est abordé, en utilisant STRICTEMENT la syntaxe Markdown :
+![Légende explicative détaillée et pédagogique de la figure](FIGURE_X)
+(remplace FIGURE_X par l'identifiant exact fourni dans les données, par exemple FIGURE_1).
+Tu ne dois pas créer d'identifiants fictifs. Réintègre au minimum les figures majeures du cours.` : ''}
 
 Consignes de formatage strictes :
 - Utilise '# ', '## ', '### ', '#### ' pour la structure hiérarchique.
@@ -333,11 +334,22 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
         schemaMap.set(s.id.toUpperCase(), s.url);
       });
 
-      generatedText = generatedText.replace(/!\[(.*?)\]\((FIGURE_?\d+)\)/gi, (match, alt, rawFigId) => {
-        const normId = rawFigId.toUpperCase().replace('_0', '_');
-        const url = schemaMap.get(normId) || schemaMap.get(rawFigId.toUpperCase());
+      // 1. Markdown image syntax: ![alt](FIGURE_1) or ![alt](FIGURE 1) or ![alt](FIGURE-1)
+      generatedText = generatedText.replace(/!\[(.*?)\]\(#?(?:FIGURE|FIGURE_|FIGURE\s+|FIG_?|SCHEMA_?)(\d+)\)/gi, (match, alt, figNum) => {
+        const id = `FIGURE_${parseInt(figNum, 10)}`;
+        const url = schemaMap.get(id);
         if (url) {
           return `![${alt}](${url})`;
+        }
+        return match;
+      });
+
+      // 2. HTML img tag syntax: <img src="FIGURE_1" alt="..." />
+      generatedText = generatedText.replace(/<img\s+[^>]*src=["']#?(?:FIGURE|FIGURE_|FIGURE\s+|FIG_?|SCHEMA_?)(\d+)["'][^>]*alt=["'](.*?)["'][^>]*>/gi, (match, figNum, alt) => {
+        const id = `FIGURE_${parseInt(figNum, 10)}`;
+        const url = schemaMap.get(id);
+        if (url) {
+          return `![${alt || 'Illustration'}](${url})`;
         }
         return match;
       });

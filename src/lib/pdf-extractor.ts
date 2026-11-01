@@ -104,11 +104,11 @@ function isValidDocumentIllustration(canvas: HTMLCanvasElement, _imgObj?: any): 
   const w = canvas.width;
   const h = canvas.height;
 
-  if (w < 100 || h < 100) return false;
+  if (w < 60 || h < 60) return false;
 
-  // Reject extreme aspect ratios (lines, thin banners, table borders)
+  // Reject extreme aspect ratios (thin lines, vertical dividers, tiny ribbons)
   const ratio = w / h;
-  if (ratio > 5.5 || ratio < 0.18) return false;
+  if (ratio > 9.0 || ratio < 0.11) return false;
 
   const ctx = canvas.getContext('2d');
   if (!ctx) return false;
@@ -118,8 +118,8 @@ function isValidDocumentIllustration(canvas: HTMLCanvasElement, _imgObj?: any): 
     const data = imgData.data;
     const totalPixels = w * h;
 
-    // Sample up to 800 pixels evenly spaced
-    const step = Math.max(1, Math.floor(totalPixels / 800));
+    // Sample up to 600 pixels evenly spaced
+    const step = Math.max(1, Math.floor(totalPixels / 600));
     let rSum = 0, gSum = 0, bSum = 0;
     let count = 0;
 
@@ -137,7 +137,6 @@ function isValidDocumentIllustration(canvas: HTMLCanvasElement, _imgObj?: any): 
     const bAvg = bSum / count;
 
     let varianceSum = 0;
-    let colorfulOrMidtones = 0;
 
     for (let i = 0; i < data.length; i += step * 4) {
       const r = data[i];
@@ -146,22 +145,12 @@ function isValidDocumentIllustration(canvas: HTMLCanvasElement, _imgObj?: any): 
 
       const diff = Math.abs(r - rAvg) + Math.abs(g - gAvg) + Math.abs(b - bAvg);
       varianceSum += diff;
-
-      // Count pixels that are NOT pure black (<15) and NOT pure white (>240)
-      if ((r > 15 || g > 15 || b > 15) && (r < 240 || g < 240 || b < 240)) {
-        colorfulOrMidtones++;
-      }
     }
 
     const avgVariance = varianceSum / count;
 
-    // If average variance is very low, it's a solid rectangle (solid black header, solid gray fill, etc.)
-    if (avgVariance < 16) {
-      return false;
-    }
-
-    // If virtually all pixels are pure solid black or pure white with no gradient/details
-    if ((colorfulOrMidtones / count) < 0.05 && avgVariance < 28) {
+    // Reject only pure solid uniform blocks (like a 100% white box or 100% solid black box)
+    if (avgVariance < 0.4) {
       return false;
     }
 
@@ -218,12 +207,25 @@ async function extractImagesFromPage(
 
           if (page.objs && typeof page.objs.get === 'function') {
             try {
+              // Synchronous resolution check first
+              const immediate = page.objs.get(objId);
+              if (immediate) {
+                resolved = true;
+                resolve(immediate);
+                return;
+              }
               page.objs.get(objId, check);
             } catch {}
           }
 
-          if (page.commonObjs && typeof page.commonObjs.get === 'function') {
+          if (!resolved && page.commonObjs && typeof page.commonObjs.get === 'function') {
             try {
+              const immediate = page.commonObjs.get(objId);
+              if (immediate) {
+                resolved = true;
+                resolve(immediate);
+                return;
+              }
               page.commonObjs.get(objId, check);
             } catch {}
           }
@@ -233,14 +235,14 @@ async function extractImagesFromPage(
               resolved = true;
               resolve(null);
             }
-          }, 1500);
+          }, 500);
         });
 
         if (!imgObj || imgObj.isMask || imgObj.mask) continue;
 
         const width = imgObj.width || 0;
         const height = imgObj.height || 0;
-        if (width < 100 || height < 100) continue;
+        if (width < 60 || height < 60) continue;
 
         const canvas = document.createElement('canvas');
         canvas.width = width;

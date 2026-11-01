@@ -13,7 +13,7 @@ import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
-import { isGoogleDriveUrl } from '../lib/google-drive';
+import { isGoogleDriveUrl, extractGoogleDriveFileId, fetchGoogleDrivePDFBuffer } from '../lib/google-drive';
 import { AIProgressCard } from '../components/common/AIProgressCard';
 import './SubjectDetail.css';
 
@@ -474,7 +474,43 @@ export default function SubjectDetail() {
     setIsGenerating(true);
     try {
       if (activeTab === 'flashcards' || activeTab === 'mcq' || activeTab === 'resume') {
-        const courseSchemas = generations?.extracted_images || [];
+        let courseSchemas = generations?.extracted_images || [];
+
+        // Automatic on-the-fly extraction if course had no extracted_images (e.g. uploaded previously)
+        if (courseSchemas.length === 0 && pdfUrl) {
+          try {
+            let buffer: ArrayBuffer | null = null;
+            if (isGoogleDriveUrl(pdfUrl)) {
+              const fileId = extractGoogleDriveFileId(pdfUrl);
+              if (fileId) {
+                buffer = await fetchGoogleDrivePDFBuffer(fileId);
+              }
+            } else {
+              const resp = await fetch(pdfUrl);
+              if (resp.ok) {
+                buffer = await resp.arrayBuffer();
+              }
+            }
+
+            if (buffer) {
+              const extracted = await extractCourseContentFromPDF(buffer);
+              if (extracted.schemas && extracted.schemas.length > 0) {
+                courseSchemas = extracted.schemas;
+                const withImages = {
+                  ...generations,
+                  extracted_images: courseSchemas
+                };
+                setGenerations(withImages as any);
+                if (profile) {
+                  saveToCloud({ generations: withImages });
+                }
+              }
+            }
+          } catch (autoErr) {
+            console.warn('Auto-extraction of schemas from pdfUrl failed:', autoErr);
+          }
+        }
+
         const result = await generateStudyMaterials(
           extractedContent.substring(0, 300000), 
           activeTab,
@@ -485,6 +521,7 @@ export default function SubjectDetail() {
         );
         const newGenerations = { 
           ...generations, 
+          extracted_images: courseSchemas,
           [activeTab]: result,
           custom_instructions: customInstructions 
         };
