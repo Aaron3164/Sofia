@@ -16,6 +16,7 @@ const FlashcardsExplorer = lazy(() => import('./pages/FlashcardsExplorer'));
 
 import { DialogProvider } from './context/DialogContext';
 import { useTheme } from './context/ThemeContext';
+import { PomodoroProvider } from './context/PomodoroContext';
 
 function AppContent() {
   const { user, profile, loading } = useAuth();
@@ -75,7 +76,9 @@ function App() {
   return (
     <AuthProvider>
       <DialogProvider>
-        <AppContent />
+        <PomodoroProvider>
+          <AppContent />
+        </PomodoroProvider>
       </DialogProvider>
     </AuthProvider>
   );
