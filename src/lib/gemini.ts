@@ -197,13 +197,14 @@ CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le cours
 
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. COMMENCE IMMÉDIATEMENT PAR LE TITRE DU RÉSUMÉ OU LE PREMIER CHAPITRE. 
 
-${hasSchemas ? `RÈGLE ABSOLUE ET OBLIGATOIRE - INTÉGRATION VISUELLE DES SCHÉMAS DU COURS :
-Tu as reçu ci-dessous les schémas, illustrations, diagrammes et graphiques extraits du cours avec leur identifiant (ex: FIGURE_1, FIGURE_2...).
-L'étudiant exige que sa fiche de révision contienne les visuels clés du cours d'origine.
-Tu DOIS IMPÉRATIVEMENT insérer les schémas les plus importants directement au cœur de tes explications là où le concept est abordé, en utilisant STRICTEMENT la syntaxe Markdown :
-![Légende explicative détaillée et pédagogique de la figure](FIGURE_X)
-(remplace FIGURE_X par l'identifiant exact fourni dans les données, par exemple FIGURE_1).
-Tu ne dois pas créer d'identifiants fictifs. Réintègre au minimum les figures majeures du cours.` : ''}
+${hasSchemas ? `RÈGLE DE SÉLECTION PÉDAGOGIQUE DES SCHÉMAS ET ILLUSTRATIONS :
+Tu as accès ci-dessous aux schémas et illustrations extraits du document, indexés sous la forme (FIGURE_1, FIGURE_2...).
+- NE FORCE PAS l'insertion de schémas s'ils n'apportent pas une réelle plus-value : n'insère un schéma QUE s'il est véritablement important, explicatif et indispensable à la compréhension d'une notion complexe (anatomie, mécanisme, graphique de données, cycle).
+- Si un schéma est secondaire, décoratif ou redondant avec le texte, NE L'INSÈRE PAS.
+- INTERDICTION ABSOLUE D'ÉCRIRE UNE RÉFÉRENCE NUE : Ne laisse JAMAIS dans ton texte de mentions orphelines comme "voir figure", "voir schéma" ou "voir FIGURE_X" sans que le lecteur ne sache de quoi il s'agit. Si tu juges la figure essentielle, insère-la directement avec son visuel et une légende claire, précise et descriptive :
+  ![Titre et description explicative du contenu du schéma](FIGURE_X)
+  (remplace FIGURE_X par l'identifiant exact fourni dans les données).
+- Si une figure n'est pas insérée, explique la notion par des mots clairs sans jamais écrire "voir figure".` : ''}
 
 Consignes de formatage strictes :
 - Utilise '# ', '## ', '### ', '#### ' pour la structure hiérarchique.
@@ -353,6 +354,9 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
         }
         return match;
       });
+
+      // 3. Clean up any accidental raw or unrendered figure references (e.g. "(voir FIGURE_1)", "voir figure 1")
+      generatedText = generatedText.replace(/\(?(?:voir|cf\.?)\s+(?:la\s+)?(?:figure|schéma|diagramme)\s*#?(?:FIGURE_?)?\d+\)?/gi, '');
     }
     
     if (isJSON) {
