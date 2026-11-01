@@ -194,22 +194,29 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
     onClose();
   };
 
-  const handleToggleQuestionType = (qIndex: number) => {
+  const handleSetQuestionType = (qIndex: number, newType: 'mcq' | 'open' | 'labeling') => {
     setQuestions(prev => prev.map((q, idx) => {
       if (idx !== qIndex) return q;
-      const isOpen = q.type === 'open' || (!q.options || q.options.length === 0);
-      if (isOpen) {
+      if (newType === 'mcq') {
         return {
           ...q,
           type: 'mcq',
-          options: [
+          options: (q.options && q.options.length > 0) ? q.options : [
             'A. Première proposition',
             'B. Deuxième proposition',
             'C. Troisième proposition',
             'D. Quatrième proposition',
             'E. Cinquième proposition'
           ],
-          correctAnswers: ['A']
+          correctAnswers: q.correctAnswers && q.correctAnswers.length > 0 ? q.correctAnswers : ['A']
+        };
+      } else if (newType === 'labeling') {
+        return {
+          ...q,
+          type: 'labeling',
+          options: [],
+          correctAnswers: [],
+          itemsToPlace: q.itemsToPlace || ['1. Structure A', '2. Structure B']
         };
       } else {
         return {
@@ -223,12 +230,24 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
     }));
   };
 
-  const isOpenQuestion = (q: ExtractedQuestion) => q.type === 'open' || (!q.options || q.options.length === 0);
-  const qcmCount = questions.filter(q => !isOpenQuestion(q)).length;
-  const openCount = questions.filter(q => isOpenQuestion(q)).length;
+  const getQuestionType = (q: ExtractedQuestion): 'mcq' | 'open' | 'labeling' => {
+    if (q.type === 'labeling') return 'labeling';
+    if (q.type === 'open') return 'open';
+    if (!q.options || q.options.length === 0) return 'open';
+    return 'mcq';
+  };
+
+  const qcmCount = questions.filter(q => getQuestionType(q) === 'mcq').length;
+  const openCount = questions.filter(q => getQuestionType(q) === 'open').length;
+  const labelingCount = questions.filter(q => getQuestionType(q) === 'labeling').length;
+
   const questionsWithAnswersCount = questions.filter(q => {
-    if (isOpenQuestion(q)) {
+    const t = getQuestionType(q);
+    if (t === 'open') {
       return Boolean((q.expectedAnswer || q.explanation || '').trim());
+    }
+    if (t === 'labeling') {
+      return Boolean((q.itemsToPlace && q.itemsToPlace.length > 0) || (q.expectedAnswer || q.explanation || '').trim());
     }
     return (q.correctAnswers?.length || 0) > 0;
   }).length;
@@ -245,8 +264,8 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
               <GraduationCap size={22} />
             </div>
             <div>
-              <h2>Importer une Annale {openCount > 0 && qcmCount > 0 ? '(Mixte QCM & Rédaction)' : (openCount > 0 ? '(Rédactionnelle)' : '(QCM)')}</h2>
-              <p>Retranscription mot pour mot • Épreuves hybrides (QCM & Rédaction) • Schémas inclus</p>
+              <h2>Importer une Annale {labelingCount > 0 ? '(avec Schémas / Légendage)' : (openCount > 0 && qcmCount > 0 ? '(Mixte QCM & Rédaction)' : (openCount > 0 ? '(Rédactionnelle)' : '(QCM)'))}</h2>
+              <p>Retranscription mot pour mot • QCM, Rédaction & Légendage sur image • Correction interactive</p>
             </div>
           </div>
           <button 
@@ -416,7 +435,11 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                 <div className="annale-badge-list">
                   <span className="annale-pill-badge accent">
                     <FileText size={14} />
-                    {questions.length} questions {openCount > 0 ? `(${qcmCount} QCM, ${openCount} rédactionnelle${openCount > 1 ? 's' : ''})` : ''}
+                    {questions.length} question{questions.length > 1 ? 's' : ''} ({[
+                      qcmCount > 0 ? `${qcmCount} QCM` : null,
+                      openCount > 0 ? `${openCount} rédactionnelle${openCount > 1 ? 's' : ''}` : null,
+                      labelingCount > 0 ? `${labelingCount} légendage${labelingCount > 1 ? 's' : ''}` : null
+                    ].filter(Boolean).join(', ')})
                   </span>
                   <span className={`annale-pill-badge ${questionsWithAnswersCount === questions.length ? 'success' : ''}`}>
                     <Check size={14} />
@@ -565,29 +588,61 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                             )}
                           </div>
 
-                          {/* Question Type Toggle */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleQuestionType(qIndex)}
-                            style={{
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: isOpenQuestion(q) ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                              color: isOpenQuestion(q) ? '#c084fc' : '#60a5fa',
-                              padding: '0.2rem 0.6rem',
-                              borderRadius: '1rem',
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              transition: 'all 0.2s ease'
-                            }}
-                            title="Cliquer pour basculer entre QCM et Question Rédactionnelle"
-                          >
-                            <span>{isOpenQuestion(q) ? '✍️ Rédactionnelle (QROC)' : '☑️ QCM'}</span>
-                            <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>⇄ changer</span>
-                          </button>
+                          {/* Question Type Selector: QCM | Rédactionnelle | Légendage (Image) */}
+                          <div style={{ display: 'inline-flex', borderRadius: '1rem', border: '1px solid var(--border-color)', overflow: 'hidden', backgroundColor: 'var(--bg-primary)' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleSetQuestionType(qIndex, 'mcq')}
+                              style={{
+                                border: 'none',
+                                backgroundColor: getQuestionType(q) === 'mcq' ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                                color: getQuestionType(q) === 'mcq' ? '#60a5fa' : 'var(--text-secondary)',
+                                padding: '0.2rem 0.6rem',
+                                fontSize: '0.72rem',
+                                fontWeight: getQuestionType(q) === 'mcq' ? 700 : 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              ☑️ QCM
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSetQuestionType(qIndex, 'open')}
+                              style={{
+                                borderLeft: '1px solid var(--border-color)',
+                                borderRight: '1px solid var(--border-color)',
+                                borderTop: 'none',
+                                borderBottom: 'none',
+                                backgroundColor: getQuestionType(q) === 'open' ? 'rgba(168, 85, 247, 0.2)' : 'transparent',
+                                color: getQuestionType(q) === 'open' ? '#c084fc' : 'var(--text-secondary)',
+                                padding: '0.2rem 0.6rem',
+                                fontSize: '0.72rem',
+                                fontWeight: getQuestionType(q) === 'open' ? 700 : 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              ✍️ Rédactionnelle
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSetQuestionType(qIndex, 'labeling')}
+                              style={{
+                                border: 'none',
+                                backgroundColor: getQuestionType(q) === 'labeling' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                                color: getQuestionType(q) === 'labeling' ? '#34d399' : 'var(--text-secondary)',
+                                padding: '0.2rem 0.6rem',
+                                fontSize: '0.72rem',
+                                fontWeight: getQuestionType(q) === 'labeling' ? 700 : 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="Pointer/Placer des éléments sur le schéma (rien à rédiger)"
+                            >
+                              📍 Légendage
+                            </button>
+                          </div>
                         </div>
 
                         <button 
@@ -656,8 +711,44 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                         </span>
                       </div>
 
-                      {/* Options or Open Response Correction */}
-                      {isOpenQuestion(q) ? (
+                      {/* Options, Open Response Correction, OR Labeling Items */}
+                      {getQuestionType(q) === 'labeling' ? (
+                        <div style={{
+                          marginTop: '0.75rem',
+                          padding: '1rem',
+                          borderRadius: '0.75rem',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px dashed rgba(16, 185, 129, 0.4)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.65rem'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#34d399' }}>
+                              📍 Éléments à repérer / pointer sur l'image (1 par ligne) :
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                              L'étudiant placera un repère pour chaque élément
+                            </span>
+                          </div>
+                          <textarea
+                            value={(q.itemsToPlace || []).join('\n')}
+                            onChange={e => {
+                              const lines = e.target.value.split('\n').filter(Boolean);
+                              setQuestions(prev => prev.map((item, idx) => idx === qIndex ? { ...item, itemsToPlace: lines } : item));
+                            }}
+                            placeholder="1. Tête de l'astragale&#10;2. Sustentaculum tali&#10;3. Sinus du tarse&#10;4. Malléole latérale"
+                            rows={3}
+                            className="annale-textarea"
+                            style={{ fontSize: '0.85rem' }}
+                          />
+                          {(!q.images || q.images.length === 0) && (
+                            <div style={{ fontSize: '0.78rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              ⚠️ Pensez à attacher une image/schéma ci-dessus pour permettre le repérage visuel.
+                            </div>
+                          )}
+                        </div>
+                      ) : getQuestionType(q) === 'open' ? (
                         <div style={{
                           marginTop: '0.75rem',
                           padding: '1rem',

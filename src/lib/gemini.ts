@@ -659,14 +659,23 @@ Ta mission est d'analyser le texte brut issu d'une annale PDF et de le convertir
 IMPORTANT - NATURE DE L'ÉPREUVE (HYBRIDE / QCM / RÉDACTIONNELLE) :
 Les épreuves peuvent être composées :
 - De QCM (Questions à Choix Multiples) avec des propositions (A, B, C, D, E...).
-- De questions rédactionnelles ou ouvertes (QROC, questions à réponse courte, cas cliniques rédigés, questions de cours, sans propositions A-E prédéfinies).
-- D'un mélange HYBRIDE des deux (par exemple des QCM suivis de questions ouvertes, ou des cas progressifs avec des questions rédactionnelles et réciproquement).
+- De questions de LÉGENDAGE / PLACEMENT SUR IMAGE (aucun texte de dissertation à rédiger : l'énoncé demande de pointer, repérer, placer ou légender des éléments, structures anatomiques, repères ou flèches sur un schéma / image / coupe / radio).
+- De questions rédactionnelles ou ouvertes (QROC, questions à réponse courte rédigée, cas cliniques rédigés, questions de cours, sans propositions A-E prédéfinies).
+- D'un mélange HYBRIDE de ces catégories.
+
 Tu dois IMPÉRATIVEMENT t'adapter et classifier chaque question :
 - Si la question a des propositions à cocher (A, B, C, D, E...) :
   * "type": "mcq"
   * "options": ["A. ...", "B. ..."]
   * "correctAnswers": ["A", "C"] (les lettres des réponses vraies)
-- Si la question est rédactionnelle / ouverte (sans propositions A-E) :
+- Si la question demande de PLACER, POINTER ou LÉGENDER des éléments sur un schéma / image (sans choix A-E et sans texte de dissertation à rédiger) :
+  * "type": "labeling"
+  * "options": []
+  * "correctAnswers": []
+  * "hasFigure": true
+  * "itemsToPlace": ["Élément 1 à pointer", "Élément 2 à pointer"] (liste extraite des structures ou éléments mentionnés dans l'énoncé à placer sur l'image)
+  * "expectedAnswer": contient la description de l'emplacement correct de chaque élément
+- Si la question est rédactionnelle / ouverte (réponse textuelle rédigée, sans propositions A-E) :
   * "type": "open"
   * "options": [] (tableau vide)
   * "correctAnswers": [] (tableau vide)
@@ -683,7 +692,7 @@ CONSIGNES PARTICULIÈRES SUR LES MISES EN PAGE D'ANNALES :
      * "Réponse attendue" = les options cochées sont les réponses correctes.
    - S'il y a une grille de correction ou une ligne "Réponse : AC", utilise-la.
    - Remplis le tableau "correctAnswers" avec les lettres des bonnes réponses (ex: ["A", "C"]).
-   - Pour les questions ouvertes, s'il y a un corrigé ou des mots-clés attendus dans le document, renseigne-les dans "expectedAnswer" ou "explanation".
+   - Pour les questions ouvertes ou de légendage, s'il y a un corrigé ou des mots-clés attendus dans le document, renseigne-les dans "expectedAnswer" ou "explanation".
 3. NETTOYAGE DU TEXTE DES PROPOSITIONS :
    - Pour les QCM, retire les symboles de cases (☑, ■, ☐, , etc.) du texte des propositions pour ne garder que le libellé propre de la proposition.
    - Format de chaque proposition dans "options" : "A. [texte]", "B. [texte]", etc.
@@ -696,19 +705,20 @@ Un tableau JSON d'objets, ou un objet avec la clé "questions" :
 [
   {
     "questionNumber": 1,
-    "type": "mcq", // ou "open" pour les questions rédactionnelles sans choix A-E
+    "type": "mcq", // "mcq", "labeling" (pointage/placement sur image) ou "open" (rédactionnelle)
     "question": "Énoncé complet mot pour mot de la question...",
+    "itemsToPlace": ["Structure 1", "Structure 2"], // Uniquement pour type === "labeling"
     "options": [
       "A. Première proposition",
       "B. Deuxième proposition",
       "C. Troisième proposition",
       "D. Quatrième proposition",
       "E. Cinquième proposition"
-    ], // [] si type === "open"
-    "correctAnswers": ["A", "C"], // [] si type === "open"
-    "expectedAnswer": "Éléments attendus de la correction (si question rédactionnelle)",
+    ], // [] si type === "open" ou "labeling"
+    "correctAnswers": ["A", "C"], // [] si type === "open" ou "labeling"
+    "expectedAnswer": "Éléments attendus de la correction",
     "pageNumber": 1,
-    "hasFigure": false, // Mettre true si et seulement si l'énoncé fait explicitement référence à une figure, schéma, radio, photo, tracé ou image
+    "hasFigure": false, // Mettre true si et seulement si l'énoncé fait référence à une figure, schéma, radio, photo ou image
     "explanation": "..." 
   }
 ]
@@ -740,6 +750,79 @@ ${rawPdfText.substring(0, 300000)}`;
   const parsed = JSON.parse(jsonStr);
   const questionsList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
   return questionsList;
+}
+
+/**
+ * Evaluates a student's placement of markers/pins on an anatomical schema or illustration.
+ */
+export async function evaluateLabelingAnswer(
+  question: string,
+  itemsToPlace: string[],
+  placedPins: { id: number; x: number; y: number; label: string }[],
+  expectedAnswer: string,
+  _userPreferences?: any
+): Promise<OpenQuestionEvaluation> {
+  const prompt = `Tu es un professeur expert évaluant une épreuve d'anatomie / sciences avec un exercice de LÉGENDAGE / PLACEMENT SUR IMAGE.
+
+ÉNONCÉ DE LA QUESTION :
+${question}
+
+ÉLÉMENTS À POINTER SUR L'IMAGE :
+${itemsToPlace.map((it, idx) => `${idx + 1}. ${it}`).join('\n')}
+
+CORRIGÉ OFFICIEL / LOCALISATION ATTENDUE :
+${expectedAnswer || "Consulte la localisation anatomique exacte de chaque structure."}
+
+REPÈRES POSITIONNÉS PAR L'ÉTUDIANT SUR LE SCHÉMA (coordonnées relatives en % de l'image de 0% à 100%) :
+${placedPins.map(p => `- Repère ${p.id} (${p.label}) : X=${p.x}%, Y=${p.y}%`).join('\n')}
+
+TA MISSION :
+Évalue si les repères pointés par l'étudiant sont situés au bon endroit de manière globale et cohérente.
+1. "grade" : note sur 20.
+2. "scorePercentage" : pourcentage entre 0 et 100.
+3. "status" : "correct" (si >= 14/20), "partial" (si 8-13/20), ou "incorrect" (si < 8/20).
+4. "feedback" : explication pédagogique claire (2-3 phrases) sur la précision des repères.
+5. "pointsAcquired" : liste des éléments bien placés.
+6. "pointsMissing" : liste des éléments décalés ou mal situés.
+
+Format STRICTEMENT en JSON :
+{
+  "grade": 16,
+  "maxGrade": 20,
+  "scorePercentage": 80,
+  "status": "correct",
+  "feedback": "Excellente localisation générale...",
+  "pointsAcquired": ["..."],
+  "pointsMissing": ["..."]
+}`;
+
+  const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [prompt], {
+    responseMimeType: 'application/json',
+    temperature: 0.2
+  });
+
+  try {
+    const parsed = JSON.parse(response.text || '{}');
+    return {
+      grade: parsed.grade ?? 12,
+      maxGrade: 20,
+      scorePercentage: parsed.scorePercentage ?? 60,
+      status: parsed.status || 'partial',
+      feedback: parsed.feedback || 'Évaluation des repères enregistrée.',
+      pointsAcquired: parsed.pointsAcquired || [],
+      pointsMissing: parsed.pointsMissing || []
+    };
+  } catch {
+    return {
+      grade: 12,
+      maxGrade: 20,
+      scorePercentage: 60,
+      status: 'partial',
+      feedback: 'Évaluation des repères complétée.',
+      pointsAcquired: [],
+      pointsMissing: []
+    };
+  }
 }
 
 /**

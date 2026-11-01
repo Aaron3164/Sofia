@@ -13,8 +13,9 @@ export interface ExtractedQuestion {
   images?: string[];
   explanation?: string;
   pageNumber?: number;
-  type?: 'mcq' | 'open';
+  type?: 'mcq' | 'open' | 'labeling';
   expectedAnswer?: string;
+  itemsToPlace?: string[];
 }
 
 export interface AnnaleParseResult {
@@ -491,16 +492,30 @@ export function parseAnnaleQuestionsFromText(
       }
 
       const isMcq = options.length > 0;
+      const isLabelingCandidate = !isMcq && questionImages.length > 0 && /(?:placer|pointer|rep[eé]rer|positionner|localiser|l[eé]gender|fl[eé]cher|annoter|identifier sur)/i.test(rawQuestionStem);
+      
+      let determinedType: 'mcq' | 'open' | 'labeling' = isMcq ? 'mcq' : (isLabelingCandidate ? 'labeling' : 'open');
+      
+      // If candidate for labeling, try to extract items from bullet points or numbered lists in the stem
+      let extractedItemsToPlace: string[] | undefined = undefined;
+      if (isLabelingCandidate) {
+        const itemMatches = rawQuestionStem.match(/(?:[-•*]|\b\d+[.):])\s*([^\n\r,;.]+)/g);
+        if (itemMatches && itemMatches.length >= 2) {
+          extractedItemsToPlace = itemMatches.map(m => m.replace(/^(?:[-•*]|\b\d+[.):])\s*/, '').trim()).filter(Boolean);
+        }
+      }
+
       extractedQuestions.push({
         id: crypto.randomUUID(),
         questionNumber: curBlock.questionNumber,
         question: rawQuestionStem.trim() || `Question ${curBlock.questionNumber}`,
         options: isMcq ? options : [],
-        type: isMcq ? 'mcq' : 'open',
+        type: determinedType,
         correctAnswers: isMcq ? finalCorrectAnswers : [],
         images: questionImages.length > 0 ? questionImages : undefined,
         explanation: inlineExplanation || undefined,
         expectedAnswer: !isMcq ? (inlineExplanation || undefined) : undefined,
+        itemsToPlace: extractedItemsToPlace,
         pageNumber: curBlock.pageNumber
       });
     }
