@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, Circle, Edit2, Plus, Palette, Trash2, X, Search } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, Circle, Edit2, Plus, Palette, Trash2, X, Search, Folder, ChevronDown, FolderPlus } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
@@ -26,13 +26,14 @@ export default function PlanningCenter() {
   const [mode, setMode] = useState<PlanMode>('spaced');
   const [currentDate, setCurrentDate] = useState(new Date());
   const { alert, prompt, confirm } = useDialog();
-  const { items, markCompleted, updateItemDate, addCourseToDate, deleteScheduleItem } = useSpacedRepetition();
+  const { items, markCompleted, updateItemDate, addCourseToDate, addCoursesBatchToDate, deleteScheduleItem } = useSpacedRepetition();
   const { nodes, updateNodeColor } = useFileSystem();
   const navigate = useNavigate();
 
   // Modals state
   const [selectedDayForAdd, setSelectedDayForAdd] = useState<string | null>(null);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [colorPickerTargetCourse, setColorPickerTargetCourse] = useState<{ id: string; name: string; currentColor: string } | null>(null);
 
   const modes = [
@@ -74,6 +75,39 @@ export default function PlanningCenter() {
     addCourseToDate(course.id, course.name, selectedDayForAdd);
     setSelectedDayForAdd(null);
     setCourseSearchQuery('');
+  };
+
+  // Recursively collect all courses contained inside a folder and its subfolders
+  const getDescendantCourses = (folderId: string): FileNode[] => {
+    const directChildren = nodes.filter(n => n.parentId === folderId);
+    let courses: FileNode[] = directChildren.filter(n => n.type === 'course');
+    const subFolders = directChildren.filter(n => n.type === 'folder');
+    for (const sub of subFolders) {
+      courses = courses.concat(getDescendantCourses(sub.id));
+    }
+    return courses;
+  };
+
+  const handleAddFolderSingleDay = async (folder: FileNode) => {
+    if (!selectedDayForAdd) return;
+    const coursesInFolder = getDescendantCourses(folder.id);
+    if (coursesInFolder.length === 0) {
+      await alert(`Le dossier "${folder.name}" ne contient aucun cours.`);
+      return;
+    }
+
+    if (await confirm(`Ajouter tous les ${coursesInFolder.length} cours du dossier "${folder.name}" au planning du ${format(new Date(selectedDayForAdd), 'd MMMM', { locale: fr })} ?`)) {
+      await addCoursesBatchToDate(coursesInFolder.map(c => ({ id: c.id, name: c.name })), selectedDayForAdd);
+      setSelectedDayForAdd(null);
+      setCourseSearchQuery('');
+    }
+  };
+
+  const toggleFolderCollapse = (folderId: string) => {
+    setCollapsedFolders(prev => ({
+      ...prev,
+      [folderId]: !prev[folderId]
+    }));
   };
 
   const handleSetCourseColor = (newColor: string) => {
@@ -367,43 +401,73 @@ export default function PlanningCenter() {
               />
             </div>
 
-            <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {filteredCourses.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  {allCourses.length === 0 ? "Aucun cours dans votre bibliothèque." : "Aucun cours correspondant."}
-                </div>
-              ) : (
-                filteredCourses.map(course => {
-                  const color = getCourseColor(course.id);
-                  return (
-                    <div 
-                      key={course.id}
-                      onClick={() => handleAddCourseSingleDay(course)}
-                      className="hover-lift"
-                      style={{
-                        padding: '0.75rem 1rem',
-                        backgroundColor: 'var(--bg-primary)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '0.5rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.75rem'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
-                        <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
-                        <span style={{ fontSize: '0.9rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {course.name}
-                        </span>
+            <div style={{ maxHeight: '360px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingRight: '0.25rem' }}>
+              {/* If user is actively searching, show matched courses directly */}
+              {courseSearchQuery.trim() ? (
+                filteredCourses.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                    Aucun cours correspondant.
+                  </div>
+                ) : (
+                  filteredCourses.map(course => {
+                    const color = getCourseColor(course.id);
+                    const parentFolder = nodes.find(n => n.id === course.parentId);
+                    return (
+                      <div 
+                        key={course.id}
+                        onClick={() => handleAddCourseSingleDay(course)}
+                        className="hover-lift"
+                        style={{
+                          padding: '0.65rem 0.85rem',
+                          backgroundColor: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.75rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                          <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
+                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {course.name}
+                            </span>
+                            {parentFolder && (
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                📁 {parentFolder.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button className="btn btn-outline" style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem', height: 'auto', flexShrink: 0 }}>
+                          Ajouter
+                        </button>
                       </div>
-                      <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', height: 'auto' }}>
-                        Ajouter
-                      </button>
-                    </div>
-                  );
-                })
+                    );
+                  })
+                )
+              ) : (
+                /* Hierarchical folder & course browser */
+                allCourses.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                    Aucun cours dans votre bibliothèque.
+                  </div>
+                ) : (
+                  <CourseTreeSelector
+                    nodes={nodes}
+                    parentId={null}
+                    depth={0}
+                    collapsedFolders={collapsedFolders}
+                    onToggleFolder={toggleFolderCollapse}
+                    onAddCourse={handleAddCourseSingleDay}
+                    onAddFolder={handleAddFolderSingleDay}
+                    getDescendantCourses={getDescendantCourses}
+                    getCourseColor={getCourseColor}
+                  />
+                )
               )}
             </div>
           </div>
@@ -507,6 +571,186 @@ export default function PlanningCenter() {
         </div>,
         document.body
       )}
+    </div>
+  );
+}
+
+interface CourseTreeSelectorProps {
+  nodes: FileNode[];
+  parentId: string | null;
+  depth: number;
+  collapsedFolders: Record<string, boolean>;
+  onToggleFolder: (id: string) => void;
+  onAddCourse: (course: FileNode) => void;
+  onAddFolder: (folder: FileNode) => void;
+  getDescendantCourses: (folderId: string) => FileNode[];
+  getCourseColor: (courseId: string) => string;
+}
+
+function CourseTreeSelector({
+  nodes,
+  parentId,
+  depth,
+  collapsedFolders,
+  onToggleFolder,
+  onAddCourse,
+  onAddFolder,
+  getDescendantCourses,
+  getCourseColor,
+}: CourseTreeSelectorProps) {
+  const currentNodes = nodes
+    .filter(n => n.parentId === parentId)
+    .sort((a, b) => {
+      // Folders first, then courses, then alphabetical
+      if (a.type !== b.type) {
+        return a.type === 'folder' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+  if (currentNodes.length === 0) {
+    return null;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginLeft: depth > 0 ? '1rem' : 0 }}>
+      {currentNodes.map(node => {
+        if (node.type === 'folder') {
+          const isCollapsed = collapsedFolders[node.id] ?? false; // default expanded
+          const descendantCourses = getDescendantCourses(node.id);
+
+          return (
+            <div 
+              key={node.id} 
+              style={{
+                borderRadius: '0.5rem',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: depth === 0 ? 'var(--bg-secondary)' : 'var(--bg-primary)',
+                padding: '0.4rem 0.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem'
+              }}
+            >
+              {/* Folder Row */}
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  padding: '0.2rem 0.25rem'
+                }}
+                onClick={() => onToggleFolder(node.id)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
+                  <button
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      color: 'var(--text-secondary)',
+                      transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease'
+                    }}
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                  <Folder size={16} color={node.color || 'var(--accent-primary)'} />
+                  <span style={{ fontSize: '0.86rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {node.name}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', opacity: 0.8 }}>
+                    ({descendantCourses.length} cours)
+                  </span>
+                </div>
+
+                {/* Batch add all courses in folder button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddFolder(node);
+                  }}
+                  disabled={descendantCourses.length === 0}
+                  className="btn btn-outline hover-lift"
+                  style={{
+                    fontSize: '0.7rem',
+                    padding: '0.25rem 0.6rem',
+                    height: 'auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    whiteSpace: 'nowrap',
+                    opacity: descendantCourses.length === 0 ? 0.4 : 1,
+                    borderColor: 'var(--accent-primary)',
+                    color: 'var(--accent-primary)'
+                  }}
+                  title={`Programmer les ${descendantCourses.length} cours de ce dossier pour ce jour`}
+                >
+                  <FolderPlus size={12} />
+                  <span>Tout ajouter</span>
+                </button>
+              </div>
+
+              {/* Sub tree */}
+              {!isCollapsed && (
+                <div style={{ marginTop: '0.15rem' }}>
+                  <CourseTreeSelector
+                    nodes={nodes}
+                    parentId={node.id}
+                    depth={depth + 1}
+                    collapsedFolders={collapsedFolders}
+                    onToggleFolder={onToggleFolder}
+                    onAddCourse={onAddCourse}
+                    onAddFolder={onAddFolder}
+                    getDescendantCourses={getDescendantCourses}
+                    getCourseColor={getCourseColor}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // Course node
+        const color = getCourseColor(node.id);
+        return (
+          <div 
+            key={node.id}
+            onClick={() => onAddCourse(node)}
+            className="hover-lift"
+            style={{
+              padding: '0.5rem 0.75rem',
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '0.45rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.6rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
+              <span style={{ fontSize: '0.85rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {node.name}
+              </span>
+            </div>
+            <button 
+              className="btn btn-outline" 
+              style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', height: 'auto', flexShrink: 0 }}
+            >
+              Ajouter
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

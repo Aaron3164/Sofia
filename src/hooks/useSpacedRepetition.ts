@@ -198,6 +198,37 @@ export function useSpacedRepetition() {
     return newItem;
   };
 
+  const addCoursesBatchToDate = async (courses: { id: string; name: string }[], dateStr: string) => {
+    if (courses.length === 0) return [];
+
+    const newItems: RepetitionItem[] = courses.map(c => ({
+      id: crypto.randomUUID(),
+      courseId: c.id,
+      courseName: c.name,
+      date: dateStr,
+      step: 1,
+      completed: false,
+    }));
+
+    setItems(prev => [...prev, ...newItems].sort((a, b) => a.date.localeCompare(b.date)));
+
+    if (user) {
+      const toInsert = newItems.map(item => ({
+        id: item.id,
+        user_id: user.id,
+        course_id: item.courseId,
+        course_name: item.courseName,
+        date: item.date,
+        step: item.step,
+        completed: item.completed
+      }));
+      const { error } = await supabase.from('spaced_repetition').insert(toInsert);
+      if (error) console.error('Error batch adding courses to date:', error);
+    }
+
+    return newItems;
+  };
+
   const deleteScheduleItem = async (id: string) => {
     setItems(prev => prev.filter(item => item.id !== id));
     if (user) {
@@ -210,6 +241,7 @@ export function useSpacedRepetition() {
     loading: isInitialLoad,
     scheduleCourse, 
     addCourseToDate,
+    addCoursesBatchToDate,
     deleteScheduleItem,
     markCompleted, 
     updateItemDate,
