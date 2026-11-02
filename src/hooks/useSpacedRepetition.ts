@@ -236,6 +236,15 @@ export function useSpacedRepetition() {
     }
   };
 
+  const deleteScheduleItemsBatch = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setItems(prev => prev.filter(item => !idSet.has(item.id)));
+    if (user) {
+      await supabase.from('spaced_repetition').delete().in('id', ids);
+    }
+  };
+
   return { 
     items, 
     loading: isInitialLoad,
@@ -243,6 +252,7 @@ export function useSpacedRepetition() {
     addCourseToDate,
     addCoursesBatchToDate,
     deleteScheduleItem,
+    deleteScheduleItemsBatch,
     markCompleted, 
     updateItemDate,
     getItemsForDate, 

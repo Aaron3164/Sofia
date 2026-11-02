@@ -28,7 +28,7 @@ export default function PlanningCenter() {
   const [mode, setMode] = useState<PlanMode>('spaced');
   const [currentDate, setCurrentDate] = useState(new Date());
   const { alert, prompt, confirm } = useDialog();
-  const { items, markCompleted, updateItemDate, addCourseToDate, addCoursesBatchToDate, deleteScheduleItem } = useSpacedRepetition();
+  const { items, markCompleted, updateItemDate, addCourseToDate, addCoursesBatchToDate, deleteScheduleItem, deleteScheduleItemsBatch } = useSpacedRepetition();
   const { nodes, updateNodeColor } = useFileSystem();
   const navigate = useNavigate();
 
@@ -70,6 +70,14 @@ export default function PlanningCenter() {
     e.stopPropagation();
     if (await confirm(`Retirer "${item.courseName}" de la planification pour ce jour ?`)) {
       deleteScheduleItem(item.id);
+    }
+  };
+
+  const handleDeleteAllDayCourses = async (e: React.MouseEvent, dayStr: string, dayFormatted: string, count: number) => {
+    e.stopPropagation();
+    if (await confirm(`Supprimer tous les ${count} cours planifiés le ${dayFormatted} ?`)) {
+      const idsToDelete = items.filter(item => item.date === dayStr).map(item => item.id);
+      await deleteScheduleItemsBatch(idsToDelete);
     }
   };
 
@@ -235,8 +243,33 @@ export default function PlanningCenter() {
                         <Plus size={12} />
                         <span>Cours</span>
                       </button>
-                      <div style={{ fontWeight: isToday ? 'bold' : 'normal', fontSize: '0.85rem' }}>
-                        {format(day, 'd')}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        {dayItems.length > 0 && (
+                          <button
+                            onClick={(e) => handleDeleteAllDayCourses(e, dayStr, format(day, 'd MMMM', { locale: fr }), dayItems.length)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '0.15rem',
+                              borderRadius: '0.25rem',
+                              color: 'var(--text-secondary)',
+                              opacity: 0.6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title={`Supprimer tous les ${dayItems.length} cours de ce jour`}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.opacity = '1'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.opacity = '0.6'; }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                        <div style={{ fontWeight: isToday ? 'bold' : 'normal', fontSize: '0.85rem' }}>
+                          {format(day, 'd')}
+                        </div>
                       </div>
                     </div>
 
