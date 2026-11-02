@@ -20,6 +20,7 @@ const STORAGE_KEY_STATE = 'sofia_pomodoro_state';
 interface PomodoroContextType {
   timeLeft: number;
   isActive: boolean;
+  hasStarted: boolean;
   phase: PomodoroPhase;
   cyclesCompleted: number;
   config: PomodoroConfig;
@@ -83,6 +84,18 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     return config.focusMinutes * 60;
   });
 
+  const [hasStarted, setHasStarted] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_STATE);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.hasStarted === 'boolean') return parsed.hasStarted;
+        if (parsed.isActive) return true;
+      }
+    } catch (e) {}
+    return false;
+  });
+
   const [isActive, setIsActive] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_STATE);
@@ -125,10 +138,11 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       cyclesCompleted,
       timeLeft,
       isActive,
+      hasStarted,
       targetTimestamp: targetTimestampRef.current,
     };
     localStorage.setItem(STORAGE_KEY_STATE, JSON.stringify(stateToSave));
-  }, [phase, cyclesCompleted, timeLeft, isActive]);
+  }, [phase, cyclesCompleted, timeLeft, isActive, hasStarted]);
 
   const getDurationForPhase = useCallback((p: PomodoroPhase, cfg: PomodoroConfig = config) => {
     if (p === 'focus') return cfg.focusMinutes * 60;
@@ -194,6 +208,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     if (!isActive) {
       targetTimestampRef.current = Date.now() + timeLeft * 1000;
       setIsActive(true);
+      setHasStarted(true);
     } else {
       targetTimestampRef.current = null;
       setIsActive(false);
@@ -202,6 +217,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 
   const resetTimer = () => {
     setIsActive(false);
+    setHasStarted(false);
     targetTimestampRef.current = null;
     setPhase('focus');
     setCyclesCompleted(0);
@@ -248,6 +264,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       value={{
         timeLeft,
         isActive,
+        hasStarted,
         phase,
         cyclesCompleted,
         config,

@@ -7,6 +7,7 @@ export function FloatingPomodoroWidget() {
   const { 
     timeLeft, 
     isActive, 
+    hasStarted,
     phase, 
     cyclesCompleted, 
     toggleTimer, 
@@ -102,8 +103,9 @@ export function FloatingPomodoroWidget() {
     window.addEventListener('pointerup', handlePointerUp);
   };
 
-  // If dismissed or user is on the full planning pomodoro page, don't show floating widget
-  if (isDismissed || isPlanningPage) {
+  // Only display floating pop up in other pages if pomodoro was launched (!hasStarted -> hidden)
+  // Also hide if dismissed or if currently on full planning page
+  if (!hasStarted || isDismissed || isPlanningPage) {
     return null;
   }
 
