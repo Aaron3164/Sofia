@@ -114,6 +114,40 @@ export default function AnnaleDetail() {
 
         let combinedContext = `--- SUJET DE L'ANNALE : ${displayTitle} ---\n${ownContent}\n\n`;
 
+        // If parsed questions and official answers exist, format and append the official grid
+        if (loadedQuestions && loadedQuestions.length > 0) {
+          const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+          combinedContext += `--- GRILLE DE CORRECTION OFFICIELLE DU CONCOURS (VÉRITÉ ABSOLUE NON NÉGOCIABLE) ---\n`;
+          loadedQuestions.forEach((q, qIdx) => {
+            const raw = (q as any).correctAnswers ?? (q as any).correct_answers ?? (q as any).correctAnswer ?? (q as any).correct_answer ?? [];
+            const rawArr = Array.isArray(raw) ? raw : [raw];
+            
+            combinedContext += `Question ${qIdx + 1} : "${q.question}"\n`;
+            if (q.options && q.options.length > 0) {
+              const correctLetters: string[] = [];
+              q.options.forEach((opt, oIdx) => {
+                const optLetter = letters[oIdx] || `${oIdx + 1}`;
+                const normOpt = opt.toLowerCase().trim();
+                const isCorrect = rawArr.some(c => {
+                  if (c === null || c === undefined) return false;
+                  const cStr = c.toString().toLowerCase().trim();
+                  return cStr === normOpt || cStr === optLetter.toLowerCase() || cStr === oIdx.toString();
+                });
+                if (isCorrect) correctLetters.push(optLetter);
+                combinedContext += `  ${optLetter}. ${opt} -> ${isCorrect ? 'OFFICIELLEMENT VRAI' : 'OFFICIELLEMENT FAUX'}\n`;
+              });
+              combinedContext += `  => BONNES RÉPONSES OFFICIELLES DU CONCOURS : ${correctLetters.length > 0 ? correctLetters.join(', ') : 'Aucune'}\n`;
+            } else if (q.expectedAnswer) {
+              combinedContext += `  => RÉPONSE ATTENDUE OFFICIELLE : ${q.expectedAnswer}\n`;
+            }
+            if (q.explanation) {
+              combinedContext += `  => Justification officielle : ${q.explanation}\n`;
+            }
+            combinedContext += `\n`;
+          });
+          combinedContext += `--- FIN DE LA GRILLE OFFICIELLE DU CONCOURS ---\n\n`;
+        }
+
         if (siblingCourses.length > 0 && user) {
           const courseIds = siblingCourses.map(c => c.id);
           const { data: siblingsData, error: sibError } = await supabase

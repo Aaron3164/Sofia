@@ -454,7 +454,33 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 - Utilise '__' pour souligner les précisions importantes.
 - TABLEAUX : Si une comparaison, classification ou synthèse de plusieurs notions s'y prête, STRUCTURE-LA DANS UN BEAU TABLEAU MARKDOWN standard avec des en-têtes clairs (| Colonne 1 | Colonne 2 | \n | --- | --- |).
 - SOURCE : Si l'information provient du document, mentionne-le subtilement.
-- Tu DOIS tutoyer l'étudiant (utilise "tu").`;
+- Tu DOIS tutoyer l'étudiant (utilise "tu").
+
+=== PROTOCOLE STRICT DE CORRECTION DES ANNALES & QCM (RÈGLE ABSOLUE) ===
+Si l'étudiant demande de corriger des questions, des QCM ou toute l'annale (ex: "corrige l'annale", "corrige les qcm", "corrige qcm par qcm", "explications des items", etc.) :
+
+1. ALIGNEMENT TOTAL SUR LA CORRECTION OFFICIELLE (ZÉRO CONTRADICTION) :
+- La grille de correction officielle présente dans le contexte est la VÉRITÉ ABSOLUE du concours.
+- Il t'est STRICTEMENT INTERDIT d'être en désaccord avec la correction officielle ou de déclarer qu'un item est faux s'il est compté vrai par le concours (et vice-versa).
+- Ne contredis JAMAIS la grille officielle : explique avec clarté le raisonnement exact, le piège ou la notion de cours qui justifie la position officielle retenue.
+- (Si et seulement si un errata médical ou scientifique majeur est flagrant, explique TOUJOURS d'abord pourquoi la réponse officielle a été cochée, puis ajoute à la toute fin de la question : "⚠️ *Remarque Errata potentiel : [explication]*").
+
+2. FORMAT STRICTEMENT STANDARDISÉ POUR CHAQUE QUESTION :
+Tu DOIS structurer la correction de chaque question de manière rigoureusement identique selon ce modèle précis :
+
+### 📌 Question [Numéro] — [Titre court ou thème de la question]
+**Bonnes réponses officielles :** ==[Lettres des bonnes réponses, ex: B, D]==
+
+* **A. [VRAI ou FAUX]** : [Explication concise et percutante en 1-2 phrases. Si faux, expliciter le piège ou corriger l'erreur avec les termes exacts du cours surlignés avec ==terme==].
+* **B. [VRAI ou FAUX]** : [Explication concise et percutante en 1-2 phrases...]
+* **C. [VRAI ou FAUX]** : [Explication concise et percutante en 1-2 phrases...]
+* **D. [VRAI ou FAUX]** : [Explication concise et percutante en 1-2 phrases...]
+* **E. [VRAI ou FAUX]** : [Explication concise et percutante en 1-2 phrases...]
+
+💡 **Point clé à retenir :** ==[La règle générale, le réflexe concours ou l'élément de cours capital à mémoriser pour ne plus hésiter]==.
+
+---
+Ne dévie jamais de ce format lorsque tu corriges des questions d'annale item par item.`;
 
   let historyPrompt = "";
   if (history && history.length > 0) {
@@ -464,7 +490,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 
   let annalePrompt = "";
   if (annaleContext && annaleContext.trim()) {
-    annalePrompt = `\n\nSUJET D'EXAMEN / ANNALES / EXERCICE ATTACHÉ PAR L'ÉTUDIANT :\n${annaleContext.substring(0, 150000)}\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal ci-dessus, ses méthodes, sa structure et ses notions.`;
+    annalePrompt = `\n\nSUJET D'EXAMEN / ANNALES / EXERCICE ATTACHÉ PAR L'ÉTUDIANT :\n${annaleContext.substring(0, 150000)}\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal ci-dessus, ses méthodes, sa structure et ses notions. Respecte impérativement la grille de correction officielle sans jamais la contredire.`;
   }
 
   const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${context}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
@@ -576,9 +602,10 @@ ${errorsListText}
 
 CONSIGNES STRICTES :
 Pour CHAQUE question ratée ci-dessus, formule une explication pédagogique, fluide et naturelle en STRICTEMENT 1 SEULE PHRASE, basée sur le contenu du cours ci-dessous.
-Cette phrase doit expliquer simplement et clairement pourquoi la bonne réponse est exacte ou en quoi le choix de l'étudiant était faux.
+Cette phrase doit expliquer simplement et clairement pourquoi la bonne réponse indiquée est exacte ou en quoi le choix de l'étudiant était faux.
 
 RÈGLES CAPITALES :
+- ALIGNEMENT ABSOLU : La bonne réponse indiquée pour chaque question est la VÉRITÉ ABSOLUE du concours. Ne contredis JAMAIS cette réponse officielle, explique toujours pourquoi elle est retenue.
 - Donne une explication naturelle, bien formulée et pédagogique (ne fais PAS une simple citation brute froide avec des crochets ou des coupures).
 - INTERDICTION FORMELLE d'utiliser la formule "D'après le cours", "Selon le cours", "Le texte indique" ou toute tournure similaire. Entre directement dans l'explication.
 - INTERDICTION FORMELLE d'inclure des guillemets (aucun « », aucun "", aucun “”).
