@@ -12,7 +12,9 @@ import { PomodoroTimer } from '../components/planning/PomodoroTimer';
 type PlanMode = 'spaced' | 'pomodoro';
 
 // 5 mastery levels: Red (Not mastered) -> Orange -> Yellow -> Light Green -> Green (Mastered)
+// Mastery levels: Grey (Pas encore vu / Non commencé) + 5 mastery levels: Red -> Green
 const MASTERY_LEVELS = [
+  { level: 0, label: 'Pas encore vu', color: '#64748b', text: '#ffffff' }, // Gris neutre (défaut)
   { level: 1, label: 'Non maîtrisé', color: '#ef4444', text: '#ffffff' }, // Rouge
   { level: 2, label: 'En difficulté', color: '#f97316', text: '#ffffff' }, // Orange
   { level: 3, label: 'En cours', color: '#eab308', text: '#000000' }, // Jaune
@@ -20,7 +22,7 @@ const MASTERY_LEVELS = [
   { level: 5, label: 'Maîtrisé', color: '#10b981', text: '#ffffff' }, // Vert foncé
 ];
 
-const DEFAULT_COURSE_COLOR = '#84cc16'; // niveau 4 par défaut ou couleur du cours
+const DEFAULT_COURSE_COLOR = '#64748b'; // Gris par défaut quand importé / pas encore vu
 
 export default function PlanningCenter() {
   const [mode, setMode] = useState<PlanMode>('spaced');
@@ -35,6 +37,7 @@ export default function PlanningCenter() {
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [colorPickerTargetCourse, setColorPickerTargetCourse] = useState<{ id: string; name: string; currentColor: string } | null>(null);
+  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
 
   const modes = [
     { id: 'spaced', label: '🗓️ Répétition espacée' },
@@ -238,82 +241,133 @@ export default function PlanningCenter() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1, overflowY: 'auto' }}>
-                      {dayItems.map(item => {
-                        const courseColor = getCourseColor(item.courseId);
-                        const masteryObj = MASTERY_LEVELS.find(m => m.color.toLowerCase() === courseColor.toLowerCase());
-                        const textColor = item.completed 
-                          ? 'var(--text-secondary)' 
-                          : (masteryObj ? masteryObj.text : '#ffffff');
+                      {(() => {
+                        const isExpanded = !!expandedDays[dayStr];
+                        const MAX_COLLAPSED_ITEMS = 2;
+                        const visibleItems = (dayItems.length > MAX_COLLAPSED_ITEMS && !isExpanded)
+                          ? dayItems.slice(0, MAX_COLLAPSED_ITEMS)
+                          : dayItems;
+                        const hiddenCount = dayItems.length - MAX_COLLAPSED_ITEMS;
 
                         return (
-                          <div 
-                            key={item.id}
-                            className="hover-lift"
-                            style={{
-                              fontSize: '0.75rem',
-                              padding: '0.35rem 0.45rem',
-                              backgroundColor: item.completed ? 'var(--bg-elevated)' : courseColor,
-                              color: textColor,
-                              borderRadius: '0.35rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              opacity: item.completed ? 0.6 : 1,
-                              border: item.completed ? '1px solid var(--border-color)' : '1px solid rgba(0,0,0,0.1)',
-                              boxShadow: item.completed ? 'none' : '0 1px 3px rgba(0,0,0,0.15)'
-                            }}
-                            title={`Cours: ${item.courseName} (J+${item.step}) - Cliquer sur la palette pour changer le niveau de maîtrise`}
-                          >
-                            <button 
-                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
-                              onClick={(e) => { e.stopPropagation(); markCompleted(item.id, !item.completed); }}
-                              title={item.completed ? "Marquer non fait" : "Marquer comme révisé"}
-                            >
-                              {item.completed ? <CheckCircle size={12} /> : <Circle size={12} />}
-                            </button>
-                            
-                            <span 
-                              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, cursor: 'pointer', fontWeight: 500 }}
-                              onClick={() => navigate(`/subject/${item.courseId}`)}
-                            >
-                              {item.courseName}
-                            </span>
+                          <>
+                            {visibleItems.map(item => {
+                              const courseColor = getCourseColor(item.courseId);
+                              const masteryObj = MASTERY_LEVELS.find(m => m.color.toLowerCase() === courseColor.toLowerCase());
+                              const textColor = item.completed 
+                                ? 'var(--text-secondary)' 
+                                : (masteryObj ? masteryObj.text : '#ffffff');
 
-                            {/* Color / Mastery picker button */}
-                            <button
-                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setColorPickerTargetCourse({ id: item.courseId, name: item.courseName, currentColor: courseColor });
-                              }}
-                              title="Changer le niveau de maîtrise (couleur)"
-                            >
-                              <Palette size={11} />
-                            </button>
+                              return (
+                                <div 
+                                  key={item.id}
+                                  className="hover-lift"
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    padding: '0.35rem 0.45rem',
+                                    backgroundColor: item.completed ? 'var(--bg-elevated)' : courseColor,
+                                    color: textColor,
+                                    borderRadius: '0.35rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    opacity: item.completed ? 0.6 : 1,
+                                    border: item.completed ? '1px solid var(--border-color)' : '1px solid rgba(0,0,0,0.1)',
+                                    boxShadow: item.completed ? 'none' : '0 1px 3px rgba(0,0,0,0.15)'
+                                  }}
+                                  title={`Cours: ${item.courseName} (J+${item.step}) - Cliquer sur la palette pour changer le niveau de maîtrise`}
+                                >
+                                  <button 
+                                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
+                                    onClick={(e) => { e.stopPropagation(); markCompleted(item.id, !item.completed); }}
+                                    title={item.completed ? "Marquer non fait" : "Marquer comme révisé"}
+                                  >
+                                    {item.completed ? <CheckCircle size={12} /> : <Circle size={12} />}
+                                  </button>
+                                  
+                                  <span 
+                                    style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, cursor: 'pointer', fontWeight: 500 }}
+                                    onClick={() => navigate(`/subject/${item.courseId}`)}
+                                  >
+                                    {item.courseName}
+                                  </span>
 
-                            {/* Reschedule button */}
-                            <button 
-                              className="reschedule-btn"
-                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                              onClick={(e) => handleReschedule(e, item)}
-                              title="Reporter à un autre jour"
-                            >
-                              <Edit2 size={10} />
-                            </button>
+                                  {/* Color / Mastery picker button */}
+                                  <button
+                                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setColorPickerTargetCourse({ id: item.courseId, name: item.courseName, currentColor: courseColor });
+                                    }}
+                                    title="Changer le niveau de maîtrise (couleur)"
+                                  >
+                                    <Palette size={11} />
+                                  </button>
 
-                            {/* Delete single day item button */}
-                            <button 
-                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                              onClick={(e) => handleDeleteItem(e, item)}
-                              title="Retirer de ce jour"
-                            >
-                              <Trash2 size={10} />
-                            </button>
+                                  {/* Reschedule button */}
+                                  <button 
+                                    className="reschedule-btn"
+                                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                    onClick={(e) => handleReschedule(e, item)}
+                                    title="Reporter à un autre jour"
+                                  >
+                                    <Edit2 size={10} />
+                                  </button>
 
-                            <span style={{ fontWeight: 'bold', opacity: 0.85, fontSize: '0.65rem', flexShrink: 0 }}>J{item.step}</span>
-                          </div>
+                                  {/* Delete single day item button */}
+                                  <button 
+                                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                    onClick={(e) => handleDeleteItem(e, item)}
+                                    title="Retirer de ce jour"
+                                  >
+                                    <Trash2 size={10} />
+                                  </button>
+
+                                  <span style={{ fontWeight: 'bold', opacity: 0.85, fontSize: '0.65rem', flexShrink: 0 }}>J{item.step}</span>
+                                </div>
+                              );
+                            })}
+
+                            {/* Collapse / Expand toggle button if more than 2 items */}
+                            {dayItems.length > MAX_COLLAPSED_ITEMS && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedDays(prev => ({ ...prev, [dayStr]: !prev[dayStr] }));
+                                }}
+                                style={{
+                                  marginTop: '0.2rem',
+                                  padding: '0.2rem 0.4rem',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 600,
+                                  borderRadius: '0.25rem',
+                                  border: '1px dashed var(--border-color)',
+                                  backgroundColor: 'var(--bg-elevated)',
+                                  color: 'var(--accent-primary)',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '0.25rem',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; }}
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <span>▲ Réduire</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>▼ +{hiddenCount} autre{hiddenCount > 1 ? 's' : ''}</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </>
                         );
-                      })}
+                      })()}
                     </div>
                   </div>
                 );
@@ -616,7 +670,7 @@ function CourseTreeSelector({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginLeft: depth > 0 ? '1rem' : 0 }}>
       {currentNodes.map(node => {
         if (node.type === 'folder') {
-          const isCollapsed = collapsedFolders[node.id] ?? false; // default expanded
+          const isCollapsed = collapsedFolders[node.id] ?? true; // default folded / closed
           const descendantCourses = getDescendantCourses(node.id);
 
           return (

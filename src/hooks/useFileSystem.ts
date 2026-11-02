@@ -108,13 +108,17 @@ export function useFileSystem() {
     const parentChildren = nodes.filter(n => n.parentId === parentId);
     const maxOrder = parentChildren.length > 0 ? Math.max(...parentChildren.map(n => n.order)) : -1;
     
+    // For courses: default to neutral grey (#64748b) for "pas encore vu"
+    // For folders: use theme accent or standard color
+    const defaultColor = type === 'course' ? '#64748b' : COLORS[Math.floor(Math.random() * COLORS.length)];
+
     const nodeData = {
       id: crypto.randomUUID(),
       name,
       type,
       parentId,
       createdAt: new Date().toISOString(),
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      color: defaultColor,
       order: maxOrder + 1,
     };
 
