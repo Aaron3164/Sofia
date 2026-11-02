@@ -83,6 +83,10 @@ export default function PlanningCenter() {
 
   const handleAddCourseSingleDay = (course: FileNode) => {
     if (!selectedDayForAdd) return;
+    // Ensure the course is imported as grey ('#64748b' - Pas encore vu)
+    if (!course.color || course.color !== '#64748b') {
+      updateNodeColor(course.id, '#64748b');
+    }
     addCourseToDate(course.id, course.name, selectedDayForAdd);
     setSelectedDayForAdd(null);
     setCourseSearchQuery('');
@@ -108,6 +112,12 @@ export default function PlanningCenter() {
     }
 
     if (await confirm(`Ajouter tous les ${coursesInFolder.length} cours du dossier "${folder.name}" au planning du ${format(new Date(selectedDayForAdd), 'd MMMM', { locale: fr })} ?`)) {
+      // Ensure all courses in the folder are set to grey ('#64748b' - Pas encore vu) on import
+      coursesInFolder.forEach(c => {
+        if (!c.color || c.color !== '#64748b') {
+          updateNodeColor(c.id, '#64748b');
+        }
+      });
       await addCoursesBatchToDate(coursesInFolder.map(c => ({ id: c.id, name: c.name })), selectedDayForAdd);
       setSelectedDayForAdd(null);
       setCourseSearchQuery('');

@@ -23,7 +23,7 @@ export default function SubjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { alert, confirm } = useDialog();
-  const { getNode, deleteNode } = useFileSystem();
+  const { getNode, deleteNode, updateNodeColor } = useFileSystem();
   const { scheduleCourse, hasScheduledCourse, removeCourseSchedules, loading: isSpacedLoading } = useSpacedRepetition();
   const { profile } = useAuth();
   
@@ -565,6 +565,9 @@ export default function SubjectDetail() {
 
   const handleSchedule = async () => {
     if (id && courseNode) {
+      if (!courseNode.color || courseNode.color !== '#64748b') {
+        updateNodeColor(id, '#64748b');
+      }
       scheduleCourse(id, courseNode.name);
       await alert('Cours programmé avec la méthode des J (J+1, J+3, J+7, J+14, J+30) !');
     }
