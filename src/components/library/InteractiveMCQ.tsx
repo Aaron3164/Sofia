@@ -341,29 +341,47 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   const openCount = openIndices.length;
   const labelingCount = labelingIndices.length;
 
-  const isQuestionCorrect = (qIndex: number) => {
+  const getQuestionErrors = (qIndex: number): number => {
     const q = mcqs[qIndex];
-    if (!q || isOpenQuestion(q) || isLabelingQuestion(q)) return false;
-    const selected = (selectedAnswers[qIndex] || []).map(normalize);
+    if (!q || isOpenQuestion(q) || isLabelingQuestion(q)) return 0;
+    const selected = selectedAnswers[qIndex] || [];
     const correctOpts = getCorrectAnswers(q);
-    const correctOptionTexts = q.options.filter((opt, i) => isCorrectOption(correctOpts, opt, i)).map(normalize);
-
-    return (
-      selected.length === correctOptionTexts.length &&
-      selected.every(ans => correctOptionTexts.includes(ans))
-    );
+    
+    // Count errors across all options:
+    // - Option correct not selected = 1 error (omission)
+    // - Option incorrect selected = 1 error (fausse addition)
+    let errors = 0;
+    q.options.forEach((opt, oIndex) => {
+      const isSelected = selected.includes(opt);
+      const isCorrect = isCorrectOption(correctOpts, opt, oIndex);
+      if (isSelected !== isCorrect) {
+        errors++;
+      }
+    });
+    return errors;
   };
 
-  const score = qcmIndices.reduce((acc, idx) => {
-    return acc + (isQuestionCorrect(idx) ? 1 : 0);
+  const getQuestionScore = (qIndex: number): number => {
+    const q = mcqs[qIndex];
+    if (!q || isOpenQuestion(q) || isLabelingQuestion(q)) return 0;
+    const errors = getQuestionErrors(qIndex);
+    if (errors === 0) return 1;
+    if (errors === 1) return 0.5;
+    if (errors === 2) return 0.2;
+    return 0;
+  };
+
+  const rawScore = qcmIndices.reduce((acc, idx) => {
+    return acc + getQuestionScore(idx);
   }, 0);
+  const score = Math.round(rawScore * 10) / 10;
 
   const evaluatedOpenCount = openIndices.filter(idx => Boolean(openEvaluations[idx])).length;
   const evaluatedLabelingCount = labelingIndices.filter(idx => Boolean(labelingEvaluations[idx]) || manualLabelingScores[idx] !== undefined).length;
 
   const wrongQuestions = mcqs
     .map((q, idx) => ({ q, idx }))
-    .filter(({ q, idx }) => !isOpenQuestion(q) && !isLabelingQuestion(q) && !isQuestionCorrect(idx));
+    .filter(({ q, idx }) => !isOpenQuestion(q) && !isLabelingQuestion(q) && getQuestionErrors(idx) > 0);
 
   const handleEvaluateLabeling = async (qIndex: number) => {
     const q = mcqs[qIndex];
@@ -718,7 +736,8 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
         const isOpen = isOpenQuestion(q);
         const correctOpts = getCorrectAnswers(q);
         const selected = selectedAnswers[qIndex] || [];
-        const isWrong = showResults && !isOpen && !isLabeling && !isQuestionCorrect(qIndex);
+        const qcmErrors = (!isOpen && !isLabeling) ? getQuestionErrors(qIndex) : 0;
+        const qcmScore = (!isOpen && !isLabeling) ? getQuestionScore(qIndex) : 0;
         const openEval = openEvaluations[qIndex];
         const labelEval = labelingEvaluations[qIndex];
         const currentPins = placedPins[qIndex] || [];
@@ -734,8 +753,10 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
             style={{ 
               padding: '1.5rem', 
               borderRadius: '1rem',
-              border: isWrong 
-                ? '1px solid rgba(239, 68, 68, 0.4)' 
+              border: showResults && !isOpen && !isLabeling
+                ? (qcmScore === 1 
+                    ? '1px solid rgba(16, 185, 129, 0.4)' 
+                    : (qcmScore > 0 ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)'))
                 : (showResults && isOpen && openEval?.status === 'correct' 
                     ? '1px solid rgba(16, 185, 129, 0.4)' 
                     : (showResults && isLabeling && (labelEval?.status === 'correct' || manualLabelingScores[qIndex] === 1)
@@ -774,10 +795,17 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
                   fontSize: '0.75rem', 
                   fontWeight: 700,
                   flexShrink: 0,
-                  backgroundColor: !isWrong ? 'var(--success-light)' : 'var(--danger-light)',
-                  color: !isWrong ? 'var(--success)' : 'var(--danger)'
+                  backgroundColor: qcmScore === 1 
+                    ? 'var(--success-light)' 
+                    : (qcmScore > 0 ? 'var(--accent-light)' : 'var(--danger-light)'),
+                  color: qcmScore === 1 
+                    ? 'var(--success)' 
+                    : (qcmScore > 0 ? 'var(--accent-primary)' : 'var(--danger)')
                 }}>
-                  {!isWrong ? 'Correct (+1 pt)' : 'Erreur (0 pt)'}
+                  {qcmErrors === 0 && 'Sans erreur (+1 pt)'}
+                  {qcmErrors === 1 && '1 erreur (+0.5 pt)'}
+                  {qcmErrors === 2 && '2 erreurs (+0.2 pt)'}
+                  {qcmErrors >= 3 && `${qcmErrors} erreurs (0 pt)`}
                 </span>
               )}
 
