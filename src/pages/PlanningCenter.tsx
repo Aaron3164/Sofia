@@ -38,6 +38,70 @@ export default function PlanningCenter() {
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [colorPickerTargetCourse, setColorPickerTargetCourse] = useState<{ id: string; name: string; currentColor: string } | null>(null);
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
+  const [hoveredCourseId, setHoveredCourseId] = useState<string | null>(null);
+
+  // Column width resizing (like Excel columns with drag and double-click reset)
+  const [colWidths, setColWidths] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem('aura_planning_col_widths');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === 7) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [1, 1, 1, 1, 1, 1, 1]; // 1fr each by default
+  });
+
+  const handleStartColResize = (colIndex: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const initialWidths = [...colWidths];
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      // Convert delta px into flex weight approx (1 flex ~ 140px)
+      const deltaRatio = deltaX / 140;
+      setColWidths(prev => {
+        const next = [...prev];
+        next[colIndex] = Math.max(0.6, Number((initialWidths[colIndex] + deltaRatio).toFixed(2)));
+        return next;
+      });
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      setColWidths(latest => {
+        try {
+          localStorage.setItem('aura_planning_col_widths', JSON.stringify(latest));
+        } catch {
+          // ignore
+        }
+        return latest;
+      });
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleResetColWidth = (colIndex: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setColWidths(prev => {
+      const next = [...prev];
+      next[colIndex] = 1;
+      try {
+        localStorage.setItem('aura_planning_col_widths', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const modes = [
     { id: 'spaced', label: '🗓️ Répétition espacée' },
@@ -92,15 +156,21 @@ export default function PlanningCenter() {
     setCourseSearchQuery('');
   };
 
-  // Recursively collect all courses contained inside a folder and its subfolders
+  // Recursively collect all courses contained inside a folder and its subfolders,
+  // STRICTLY preserving the folder's order and subfolder hierarchy
   const getDescendantCourses = (folderId: string): FileNode[] => {
-    const directChildren = nodes.filter(n => n.parentId === folderId);
-    let courses: FileNode[] = directChildren.filter(n => n.type === 'course');
+    const directChildren = nodes
+      .filter(n => n.parentId === folderId)
+      .sort((a, b) => a.order - b.order);
+
+    const directCourses: FileNode[] = directChildren.filter(n => n.type === 'course');
     const subFolders = directChildren.filter(n => n.type === 'folder');
+
+    let all: FileNode[] = [...directCourses];
     for (const sub of subFolders) {
-      courses = courses.concat(getDescendantCourses(sub.id));
+      all = all.concat(getDescendantCourses(sub.id));
     }
-    return courses;
+    return all;
   };
 
   const handleAddFolderSingleDay = async (folder: FileNode) => {
@@ -200,222 +270,299 @@ export default function PlanningCenter() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              {weekDays.map(day => (
-                <div key={day} style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--text-secondary)', padding: '0.5rem 0' }}>
-                  {day}
-                </div>
-              ))}
-            </div>
+            {/* Grid Column Template: 7 configurable columns */}
+            {(() => {
+              const gridTemplate = colWidths.map(w => `${w}fr`).join(' ');
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '0.5rem' }}>
-              {days.map((day, idx) => {
-                const isCurrentMonth = isSameMonth(day, currentDate);
-                const isToday = isSameDay(day, new Date());
-                const dayStr = format(day, 'yyyy-MM-dd');
-                const dayItems = items.filter(item => item.date === dayStr);
-
-                return (
-                  <div 
-                    key={idx}
-                    className="day-card"
-                    style={{
-                      border: isToday ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)',
-                      borderRadius: '0.5rem',
-                      padding: '0.5rem',
-                      minHeight: '110px',
-                      backgroundColor: isCurrentMonth ? 'var(--bg-secondary)' : 'var(--bg-primary)',
-                      opacity: isCurrentMonth ? 1 : 0.45,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                      <button
-                        onClick={() => setSelectedDayForAdd(dayStr)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '0.15rem 0.35rem',
-                          borderRadius: '0.25rem',
-                          color: 'var(--text-secondary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.2rem',
-                          fontSize: '0.65rem'
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    {weekDays.map((day, colIdx) => (
+                      <div 
+                        key={day} 
+                        style={{ 
+                          textAlign: 'center', 
+                          fontWeight: 'bold', 
+                          color: 'var(--text-secondary)', 
+                          padding: '0.5rem 0',
+                          position: 'relative',
+                          userSelect: 'none'
                         }}
-                        title={`Ajouter un cours le ${format(day, 'd MMMM', { locale: fr })}`}
-                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--accent-primary)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
                       >
-                        <Plus size={12} />
-                        <span>Cours</span>
-                      </button>
+                        <span>{day}</span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        {dayItems.length > 0 && (
-                          <button
-                            onClick={(e) => handleDeleteAllDayCourses(e, dayStr, format(day, 'd MMMM', { locale: fr }), dayItems.length)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '0.15rem',
-                              borderRadius: '0.25rem',
-                              color: 'var(--text-secondary)',
-                              opacity: 0.6,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                            title={`Supprimer tous les ${dayItems.length} cours de ce jour`}
-                            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.opacity = '1'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.opacity = '0.6'; }}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                        <div style={{ fontWeight: isToday ? 'bold' : 'normal', fontSize: '0.85rem' }}>
-                          {format(day, 'd')}
+                        {/* Excel-like Column Resize Separator */}
+                        <div
+                          onMouseDown={(e) => handleStartColResize(colIdx, e)}
+                          onDoubleClick={(e) => handleResetColWidth(colIdx, e)}
+                          title="Glisser pour ajuster la largeur de cette journée (Double-clic pour réinitialiser)"
+                          style={{
+                            position: 'absolute',
+                            right: '-0.35rem',
+                            top: '20%',
+                            bottom: '20%',
+                            width: '7px',
+                            cursor: 'col-resize',
+                            zIndex: 10,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: 0.3,
+                            transition: 'opacity 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.3'; }}
+                        >
+                          <div style={{ width: '2px', height: '100%', backgroundColor: 'var(--accent-primary)', borderRadius: '1px' }} />
                         </div>
                       </div>
-                    </div>
+                    ))}
+                  </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1, overflowY: 'auto' }}>
-                      {(() => {
-                        const isExpanded = !!expandedDays[dayStr];
-                        const MAX_COLLAPSED_ITEMS = 2;
-                        const visibleItems = (dayItems.length > MAX_COLLAPSED_ITEMS && !isExpanded)
-                          ? dayItems.slice(0, MAX_COLLAPSED_ITEMS)
-                          : dayItems;
-                        const hiddenCount = dayItems.length - MAX_COLLAPSED_ITEMS;
+                  <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '0.5rem' }}>
+                    {days.map((day, idx) => {
+                      const isCurrentMonth = isSameMonth(day, currentDate);
+                      const isToday = isSameDay(day, new Date());
+                      const dayStr = format(day, 'yyyy-MM-dd');
 
-                        return (
-                          <>
-                            {visibleItems.map(item => {
-                              const courseColor = getCourseColor(item.courseId);
-                              const masteryObj = MASTERY_LEVELS.find(m => m.color.toLowerCase() === courseColor.toLowerCase());
-                              const textColor = item.completed 
-                                ? 'var(--text-secondary)' 
-                                : (masteryObj ? masteryObj.text : '#ffffff');
+                      // Retrieve and sort day items: group by parent folder first, then by node.order / name
+                      const rawDayItems = items.filter(item => item.date === dayStr);
+                      const dayItems = [...rawDayItems].sort((a, b) => {
+                        const nodeA = nodes.find(n => n.id === a.courseId);
+                        const nodeB = nodes.find(n => n.id === b.courseId);
+                        const parentA = nodeA?.parentId || '';
+                        const parentB = nodeB?.parentId || '';
+                        if (parentA !== parentB) {
+                          return parentA.localeCompare(parentB);
+                        }
+                        const orderA = nodeA?.order ?? 0;
+                        const orderB = nodeB?.order ?? 0;
+                        if (orderA !== orderB) {
+                          return orderA - orderB;
+                        }
+                        return a.courseName.localeCompare(b.courseName);
+                      });
 
-                              return (
-                                <div 
-                                  key={item.id}
-                                  className="hover-lift"
+                      return (
+                        <div 
+                          key={idx}
+                          className="day-card"
+                          style={{
+                            border: isToday ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                            borderRadius: '0.5rem',
+                            padding: '0.5rem',
+                            minHeight: '110px',
+                            backgroundColor: isCurrentMonth ? 'var(--bg-secondary)' : 'var(--bg-primary)',
+                            opacity: isCurrentMonth ? 1 : 0.45,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            position: 'relative'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                            <button
+                              onClick={() => setSelectedDayForAdd(dayStr)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '0.15rem 0.35rem',
+                                borderRadius: '0.25rem',
+                                color: 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.2rem',
+                                fontSize: '0.65rem'
+                              }}
+                              title={`Ajouter un cours le ${format(day, 'd MMMM', { locale: fr })}`}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--accent-primary)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                            >
+                              <Plus size={12} />
+                              <span>Cours</span>
+                            </button>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              {dayItems.length > 0 && (
+                                <button
+                                  onClick={(e) => handleDeleteAllDayCourses(e, dayStr, format(day, 'd MMMM', { locale: fr }), dayItems.length)}
                                   style={{
-                                    fontSize: '0.75rem',
-                                    padding: '0.35rem 0.45rem',
-                                    backgroundColor: item.completed ? 'var(--bg-elevated)' : courseColor,
-                                    color: textColor,
-                                    borderRadius: '0.35rem',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '0.15rem',
+                                    borderRadius: '0.25rem',
+                                    color: 'var(--text-secondary)',
+                                    opacity: 0.6,
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '0.35rem',
-                                    opacity: item.completed ? 0.6 : 1,
-                                    border: item.completed ? '1px solid var(--border-color)' : '1px solid rgba(0,0,0,0.1)',
-                                    boxShadow: item.completed ? 'none' : '0 1px 3px rgba(0,0,0,0.15)'
+                                    justifyContent: 'center'
                                   }}
-                                  title={`Cours: ${item.courseName} (J+${item.step}) - Cliquer sur la palette pour changer le niveau de maîtrise`}
+                                  title={`Supprimer tous les ${dayItems.length} cours de ce jour`}
+                                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.opacity = '1'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.opacity = '0.6'; }}
                                 >
-                                  <button 
-                                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
-                                    onClick={(e) => { e.stopPropagation(); markCompleted(item.id, !item.completed); }}
-                                    title={item.completed ? "Marquer non fait" : "Marquer comme révisé"}
-                                  >
-                                    {item.completed ? <CheckCircle size={12} /> : <Circle size={12} />}
-                                  </button>
-                                  
-                                  <span 
-                                    style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, cursor: 'pointer', fontWeight: 500 }}
-                                    onClick={() => navigate(`/subject/${item.courseId}`)}
-                                  >
-                                    {item.courseName}
-                                  </span>
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+                              <div style={{ fontWeight: isToday ? 'bold' : 'normal', fontSize: '0.85rem' }}>
+                                {format(day, 'd')}
+                              </div>
+                            </div>
+                          </div>
 
-                                  {/* Color / Mastery picker button */}
-                                  <button
-                                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setColorPickerTargetCourse({ id: item.courseId, name: item.courseName, currentColor: courseColor });
-                                    }}
-                                    title="Changer le niveau de maîtrise (couleur)"
-                                  >
-                                    <Palette size={11} />
-                                  </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1, overflowY: 'auto' }}>
+                            {(() => {
+                              const isExpanded = !!expandedDays[dayStr];
+                              const MAX_COLLAPSED_ITEMS = 2;
+                              const visibleItems = (dayItems.length > MAX_COLLAPSED_ITEMS && !isExpanded)
+                                ? dayItems.slice(0, MAX_COLLAPSED_ITEMS)
+                                : dayItems;
+                              const hiddenCount = dayItems.length - MAX_COLLAPSED_ITEMS;
 
-                                  {/* Reschedule button */}
-                                  <button 
-                                    className="reschedule-btn"
-                                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                                    onClick={(e) => handleReschedule(e, item)}
-                                    title="Reporter à un autre jour"
-                                  >
-                                    <Edit2 size={10} />
-                                  </button>
+                              return (
+                                <>
+                                  {visibleItems.map(item => {
+                                    const courseColor = getCourseColor(item.courseId);
+                                    const masteryObj = MASTERY_LEVELS.find(m => m.color.toLowerCase() === courseColor.toLowerCase());
+                                    const textColor = item.completed 
+                                      ? 'var(--text-secondary)' 
+                                      : (masteryObj ? masteryObj.text : '#ffffff');
+                                    const isHovered = hoveredCourseId === item.id;
 
-                                  {/* Delete single day item button */}
-                                  <button 
-                                    style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.75, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                                    onClick={(e) => handleDeleteItem(e, item)}
-                                    title="Retirer de ce jour"
-                                  >
-                                    <Trash2 size={10} />
-                                  </button>
+                                    return (
+                                      <div 
+                                        key={item.id}
+                                        className="hover-lift"
+                                        onMouseEnter={() => setHoveredCourseId(item.id)}
+                                        onMouseLeave={() => setHoveredCourseId(null)}
+                                        style={{
+                                          fontSize: '0.75rem',
+                                          padding: '0.35rem 0.45rem',
+                                          backgroundColor: item.completed ? 'var(--bg-elevated)' : courseColor,
+                                          color: textColor,
+                                          borderRadius: '0.35rem',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '0.3rem',
+                                          opacity: item.completed ? 0.6 : 1,
+                                          border: item.completed ? '1px solid var(--border-color)' : '1px solid rgba(0,0,0,0.1)',
+                                          boxShadow: item.completed ? 'none' : '0 1px 3px rgba(0,0,0,0.15)',
+                                          position: 'relative'
+                                        }}
+                                        title={`Cours: ${item.courseName} (J+${item.step})`}
+                                      >
+                                        <button 
+                                          style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
+                                          onClick={(e) => { e.stopPropagation(); markCompleted(item.id, !item.completed); }}
+                                          title={item.completed ? "Marquer non fait" : "Marquer comme révisé"}
+                                        >
+                                          {item.completed ? <CheckCircle size={12} /> : <Circle size={12} />}
+                                        </button>
+                                        
+                                        <span 
+                                          style={{ 
+                                            overflow: 'hidden', 
+                                            textOverflow: 'ellipsis', 
+                                            whiteSpace: 'nowrap', 
+                                            flex: 1, 
+                                            cursor: 'pointer', 
+                                            fontWeight: 500 
+                                          }}
+                                          onClick={() => navigate(`/subject/${item.courseId}`)}
+                                        >
+                                          {item.courseName}
+                                        </span>
 
-                                  <span style={{ fontWeight: 'bold', opacity: 0.85, fontSize: '0.65rem', flexShrink: 0 }}>J{item.step}</span>
-                                </div>
+                                        {/* Action buttons (palette, reschedule, delete) appear on hover or stay minimal */}
+                                        {isHovered && (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
+                                            {/* Color / Mastery picker button */}
+                                            <button
+                                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.85, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setColorPickerTargetCourse({ id: item.courseId, name: item.courseName, currentColor: courseColor });
+                                              }}
+                                              title="Changer le niveau de maîtrise (couleur)"
+                                            >
+                                              <Palette size={11} />
+                                            </button>
+
+                                            {/* Reschedule button */}
+                                            <button 
+                                              className="reschedule-btn"
+                                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.85, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                              onClick={(e) => handleReschedule(e, item)}
+                                              title="Reporter à un autre jour"
+                                            >
+                                              <Edit2 size={10} />
+                                            </button>
+
+                                            {/* Delete single day item button */}
+                                            <button 
+                                              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.85, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                              onClick={(e) => handleDeleteItem(e, item)}
+                                              title="Retirer de ce jour"
+                                            >
+                                              <Trash2 size={10} />
+                                            </button>
+                                          </div>
+                                        )}
+
+                                        <span style={{ fontWeight: 'bold', opacity: 0.85, fontSize: '0.65rem', flexShrink: 0 }}>J{item.step}</span>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Collapse / Expand toggle button if more than 2 items */}
+                                  {dayItems.length > MAX_COLLAPSED_ITEMS && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedDays(prev => ({ ...prev, [dayStr]: !prev[dayStr] }));
+                                      }}
+                                      style={{
+                                        marginTop: '0.2rem',
+                                        padding: '0.2rem 0.4rem',
+                                        fontSize: '0.68rem',
+                                        fontWeight: 600,
+                                        borderRadius: '0.25rem',
+                                        border: '1px dashed var(--border-color)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        color: 'var(--accent-primary)',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.25rem',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; }}
+                                    >
+                                      {isExpanded ? (
+                                        <>
+                                          <span>▲ Réduire</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span>▼ +{hiddenCount} autre{hiddenCount > 1 ? 's' : ''}</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </>
                               );
-                            })}
-
-                            {/* Collapse / Expand toggle button if more than 2 items */}
-                            {dayItems.length > MAX_COLLAPSED_ITEMS && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedDays(prev => ({ ...prev, [dayStr]: !prev[dayStr] }));
-                                }}
-                                style={{
-                                  marginTop: '0.2rem',
-                                  padding: '0.2rem 0.4rem',
-                                  fontSize: '0.68rem',
-                                  fontWeight: 600,
-                                  borderRadius: '0.25rem',
-                                  border: '1px dashed var(--border-color)',
-                                  backgroundColor: 'var(--bg-elevated)',
-                                  color: 'var(--accent-primary)',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '0.25rem',
-                                  transition: 'all 0.15s ease'
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; }}
-                              >
-                                {isExpanded ? (
-                                  <>
-                                    <span>▲ Réduire</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span>▼ +{hiddenCount} autre{hiddenCount > 1 ? 's' : ''}</span>
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
+                            })()}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </>
+              );
+            })()}
           </>
         ) : mode === 'pomodoro' ? (
           <PomodoroTimer />
