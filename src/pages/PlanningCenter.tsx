@@ -40,10 +40,10 @@ export default function PlanningCenter() {
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
   const [hoveredCourseId, setHoveredCourseId] = useState<string | null>(null);
 
-  // Column width resizing (like Excel columns with drag and double-click reset)
+  // Column pixel widths for 7 days (Monday to Sunday)
   const [colWidths, setColWidths] = useState<number[]>(() => {
     try {
-      const saved = localStorage.getItem('aura_planning_col_widths');
+      const saved = localStorage.getItem('aura_planning_col_widths_px');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length === 7) return parsed;
@@ -51,22 +51,21 @@ export default function PlanningCenter() {
     } catch {
       // ignore
     }
-    return [1, 1, 1, 1, 1, 1, 1]; // 1fr each by default
+    return [140, 140, 140, 140, 140, 140, 140]; // 140px baseline each
   });
 
   const handleStartColResize = (colIndex: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
-    const initialWidths = [...colWidths];
+    const initialWidth = colWidths[colIndex];
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = moveEvent.clientX - startX;
-      // Convert delta px into flex weight approx (1 flex ~ 140px)
-      const deltaRatio = deltaX / 140;
+      const newWidth = Math.max(90, Math.min(450, initialWidth + deltaX));
       setColWidths(prev => {
         const next = [...prev];
-        next[colIndex] = Math.max(0.6, Number((initialWidths[colIndex] + deltaRatio).toFixed(2)));
+        next[colIndex] = newWidth;
         return next;
       });
     };
@@ -74,9 +73,11 @@ export default function PlanningCenter() {
     const onMouseUp = () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
       setColWidths(latest => {
         try {
-          localStorage.setItem('aura_planning_col_widths', JSON.stringify(latest));
+          localStorage.setItem('aura_planning_col_widths_px', JSON.stringify(latest));
         } catch {
           // ignore
         }
@@ -84,6 +85,8 @@ export default function PlanningCenter() {
       });
     };
 
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
   };
@@ -93,9 +96,9 @@ export default function PlanningCenter() {
     e.preventDefault();
     setColWidths(prev => {
       const next = [...prev];
-      next[colIndex] = 1;
+      next[colIndex] = 140;
       try {
-        localStorage.setItem('aura_planning_col_widths', JSON.stringify(next));
+        localStorage.setItem('aura_planning_col_widths_px', JSON.stringify(next));
       } catch {
         // ignore
       }
@@ -272,11 +275,11 @@ export default function PlanningCenter() {
 
             {/* Grid Column Template: 7 configurable columns */}
             {(() => {
-              const gridTemplate = colWidths.map(w => `${w}fr`).join(' ');
+              const gridTemplate = colWidths.map(w => `minmax(${w}px, ${w}fr)`).join(' ');
 
               return (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '0.75rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '0.5rem', marginBottom: '0.5rem', minWidth: '100%' }}>
                     {weekDays.map((day, colIdx) => (
                       <div 
                         key={day} 
@@ -291,27 +294,27 @@ export default function PlanningCenter() {
                       >
                         <span>{day}</span>
 
-                        {/* Excel-like Column Resize Separator */}
+                        {/* Excel-like Column Resize Separator: positioned right on the gap boundary */}
                         <div
                           onMouseDown={(e) => handleStartColResize(colIdx, e)}
                           onDoubleClick={(e) => handleResetColWidth(colIdx, e)}
                           title="Glisser pour ajuster la largeur de cette journée (Double-clic pour réinitialiser)"
                           style={{
                             position: 'absolute',
-                            right: '-0.35rem',
-                            top: '20%',
-                            bottom: '20%',
-                            width: '7px',
+                            right: '-0.45rem',
+                            top: '15%',
+                            bottom: '15%',
+                            width: '10px',
                             cursor: 'col-resize',
                             zIndex: 10,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            opacity: 0.3,
+                            opacity: 0.35,
                             transition: 'opacity 0.15s ease'
                           }}
                           onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.3'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.35'; }}
                         >
                           <div style={{ width: '2px', height: '100%', backgroundColor: 'var(--accent-primary)', borderRadius: '1px' }} />
                         </div>
@@ -319,7 +322,7 @@ export default function PlanningCenter() {
                     ))}
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '0.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '0.5rem', minWidth: '100%' }}>
                     {days.map((day, idx) => {
                       const isCurrentMonth = isSameMonth(day, currentDate);
                       const isToday = isSameDay(day, new Date());
@@ -560,7 +563,7 @@ export default function PlanningCenter() {
                       );
                     })}
                   </div>
-                </>
+                </div>
               );
             })()}
           </>
