@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GlobalMigration } from './components/auth/GlobalMigration';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import AuthPage from './pages/AuthPage';
 
 const Library = lazy(() => import('./pages/Library'));
@@ -55,19 +56,21 @@ function AppContent() {
   return (
     <Layout>
       <GlobalMigration />
-      <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Chargement en cours...</div>}>
-        <Routes>
-          <Route path="/chat" element={<ChatSofia />} />
-          <Route path="/:folderId?" element={<Library />} />
-          <Route path="/subject/:id" element={<SubjectDetail />} />
-          <Route path="/annale/:id" element={<AnnaleDetail />} />
-          <Route path="/planning" element={<PlanningCenter />} />
-          <Route path="/statistics" element={<Statistics />} />
-          <Route path="/flashcards" element={<FlashcardsExplorer />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Chargement en cours...</div>}>
+          <Routes>
+            <Route path="/chat" element={<ChatSofia />} />
+            <Route path="/:folderId?" element={<Library />} />
+            <Route path="/subject/:id" element={<SubjectDetail />} />
+            <Route path="/annale/:id" element={<AnnaleDetail />} />
+            <Route path="/planning" element={<PlanningCenter />} />
+            <Route path="/statistics" element={<Statistics />} />
+            <Route path="/flashcards" element={<FlashcardsExplorer />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </Layout>
   );
 }

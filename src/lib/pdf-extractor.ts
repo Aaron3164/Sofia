@@ -1,8 +1,15 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { compressImage } from './image-utils';
 
-// Set up the worker path using CDN with explicit https to avoid HTTP/HTTPS CORS issues
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Use local Vite URL for the pdf worker to avoid Cloudflare/CDN blocking, with CDN fallback
+try {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.js',
+    import.meta.url
+  ).toString();
+} catch (e) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 export interface ExtractedCourseSchema {
   id: string; // e.g. "FIGURE_1", "FIGURE_2"

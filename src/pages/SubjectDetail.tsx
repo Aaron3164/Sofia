@@ -246,7 +246,7 @@ export default function SubjectDetail() {
           const storeKey = 'aura_time_spent';
           const savedStr = localStorage.getItem(storeKey);
           const saved = savedStr ? JSON.parse(savedStr) : {};
-          if (!saved[courseId]) saved[courseId] = { courseName: courseNode.name, seconds: 0 };
+          if (!saved[courseId]) saved[courseId] = { courseName: courseNode?.name || 'Cours', seconds: 0 };
           saved[courseId].seconds += timeSpent;
           localStorage.setItem(storeKey, JSON.stringify(saved));
           return;
@@ -596,7 +596,7 @@ export default function SubjectDetail() {
           <button className="icon-button" onClick={() => navigate(courseNode?.parentId ? `/${courseNode.parentId}` : '/')}>
             <ArrowLeft size={24} />
           </button>
-          <h1>{courseNode ? courseNode.name : id}</h1>
+          <h1>{courseNode?.name || fileName || 'Cours sans titre'}</h1>
           {isScheduled && (
             <span style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', backgroundColor: 'var(--success)', color: 'white', borderRadius: '1rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
               <Calendar size={12} /> <span className="desktop-only">Programmé</span>
