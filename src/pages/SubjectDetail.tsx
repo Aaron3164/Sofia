@@ -225,7 +225,26 @@ export default function SubjectDetail() {
   useEffect(() => {
     // We always save to local if we have content, acting as a buffer
     if (extractedContent || Object.values(generations).some(g => g !== null) || pdfUrl || naiveAttachments.length > 0 || customInstructions) {
-      localStorage.setItem(storageKey, JSON.stringify({ extractedContent, generations, pdfUrl, fileName, naiveAttachments, customInstructions }));
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({ extractedContent, generations, pdfUrl, fileName, naiveAttachments, customInstructions }));
+      } catch (e: any) {
+        // LocalStorage quota exceeded (typically due to base64 images extracted from heavy PDFs)
+        console.warn('LocalStorage quota exceeded in SubjectDetail effect. Saving light payload without raw images...');
+        try {
+          // Fallback: strip heavy base64 images from extracted_images for local cache
+          const lightGenerations = { ...generations, extracted_images: [] };
+          localStorage.setItem(storageKey, JSON.stringify({ 
+            extractedContent, 
+            generations: lightGenerations, 
+            pdfUrl: pdfUrl?.startsWith('blob:') ? null : pdfUrl, 
+            fileName, 
+            naiveAttachments, 
+            customInstructions 
+          }));
+        } catch (innerErr) {
+          console.warn('Could not save even stripped data to localStorage:', innerErr);
+        }
+      }
     }
   }, [extractedContent, generations, pdfUrl, fileName, naiveAttachments, customInstructions, storageKey]);
 
@@ -386,13 +405,27 @@ export default function SubjectDetail() {
       };
       setGenerations(updatedGenerations);
 
-      // Save to Local Storage Buffer immediately (Backup)
-      localStorage.setItem(storageKey, JSON.stringify({
-        extractedContent: text,
-        generations: updatedGenerations,
-        pdfUrl: finalPdfUrl,
-        fileName: selected.name
-      }));
+      // Save to Local Storage Buffer immediately (Backup with quota protection)
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({
+          extractedContent: text,
+          generations: updatedGenerations,
+          pdfUrl: finalPdfUrl,
+          fileName: selected.name
+        }));
+      } catch (storageErr) {
+        console.warn('LocalStorage quota exceeded during file upload. Saving light version...');
+        try {
+          localStorage.setItem(storageKey, JSON.stringify({
+            extractedContent: text,
+            generations: { ...updatedGenerations, extracted_images: [] },
+            pdfUrl: finalPdfUrl?.startsWith('blob:') ? null : finalPdfUrl,
+            fileName: selected.name
+          }));
+        } catch (innerErr) {
+          console.warn('Could not save to localStorage buffer:', innerErr);
+        }
+      }
 
       // Atomic save to Cloud Database if user profile exists
       if (profile) {
