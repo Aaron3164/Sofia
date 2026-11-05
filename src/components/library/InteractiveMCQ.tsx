@@ -20,6 +20,7 @@ export interface MarkerPin {
 
 export interface MCQ {
   type?: 'mcq' | 'open' | 'labeling';
+  context?: string; // Enoncé liminaire, cas clinique, problème, dossier patient
   question: string;
   options: string[];
   correctAnswers?: string[];
@@ -440,7 +441,8 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
         q.question,
         q.expectedAnswer || q.explanation || '',
         answer,
-        profile?.preferences
+        profile?.preferences,
+        q.context
       );
       setOpenEvaluations(prev => ({ ...prev, [qIndex]: evalResult }));
     } catch (err: any) {
@@ -844,6 +846,28 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               )}
             </div>
             
+            {/* Mise en situation / Cas clinique / Énoncé préalable du problème */}
+            {q.context && q.context.trim() && (
+              <div style={{
+                margin: '0.5rem 0 1rem 0',
+                padding: '1rem 1.25rem',
+                borderRadius: '0.85rem',
+                backgroundColor: 'rgba(99, 102, 241, 0.06)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                borderLeft: '4px solid var(--accent-primary)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.4rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <span>📋 Mise en situation & Énoncé du problème</span>
+                </div>
+                <div style={{ fontSize: '0.925rem', color: 'var(--text-primary)', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                  {q.context}
+                </div>
+              </div>
+            )}
+
             {!isOpen && !isLabeling && (
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
                 {correctOpts.length > 1 ? "(Plusieurs réponses possibles)" : "(Une seule réponse possible)"}

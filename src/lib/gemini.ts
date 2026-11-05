@@ -721,10 +721,16 @@ Tu dois IMPÉRATIVEMENT t'adapter et classifier chaque question :
   * "expectedAnswer": contient les éléments de correction, mots-clés ou réponse type trouvée dans le corrigé de l'annale (si présent).
 
 CONSIGNES PARTICULIÈRES SUR LES MISES EN PAGE D'ANNALES :
-1. ORDRE DES QUESTIONS ET PROPOSITIONS :
-   - Dans beaucoup d'annales (comme celle fournie), l'énoncé de la question se trouve parfois EN DESSOUS du tableau des propositions A-E, ou sous l'en-tête "Question X". Identifie correctement l'énoncé complet de la question et associe-le à ses propositions s'il s'agit d'un QCM.
-   - Si un cas clinique ou une mise en situation précède une question (ex: "Un jeune homme de 21 ans est admis en urgence..."), inclus cet énoncé complet dans la question pour que l'étudiant ait tout le contexte.
-2. DÉTECTION DU CORRIGÉ (CASES COCHÉES / SYMBOLES / GRILLES) :
+1. MISE EN CONTEXTE / CAS CLINIQUE / ÉNONCÉ PRÉALABLE (CRITIQUE) :
+   - Très souvent (comme les dossiers progressifs, cas cliniques, problèmes en médecine, droit ou sciences), un énoncé de mise en situation ou de contexte précède une ou plusieurs questions (ex: "PROBLEME : Une patiente de 47 ans consulte pour une asthénie... Les bilans mettent en évidence : ... L'IRM met en évidence...").
+   - Tu DOIS IMPÉRATIVEMENT capturer cette mise en contexte dans le champ "context" de CHAQUE question qui en dépend !
+   - Ne résume pas, ne saute rien de cette mise en contexte : recopie-la mot pour mot avec toutes ses données cliniques, valeurs biologiques et paramètres.
+   - Si une question possède sa propre mise en situation, ou si plusieurs questions successives partagent le même cas clinique / problème, reporte ce texte complet dans "context" pour chacune d'elles.
+   - La question proprement dite (ex: "A partir de vos connaissances sur la régulation de l'axe...") va dans "question".
+
+2. ORDRE DES QUESTIONS ET PROPOSITIONS :
+   - Dans beaucoup d'annales, l'énoncé de la question se trouve parfois EN DESSOUS du tableau des propositions A-E, ou sous l'en-tête "Question X". Identifie correctement l'énoncé complet de la question et associe-le à ses propositions s'il s'agit d'un QCM.
+3. DÉTECTION DU CORRIGÉ (CASES COCHÉES / SYMBOLES / GRILLES) :
    - Dans le texte, pour les QCM, les cases à cocher indiquent souvent les réponses vraies et fausses :
      * "☑" ou "[x]" = RÉPONSE VRAIE (cochée)
      * "■" ou "☐" ou "[ ]" = RÉPONSE FAUSSE (décochée / case vide ou noire)
@@ -732,10 +738,10 @@ CONSIGNES PARTICULIÈRES SUR LES MISES EN PAGE D'ANNALES :
    - S'il y a une grille de correction ou une ligne "Réponse : AC", utilise-la.
    - Remplis le tableau "correctAnswers" avec les lettres des bonnes réponses (ex: ["A", "C"]).
    - Pour les questions ouvertes ou de légendage, s'il y a un corrigé ou des mots-clés attendus dans le document, renseigne-les dans "expectedAnswer" ou "explanation".
-3. NETTOYAGE DU TEXTE DES PROPOSITIONS :
+4. NETTOYAGE DU TEXTE DES PROPOSITIONS :
    - Pour les QCM, retire les symboles de cases (☑, ■, ☐, , etc.) du texte des propositions pour ne garder que le libellé propre de la proposition.
    - Format de chaque proposition dans "options" : "A. [texte]", "B. [texte]", etc.
-4. PAGES ET NUMÉROS :
+5. PAGES ET NUMÉROS :
    - Note le numéro de page où se trouve la question d'après les repères "--- Page X ---".
    - Conserve le numéro officiel de chaque question ("questionNumber": 1, 2, 3...).
 
@@ -744,8 +750,9 @@ Un tableau JSON d'objets, ou un objet avec la clé "questions" :
 [
   {
     "questionNumber": 1,
-    "type": "mcq", // "mcq", "labeling" (pointage/placement sur image) ou "open" (rédactionnelle)
-    "question": "Énoncé complet mot pour mot de la question...",
+    "type": "open", // "mcq", "labeling" (pointage/placement sur image) ou "open" (rédactionnelle)
+    "context": "Mise en situation complète, cas clinique ou énoncé préalable (ex: PROBLEME : Une patiente de 47 ans consulte... avec bilans et constantes)...", // null ou "" si aucun contexte préalable
+    "question": "Énoncé exact de la question (ex: 1) A partir de vos connaissances...)",
     "itemsToPlace": ["Structure 1", "Structure 2"], // Uniquement pour type === "labeling"
     "options": [
       "A. Première proposition",
@@ -872,13 +879,13 @@ export async function evaluateOpenQuestionAnswer(
   question: string,
   expectedAnswer: string,
   userAnswer: string,
-  userPreferences?: any
+  userPreferences?: any,
+  context?: string
 ): Promise<OpenQuestionEvaluation> {
   const prefsStr = userPreferences ? (typeof userPreferences === 'object' ? JSON.stringify(userPreferences) : String(userPreferences)) : '';
+  const contextBlock = context && context.trim() ? `\nMISE EN SITUATION / CAS CLINIQUE / ÉNONCÉ PRÉALABLE :\n${context.trim()}\n` : '';
   const prompt = `Tu es un professeur et correcteur bienveillant et rigoureux, expert dans l'évaluation des concours et examens universitaires (médecine, sciences, droit, etc.).
-
-Voici une question d'examen, les éléments de correction / critères attendus, et la réponse rédigée par l'étudiant :
-
+${contextBlock}
 QUESTION :
 ${question}
 

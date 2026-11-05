@@ -7,6 +7,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 export interface ExtractedQuestion {
   id: string;
   questionNumber: number;
+  context?: string; // Mise en situation, cas clinique, dossier, observation patient ou énoncé liminaire
   question: string;
   options: string[];
   correctAnswers: string[];
@@ -401,6 +402,19 @@ export function parseAnnaleQuestionsFromText(
   const inlineAnswerRegex = /(?:R[eé]ponse[s]?|Corrig[eé]|Correction|Sol(?:ution)?|R[eé]p|Bonne[s]?\s*r[eé]ponse[s]?|Vraie[s]?|Cl[eé])\s*(?:\([^)]*\))?\s*(?:vraie[s]?|juste[s]?|exacte[s]?|attendue[s]?)?\s*[:\-=]\s*([A-Ga-g,\s]+)/i;
   const inlineExplanationRegex = /(?:Explication[s]?|Justification[s]?|Commentaire[s]?)\s*[:\-=]\s*(.*)$/i;
 
+  // Detect global preamble / problem statement before the first question (e.g. "PROBLEME : ...", "CAS CLINIQUE : ...")
+  let preambleContext = '';
+  if (blocks.length > 0 && blocks[0].startLineIdx > 0) {
+    const preambleLines = taggedLines.slice(0, blocks[0].startLineIdx).map(tl => tl.text.trim()).filter(Boolean);
+    // Filter out common exam metadata header lines (e.g. "Session 1...", "Page 1...")
+    const contentLines = preambleLines.filter(line => 
+      !/^(?:session|annale|page|module|examen|concours|dur[eé]e|coefficient|épreuve|sujet)\b/i.test(line)
+    );
+    if (contentLines.length > 0) {
+      preambleContext = contentLines.join('\n');
+    }
+  }
+
   if (blocks.length > 0) {
     for (let b = 0; b < blocks.length; b++) {
       const curBlock = blocks[b];
@@ -508,6 +522,7 @@ export function parseAnnaleQuestionsFromText(
       extractedQuestions.push({
         id: crypto.randomUUID(),
         questionNumber: curBlock.questionNumber,
+        context: preambleContext ? preambleContext.trim() : undefined,
         question: rawQuestionStem.trim() || `Question ${curBlock.questionNumber}`,
         options: isMcq ? options : [],
         type: determinedType,
@@ -647,6 +662,7 @@ export async function parseAnnalePDF(
           id: crypto.randomUUID(),
           questionNumber: qNum,
           type: isMcq ? 'mcq' : 'open',
+          context: q.context ? String(q.context).trim() : undefined,
           question: String(q.question || `Question ${qNum}`).trim(),
           options: cleanOptions,
           correctAnswers: Array.from(new Set(cleanAnswers)).sort(),

@@ -125,6 +125,10 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
     setQuestions(prev => prev.map((q, idx) => idx === qIndex ? { ...q, question: text } : q));
   };
 
+  const handleContextChange = (qIndex: number, text: string) => {
+    setQuestions(prev => prev.map((q, idx) => idx === qIndex ? { ...q, context: text } : q));
+  };
+
   const handleOptionTextChange = (qIndex: number, optIndex: number, text: string) => {
     setQuestions(prev => prev.map((q, idx) => {
       if (idx !== qIndex) return q;
@@ -654,13 +658,52 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                         </button>
                       </div>
 
-                      <textarea 
-                        value={q.question}
-                        onChange={e => handleQuestionTextChange(qIndex, e.target.value)}
-                        rows={2}
-                        placeholder="Énoncé de la question..."
-                        className="annale-textarea"
-                      />
+                      {/* Mise en situation / Cas clinique / Énoncé préalable */}
+                      {(q.context !== undefined || getQuestionType(q) === 'open') && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span>📋 Mise en contexte / Cas clinique préalable :</span>
+                            </label>
+                            {!q.context && (
+                              <button
+                                type="button"
+                                onClick={() => handleContextChange(qIndex, 'PROBLEME / CAS CLINIQUE : ')}
+                                style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                              >
+                                + Ajouter une mise en situation
+                              </button>
+                            )}
+                          </div>
+                          {q.context !== undefined && (
+                            <textarea
+                              value={q.context || ''}
+                              onChange={e => handleContextChange(qIndex, e.target.value)}
+                              rows={3}
+                              placeholder="Énoncé préalable, données de l'observation, cas clinique, bilans biologiques..."
+                              className="annale-textarea"
+                              style={{ 
+                                borderColor: 'rgba(99, 102, 241, 0.4)', 
+                                backgroundColor: 'rgba(99, 102, 241, 0.04)',
+                                fontSize: '0.88rem'
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          Question posée :
+                        </label>
+                        <textarea 
+                          value={q.question}
+                          onChange={e => handleQuestionTextChange(qIndex, e.target.value)}
+                          rows={2}
+                          placeholder="Énoncé précis de la question..."
+                          className="annale-textarea"
+                        />
+                      </div>
 
                       {/* Attached Images */}
                       {q.images && q.images.length > 0 && (
