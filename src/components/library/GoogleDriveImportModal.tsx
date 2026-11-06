@@ -56,8 +56,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
   const saveDriveCourse = async (
     fileId: string, 
     fileName: string, 
-    extractedContent: string,
-    schemas: any[] = []
+    extractedContent: string
   ): Promise<string> => {
     const previewUrl = getGoogleDrivePreviewUrl(fileId);
     let targetCourseId = currentCourseId;
@@ -74,10 +73,10 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
       mcq: null, 
       explications: null, 
       resume: null, 
-      extracted_images: schemas 
+      extracted_images: [] // Never store heavy base64 images in localStorage (prevents quota exceeded error)
     };
 
-    // Sauvegarde en LocalStorage (Buffer immédiat)
+    // Sauvegarde en LocalStorage (Buffer immédiat sans images lourdes)
     const storageKey = `aura_subject_${targetCourseId}`;
     const localData = {
       extractedContent,
@@ -86,8 +85,12 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
       fileName,
       naiveAttachments: []
     };
-    localStorage.setItem(storageKey, JSON.stringify(localData));
-    localStorage.setItem(`subject_data_${targetCourseId}`, JSON.stringify(localData));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(localData));
+      localStorage.setItem(`subject_data_${targetCourseId}`, JSON.stringify(localData));
+    } catch (e) {
+      console.warn('[Drive Import] LocalStorage buffer quota reached, saved to cloud only:', e);
+    }
 
     // Sauvegarde atomique sur Supabase si l'utilisateur est authentifié
     if (user) {
@@ -130,22 +133,21 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
       // 1. Récupération du buffer en mémoire (aucun upload sur R2 !)
       const buffer = await fetchGoogleDrivePDFBuffer(fileId);
       
-      // 2. Extraction du texte et des schémas pour Sofia IA
-      setStatusMessage('Lecture du PDF, extraction du texte et des schémas...');
+      // 2. Extraction du texte pour Sofia IA (100% textuel, ultra rapide et 0 surcoût)
+      setStatusMessage('Lecture du PDF et extraction du texte du cours...');
       const extracted = await extractCourseContentFromPDF(buffer, (current, total) => {
         setProgress({ current, total });
-      }).catch(err => {
+      }, { maxSchemas: 0 }).catch(err => {
         console.warn('Extraction partielle ou erreur OCR:', err);
         return { text: 'Document importé depuis Google Drive.', schemas: [] };
       });
 
       const text = typeof extracted === 'string' ? extracted : extracted.text;
-      const schemas = typeof extracted === 'object' && extracted.schemas ? extracted.schemas : [];
 
       // 3. Enregistrement du cours
       setStatusMessage('Création du cours Sofia...');
       const finalTitle = courseTitle.trim() || 'Cours Google Drive';
-      const targetCourseId = await saveDriveCourse(fileId, finalTitle, text, schemas);
+      const targetCourseId = await saveDriveCourse(fileId, finalTitle, text);
 
       if (onSuccess) {
         onSuccess({

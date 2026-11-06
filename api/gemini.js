@@ -82,35 +82,47 @@ export default async function handler(req, res) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Robust retry loop (up to 3 attempts) for 503 / UNAVAILABLE / high demand
-    let attempts = 0;
+    // Models cascade fallback on 503 / high demand:
+    // If the requested model is saturated, automatically try another reliable flash model
+    const candidateModels = Array.from(new Set([
+      model,
+      'models/gemini-2.5-flash',
+      'models/gemini-1.5-flash',
+      'models/gemini-1.5-pro'
+    ]));
+
     let lastError = null;
 
-    while (attempts < 3) {
-      try {
-        attempts++;
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config,
-        });
+    for (const currentModel of candidateModels) {
+      let attempts = 0;
+      while (attempts < 2) {
+        try {
+          attempts++;
+          const response = await ai.models.generateContent({
+            model: currentModel,
+            contents,
+            config,
+          });
 
-        return res.status(200).json({ 
-          text: response.text || '',
-          groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
-        });
-      } catch (err) {
-        lastError = err;
-        const errMsg = String(err?.message || err);
-        const is503 = errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand');
-        
-        if (is503 && attempts < 3) {
-          console.warn(`[Gemini Proxy] Serveur Gemini saturé (tentative ${attempts}/3). Réessai dans 1.5s...`);
-          await new Promise((r) => setTimeout(r, 1500));
-        } else {
-          throw err;
+          return res.status(200).json({ 
+            text: response.text || '',
+            groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
+          });
+        } catch (err) {
+          lastError = err;
+          const errMsg = String(err?.message || err);
+          const is503 = errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand') || errMsg.includes('overloaded');
+          
+          if (is503) {
+            console.warn(`[Gemini Proxy] Modèle ${currentModel} saturé. Tentative ${attempts}/2...`);
+            await new Promise((r) => setTimeout(r, 1200));
+          } else {
+            // Not a 503 overload, rethrow immediately
+            throw err;
+          }
         }
       }
+      console.warn(`[Gemini Proxy] Basculement automatique vers le modèle de secours suite à saturation de ${currentModel}`);
     }
 
     throw lastError;

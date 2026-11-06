@@ -172,14 +172,12 @@ export async function generateStudyMaterials(
   mode: 'flashcards' | 'mcq' | 'resume',
   prefs?: AIPreferences,
   cardCount?: number,
-  customInstructions?: string,
-  schemas?: CourseSchemaInput[]
+  customInstructions?: string
 ): Promise<string> {
   await ensureQuota();
   const systemInstruction = getSystemInstruction(prefs);
 
   const randomSeed = Math.random().toString(36).substring(7);
-  const hasSchemas = Boolean(schemas && schemas.length > 0);
 
   const prompts = {
     flashcards: `[Session unique: ${randomSeed}] Crée exactement ${cardCount || 30} flashcards de révision à partir de ce texte. Extraie les concepts, détails et définitions les plus importants sans faire de doublons ni de répétitions. Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte.
@@ -193,18 +191,9 @@ Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets ave
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "question", "options" (tableau de 4 ou 5 chaînes), et "correctAnswers" (tableau contenant les réponses exactes).`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du cours fourni. 
     
-CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le cours section par section, paragraphe par paragraphe. Si une information est dans le texte ou les schémas, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
+CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le cours section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
 
-CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. COMMENCE IMMÉDIATEMENT PAR LE TITRE DU RÉSUMÉ OU LE PREMIER CHAPITRE. 
-
-${hasSchemas ? `RÈGLE DE SÉLECTION PÉDAGOGIQUE DES SCHÉMAS ET ILLUSTRATIONS :
-Tu as accès ci-dessous aux schémas et illustrations extraits du document, indexés sous la forme (FIGURE_1, FIGURE_2...).
-- NE FORCE PAS l'insertion de schémas s'ils n'apportent pas une réelle plus-value : n'insère un schéma QUE s'il est véritablement important, explicatif et indispensable à la compréhension d'une notion complexe (anatomie, mécanisme, graphique de données, cycle).
-- Si un schéma est secondaire, décoratif ou redondant avec le texte, NE L'INSÈRE PAS.
-- INTERDICTION ABSOLUE D'ÉCRIRE UNE RÉFÉRENCE NUE : Ne laisse JAMAIS dans ton texte de mentions orphelines comme "voir figure", "voir schéma" ou "voir FIGURE_X" sans que le lecteur ne sache de quoi il s'agit. Si tu juges la figure essentielle, insère-la directement avec son visuel et une légende claire, précise et descriptive :
-  ![Titre et description explicative du contenu du schéma](FIGURE_X)
-  (remplace FIGURE_X par l'identifiant exact fourni dans les données).
-- Si une figure n'est pas insérée, explique la notion par des mots clairs sans jamais écrire "voir figure".` : ''}
+CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. COMMENCE IMMÉDIATEMENT PAR LE TITRE DU RÉSUMÉ OU LE PREMIER CHAPITRE.
 
 Consignes de formatage strictes :
 - Utilise '# ', '## ', '### ', '#### ' pour la structure hiérarchique.
@@ -229,92 +218,7 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
   }
 
   const isJSON = mode === 'flashcards' || mode === 'mcq';
-
-  // Build request contents (multimodal if schemas are present)
-  let requestContents: any[];
-
-  if (hasSchemas && schemas) {
-    const parts: any[] = [];
-    parts.push({ text: `${fullPromptHeader}\n\nDOCUMENT DE COURS COMPLET (TEXTE ET SCHÉMAS PAR ORDRE CHRONOLOGIQUE) :\n` });
-
-    // Group schemas by pageNumber for chronological interleaving
-    const schemasByPage = new Map<number, CourseSchemaInput[]>();
-    schemas.forEach(s => {
-      const list = schemasByPage.get(s.pageNumber) || [];
-      list.push(s);
-      schemasByPage.set(s.pageNumber, list);
-    });
-
-    // Check if promptContext is structured with "--- Page X ---"
-    const pageSplits = promptContext.split(/(?=--- Page \d+ ---)/g);
-
-    if (pageSplits.length > 1) {
-      for (const section of pageSplits) {
-        const pageMatch = section.match(/--- Page (\d+) ---/);
-        const pageNum = pageMatch ? parseInt(pageMatch[1], 10) : null;
-
-        parts.push({ text: section });
-
-        if (pageNum && schemasByPage.has(pageNum)) {
-          const pageSchemas = schemasByPage.get(pageNum)!;
-          for (const s of pageSchemas) {
-            const commaIdx = s.url.indexOf(',');
-            const base64Data = commaIdx !== -1 ? s.url.substring(commaIdx + 1) : s.url;
-            const mimeMatch = s.url.match(/^data:([^;]+);/);
-            const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-
-            parts.push({ text: `\n[Schéma extrait du cours - Page ${pageNum} - Identifiant: ${s.id}]\n` });
-            parts.push({
-              inlineData: {
-                mimeType,
-                data: base64Data
-              }
-            });
-          }
-          schemasByPage.delete(pageNum);
-        }
-      }
-
-      // Any remaining schemas that didn't match a page header
-      schemasByPage.forEach((remainingList, pageNum) => {
-        for (const s of remainingList) {
-          const commaIdx = s.url.indexOf(',');
-          const base64Data = commaIdx !== -1 ? s.url.substring(commaIdx + 1) : s.url;
-          const mimeMatch = s.url.match(/^data:([^;]+);/);
-          const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-
-          parts.push({ text: `\n[Schéma extrait du cours - Page ${pageNum} - Identifiant: ${s.id}]\n` });
-          parts.push({
-            inlineData: {
-              mimeType,
-              data: base64Data
-            }
-          });
-        }
-      });
-    } else {
-      // Single continuous text: add text then all schemas in order
-      parts.push({ text: promptContext });
-      for (const s of schemas) {
-        const commaIdx = s.url.indexOf(',');
-        const base64Data = commaIdx !== -1 ? s.url.substring(commaIdx + 1) : s.url;
-        const mimeMatch = s.url.match(/^data:([^;]+);/);
-        const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-
-        parts.push({ text: `\n[Schéma extrait du cours - Page ${s.pageNumber} - Identifiant: ${s.id}]\n` });
-        parts.push({
-          inlineData: {
-            mimeType,
-            data: base64Data
-          }
-        });
-      }
-    }
-
-    requestContents = [{ role: 'user', parts }];
-  } else {
-    requestContents = [`${fullPromptHeader}\n\nContent Context:\n${promptContext}`];
-  }
+  const requestContents = [`${fullPromptHeader}\n\nDOCUMENT DE COURS :\n${promptContext}`];
 
   try {
     const response = await callGeminiProxy(
@@ -328,36 +232,8 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
     
     let generatedText = response.text || '';
 
-    // In resume mode, replace FIGURE_X with actual data URL so the image renders directly
-    if (mode === 'resume' && hasSchemas && schemas) {
-      const schemaMap = new Map<string, string>();
-      schemas.forEach(s => {
-        schemaMap.set(s.id.toUpperCase(), s.url);
-      });
-
-      // 1. Markdown image syntax: ![alt](FIGURE_1) or ![alt](FIGURE 1) or ![alt](FIGURE-1)
-      generatedText = generatedText.replace(/!\[(.*?)\]\(#?(?:FIGURE|FIGURE_|FIGURE\s+|FIG_?|SCHEMA_?)(\d+)\)/gi, (match, alt, figNum) => {
-        const id = `FIGURE_${parseInt(figNum, 10)}`;
-        const url = schemaMap.get(id);
-        if (url) {
-          return `![${alt}](${url})`;
-        }
-        return match;
-      });
-
-      // 2. HTML img tag syntax: <img src="FIGURE_1" alt="..." />
-      generatedText = generatedText.replace(/<img\s+[^>]*src=["']#?(?:FIGURE|FIGURE_|FIGURE\s+|FIG_?|SCHEMA_?)(\d+)["'][^>]*alt=["'](.*?)["'][^>]*>/gi, (match, figNum, alt) => {
-        const id = `FIGURE_${parseInt(figNum, 10)}`;
-        const url = schemaMap.get(id);
-        if (url) {
-          return `![${alt || 'Illustration'}](${url})`;
-        }
-        return match;
-      });
-
-      // 3. Clean up any accidental raw or unrendered figure references (e.g. "(voir FIGURE_1)", "voir figure 1")
+      // Clean up any accidental raw or unrendered figure references (e.g. "(voir FIGURE_1)", "voir figure 1")
       generatedText = generatedText.replace(/\(?(?:voir|cf\.?)\s+(?:la\s+)?(?:figure|schéma|diagramme)\s*#?(?:FIGURE_?)?\d+\)?/gi, '');
-    }
     
     if (isJSON) {
       // Robust JSON extraction: look for either { or [
