@@ -205,9 +205,6 @@ export default function Library() {
             <span className="desktop-only">{currentFolder ? 'Réviser le dossier' : 'Révision Globale'}</span>
             <span className="mobile-only">Réviser</span>
           </button>
-          <button className="btn btn-outline shadow-sm" onClick={handleCreateFolder}>
-            <Plus size={18} /> <span className="desktop-only">Dossier</span>
-          </button>
           <button 
             data-tour="tour-annale-btn"
             className="btn btn-outline shadow-sm" 
@@ -233,6 +230,9 @@ export default function Library() {
             <GraduationCap size={18} />
             <span className="desktop-only">Importer une annale</span>
             <span className="mobile-only">Annale</span>
+          </button>
+          <button className="btn btn-outline shadow-sm" onClick={handleCreateFolder}>
+            <Plus size={18} /> <span className="desktop-only">Dossier</span>
           </button>
           <button className="btn btn-primary shadow-md" onClick={handleCreateCourse}>
             <Plus size={18} /> <span className="desktop-only">Nouveau Cours</span>
