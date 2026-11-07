@@ -24,7 +24,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
-import { supabase } from '../lib/supabase';
+import { getCachedAllCourseData } from '../lib/courseDataCache';
 import {
   askChatSofia,
   generateChatTitle,
@@ -287,10 +287,8 @@ export default function ChatSofia() {
           const tokens = cleanQ.split(/[\s,.'";:!?()\-+/]+/).filter(t => t.length >= 3);
 
           if (tokens.length > 0) {
-            // Fetch cloud course data
-            const { data: cloudData } = await supabase
-              .from('course_data')
-              .select('course_id, file_name, extracted_content, generations');
+            // Fetch cloud course data from session memory cache
+            const cloudData = await getCachedAllCourseData(profile?.id);
 
             const matchedBlocks: { name: string; text: string; score: number }[] = [];
 

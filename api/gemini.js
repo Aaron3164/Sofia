@@ -25,9 +25,13 @@ export default async function handler(req, res) {
 
   const token = authHeader.replace('Bearer ', '').trim();
 
+  let supabaseClient = null;
+  let authenticatedUserId = null;
+  let quotaWasIncremented = false;
+
   if (supabaseUrl && supabaseAnonKey) {
     // Client initialized with user's access token so auth.uid() is populated in Supabase RPC
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: `Bearer ${token}`
@@ -35,14 +39,15 @@ export default async function handler(req, res) {
       }
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Session invalide ou expirée. Veuillez vous reconnecter.' });
     }
+    authenticatedUserId = user.id;
 
     // 2. Strict Server-Side Quota Verification & Increment
-    const { data: quotaAllowed, error: quotaError } = await supabase.rpc('check_and_increment_ai_usage');
+    const { data: quotaAllowed, error: quotaError } = await supabaseClient.rpc('check_and_increment_ai_usage');
 
     if (quotaError) {
       console.error('[Gemini Proxy] Erreur RPC quota:', quotaError.message);
@@ -55,6 +60,8 @@ export default async function handler(req, res) {
         error: 'QUOTA_EXCEEDED',
         message: 'Limite quotidienne de générations IA atteinte (5/jour en gratuit, 50/jour en Premium). Revenez demain ou passez Premium !'
       });
+    } else if (quotaAllowed === true) {
+      quotaWasIncremented = true;
     }
   }
 
@@ -83,12 +90,12 @@ export default async function handler(req, res) {
     const ai = new GoogleGenAI({ apiKey });
 
     // Models cascade fallback on 503 / high demand:
-    // If the requested model is saturated, automatically try another reliable flash model
+    // If the requested model is saturated, automatically try another reliable active flash model
     const candidateModels = Array.from(new Set([
       model,
       'models/gemini-2.5-flash',
-      'models/gemini-1.5-flash',
-      'models/gemini-1.5-pro'
+      'models/gemini-2.5-flash-lite',
+      'models/gemini-2.0-flash'
     ]));
 
     let lastError = null;
@@ -111,23 +118,50 @@ export default async function handler(req, res) {
         } catch (err) {
           lastError = err;
           const errMsg = String(err?.message || err);
-          const is503 = errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand') || errMsg.includes('overloaded');
+          const is503Or404 =
+            errMsg.includes('503') ||
+            errMsg.includes('UNAVAILABLE') ||
+            errMsg.includes('high demand') ||
+            errMsg.includes('overloaded') ||
+            errMsg.includes('404') ||
+            errMsg.includes('NOT_FOUND');
           
-          if (is503) {
-            console.warn(`[Gemini Proxy] Modèle ${currentModel} saturé. Tentative ${attempts}/2...`);
+          if (is503Or404) {
+            console.warn(`[Gemini Proxy] Modèle ${currentModel} indisponible (${errMsg.slice(0, 80)}). Tentative ${attempts}/2...`);
+            if (errMsg.includes('404') || errMsg.includes('NOT_FOUND')) {
+              break; // Switch immediately to next fallback model if model name is not found
+            }
             await new Promise((r) => setTimeout(r, 1200));
           } else {
-            // Not a 503 overload, rethrow immediately
+            // Not a 503/404 error, rethrow immediately
             throw err;
           }
         }
       }
-      console.warn(`[Gemini Proxy] Basculement automatique vers le modèle de secours suite à saturation de ${currentModel}`);
+      console.warn(`[Gemini Proxy] Basculement automatique vers le modèle de secours suite à indisponibilité de ${currentModel}`);
     }
 
     throw lastError;
   } catch (error) {
     console.error('[Gemini Proxy Error]:', error);
+    // Refund the daily quota credit if the Gemini call failed completely
+    if (quotaWasIncremented && supabaseClient && authenticatedUserId) {
+      try {
+        const { data: usageRow } = await supabaseClient
+          .from('ai_usage')
+          .select('count')
+          .eq('user_id', authenticatedUserId)
+          .single();
+        if (usageRow && usageRow.count > 0) {
+          await supabaseClient
+            .from('ai_usage')
+            .update({ count: Math.max(0, usageRow.count - 1) })
+            .eq('user_id', authenticatedUserId);
+        }
+      } catch (refundErr) {
+        console.warn('[Gemini Proxy] Could not refund quota credit:', refundErr);
+      }
+    }
     return res.status(500).json({ 
       error: error.message || 'Erreur lors de la génération avec Gemini.',
       details: error.toString()

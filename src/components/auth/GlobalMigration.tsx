@@ -28,11 +28,18 @@ export function GlobalMigration() {
         const localNodes = localNodesStr ? JSON.parse(localNodesStr) : [];
         const localNodesMap = new Map<string, string>(localNodes?.map((n: any) => [n.id, n.name]) || []);
 
-        // 1. Migrate Course Data (Flashcards, MCQs, Summaries)
+        // 1. Migrate Course Data (Flashcards, MCQs, Summaries) ONLY if missing in Cloud
+        // Never overwrite existing Cloud course_data with potentially truncated localStorage cache,
+        // and never delete aura_subject_* keys so SubjectDetail keeps its instant local cache!
         const allKeys = Object.keys(localStorage);
         const subjectKeys = allKeys.filter(k => k.startsWith('aura_subject_'));
         
         if (subjectKeys.length > 0) {
+          const { data: existingCloudCourses } = await supabase
+            .from('course_data')
+            .select('course_id');
+          const existingCourseIds = new Set((existingCloudCourses || []).map(c => c.course_id));
+
           for (const key of subjectKeys) {
             const localCourseId = key.replace('aura_subject_', '');
             const saved = localStorage.getItem(key);
@@ -49,27 +56,25 @@ export function GlobalMigration() {
                   const match = dbNodes.find(n => n.type === 'course' && n.name.toLowerCase() === courseName.toLowerCase());
                   if (match) {
                     targetCourseId = match.id;
-                    console.log(`Matched local course "${courseName}" (${localCourseId}) to db node ID: ${targetCourseId}`);
                   }
                 }
 
-                // We always upsert to ensure local generations (flashcards) are migrated 
-                // if cloud didn't have them yet.
-                const { error: upsertError } = await supabase.from('course_data').upsert({
-                  user_id: user.id,
-                  course_id: targetCourseId,
-                  extracted_content: parsed.extractedContent,
-                  generations: parsed.generations,
-                  pdf_url: parsed.pdfUrl,
-                  file_name: parsed.fileName || courseName,
-                  updated_at: new Date().toISOString()
-                }, { onConflict: 'course_id' });
-                
-                if (!upsertError) {
-                  console.log(`Migrated/Updated course data for: ${courseName || targetCourseId}`);
-                  localStorage.removeItem(key);
-                } else {
-                  console.error(`Failed to migrate Course data for ${courseName || targetCourseId}:`, upsertError);
+                // Only migrate if this course does NOT already exist in Supabase
+                if (!existingCourseIds.has(targetCourseId)) {
+                  const { error: insertError } = await supabase.from('course_data').upsert({
+                    user_id: user.id,
+                    course_id: targetCourseId,
+                    extracted_content: parsed.extractedContent,
+                    generations: parsed.generations,
+                    pdf_url: parsed.pdfUrl,
+                    file_name: parsed.fileName || courseName,
+                    updated_at: new Date().toISOString()
+                  }, { onConflict: 'course_id' });
+                  
+                  if (!insertError) {
+                    existingCourseIds.add(targetCourseId);
+                    console.log(`Migrated offline course data for: ${courseName || targetCourseId}`);
+                  }
                 }
               } catch (e) {
                 console.error(`Failed to parse/migrate Subject data for ${localCourseId}`, e);

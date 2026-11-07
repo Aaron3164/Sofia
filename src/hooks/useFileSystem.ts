@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { supabase, deletePDFFromR2 } from '../lib/supabase';
+import { removeCachedCourseData } from '../lib/courseDataCache';
 import { useAuth } from '../context/AuthContext';
 import { seedDemoCourseIfEmpty } from '../lib/OnboardingHelper';
 
@@ -190,16 +191,26 @@ function useFileSystemInternal(): FileSystemContextType {
 
     // Optimistic update
     setNodes(prev => prev.filter(n => !idsToDelete.includes(n.id)));
+    removeCachedCourseData(idsToDelete);
 
-    // Clean up local storage and R2 PDFs for deleted courses
+    const r2UrlsToDelete = new Set<string>();
+    const isR2Url = (url?: string | null) =>
+      typeof url === 'string' && (url.includes('r2.cloudflarestorage.com') || url.includes('.r2.dev'));
+
+    // 1. Collect R2 URLs from local storage cache and clean up local keys
     idsToDelete.forEach(deletedId => {
       const storageKey = `aura_subject_${deletedId}`;
       const savedDataStr = localStorage.getItem(storageKey);
       if (savedDataStr) {
         try {
           const parsed = JSON.parse(savedDataStr);
-          if (parsed?.pdfUrl && (parsed.pdfUrl.includes('r2.cloudflarestorage.com') || parsed.pdfUrl.includes('.r2.dev'))) {
-            deletePDFFromR2(parsed.pdfUrl);
+          if (isR2Url(parsed?.pdfUrl)) {
+            r2UrlsToDelete.add(parsed.pdfUrl);
+          }
+          if (Array.isArray(parsed?.naiveAttachments)) {
+            parsed.naiveAttachments.forEach((att: any) => {
+              if (isR2Url(att?.url)) r2UrlsToDelete.add(att.url);
+            });
           }
         } catch (e) {
           // ignore
@@ -208,11 +219,38 @@ function useFileSystemInternal(): FileSystemContextType {
       localStorage.removeItem(storageKey);
     });
 
-    // Sync
+    // 2. Collect R2 URLs from Cloud course_data (in case course was created on another device) and delete node
     if (user) {
+      try {
+        const { data: cloudCourseData } = await supabase
+          .from('course_data')
+          .select('pdf_url, naive_attachments')
+          .in('course_id', idsToDelete);
+
+        if (cloudCourseData) {
+          cloudCourseData.forEach((row: any) => {
+            if (isR2Url(row?.pdf_url)) {
+              r2UrlsToDelete.add(row.pdf_url);
+            }
+            if (Array.isArray(row?.naive_attachments)) {
+              row.naive_attachments.forEach((att: any) => {
+                if (isR2Url(att?.url)) r2UrlsToDelete.add(att.url);
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Could not fetch course_data R2 URLs before deletion:', e);
+      }
+
       const { error } = await supabase.from('nodes').delete().in('id', idsToDelete);
       if (error) console.error('Cloud delete failed:', error);
     }
+
+    // 3. Delete all collected R2 files in background
+    r2UrlsToDelete.forEach(url => {
+      deletePDFFromR2(url);
+    });
   };
 
   const getChildren = (parentId: string | null) => {

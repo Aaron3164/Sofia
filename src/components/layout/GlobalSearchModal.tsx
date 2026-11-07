@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { globalSearch, getDailyUsage } from '../../lib/gemini';
 import { useFileSystem, type FileNode } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { getCachedAllCourseData } from '../../lib/courseDataCache';
 import { AIProgressCard } from '../common/AIProgressCard';
 import { exportContentToPDF } from '../../lib/pdf-export';
 
@@ -57,16 +57,10 @@ export const GlobalSearchModal: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      // Cmd+K or Ctrl+K to open
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+K or Ctrl+K to open (Direct keyword search costs 0 tokens!)
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        const maxGens = profile?.plan === 'premium' ? 50 : 5;
-        const usage = await getDailyUsage();
-        if (usage >= maxGens) {
-          alert(`Limite quotidienne de générations atteinte (${usage}/${maxGens}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
-          return;
-        }
         setIsOpen((prev) => !prev);
       }
       // Esc to close
@@ -75,13 +69,7 @@ export const GlobalSearchModal: React.FC = () => {
       }
     };
 
-    const handleCustomOpen = async () => {
-      const maxGens = profile?.plan === 'premium' ? 50 : 5;
-      const usage = await getDailyUsage();
-      if (usage >= maxGens) {
-        alert(`Limite quotidienne de générations atteinte (${usage}/${maxGens}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
-        return;
-      }
+    const handleCustomOpen = () => {
       setIsOpen(true);
     };
 
@@ -92,7 +80,7 @@ export const GlobalSearchModal: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('open-global-search', handleCustomOpen);
     };
-  }, [isOpen, profile?.plan]);
+  }, [isOpen]);
 
   // Focus input when modal opens
   useEffect(() => {
@@ -204,13 +192,10 @@ export const GlobalSearchModal: React.FC = () => {
       Math.max(2, Math.ceil(effectiveKeywords.length * 0.75));
 
     try {
-      // 1. Fetch Cloud Course Data (or from local fallback)
+      // 1. Fetch Cloud Course Data from shared session memory cache
       let cloudRows: any[] = [];
       try {
-        const { data } = await supabase
-          .from('course_data')
-          .select('course_id, file_name, extracted_content, generations');
-        if (data) cloudRows = data;
+        cloudRows = await getCachedAllCourseData(profile?.id);
       } catch (e) {
         console.warn("Supabase fetch fallback:", e);
       }
@@ -336,6 +321,13 @@ export const GlobalSearchModal: React.FC = () => {
   // Optional AI Synthesis (only triggered on user demand!)
   const handleTriggerAISynthesis = async () => {
     if (!directResults || directResults.length === 0) return;
+
+    const maxGens = profile?.plan === 'premium' ? 50 : 5;
+    const usage = await getDailyUsage();
+    if (usage >= maxGens) {
+      alert(`Limite quotidienne de générations atteinte (${usage}/${maxGens}). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
+      return;
+    }
 
     setActiveTab('ai');
     setIsSearchingAI(true);

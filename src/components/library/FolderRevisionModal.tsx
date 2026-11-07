@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Zap, RotateCcw, Award, BookOpen, 
   Play, Check, AlertCircle, Layers
@@ -6,6 +6,7 @@ import {
 import { type FileNode } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { updateCachedCourseData } from '../../lib/courseDataCache';
 import { OccludedImageViewer, type OcclusionRect } from './OccludedImageViewer';
 import { 
   calculateNextSchedule, 
@@ -59,6 +60,8 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
   // Loading & Data State
   const [loading, setLoading] = useState(true);
   const [courseBundles, setCourseBundles] = useState<CourseCardsBundle[]>([]);
+  const courseBundlesRef = useRef<CourseCardsBundle[]>([]);
+  const courseGenerationsRef = useRef<Map<string, any>>(new Map());
   const [allCardsList, setAllCardsList] = useState<SessionQueueItem[]>([]);
   const [dueCardsList, setDueCardsList] = useState<SessionQueueItem[]>([]);
 
@@ -152,9 +155,11 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
       }
 
       // 2. Combine with LocalStorage
+      const genMap = new Map<string, any>();
       for (const course of targetCourses) {
         let cards: Flashcard[] = [];
         const cloudGenerations = cloudMap.get(course.id);
+        let activeGenerations = cloudGenerations || {};
         
         if (cloudGenerations?.flashcards) {
           cards = parseFlashcards(cloudGenerations.flashcards);
@@ -163,12 +168,17 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
           if (localStr) {
             try {
               const parsed = JSON.parse(localStr);
+              if (parsed?.generations) {
+                activeGenerations = parsed.generations;
+              }
               if (parsed?.generations?.flashcards) {
                 cards = parseFlashcards(parsed.generations.flashcards);
               }
             } catch {}
           }
         }
+
+        genMap.set(course.id, activeGenerations);
 
         if (cards.length > 0) {
           bundles.push({
@@ -179,6 +189,8 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
         }
       }
 
+      courseGenerationsRef.current = genMap;
+      courseBundlesRef.current = bundles;
       setCourseBundles(bundles);
 
       // Create flat items
@@ -225,59 +237,47 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
     setSessionFinished(false);
   };
 
-  // Save Card SM-2 Update to Cloud and LocalStorage
+  // Save Card SM-2 Update to Cloud and LocalStorage synchronously via ref to prevent race conditions
   const persistCardUpdate = async (courseId: string, cardIndex: number, updatedCard: Flashcard) => {
-    // 1. Update in-memory bundles
-    setCourseBundles(prev => {
-      return prev.map(bundle => {
-        if (bundle.courseId === courseId) {
-          const newCards = [...bundle.cards];
-          newCards[cardIndex] = updatedCard;
-          return { ...bundle, cards: newCards };
-        }
-        return bundle;
-      });
+    // 1. Synchronously update ref & React state so rapid ratings never overwrite each other
+    let latestCardsList: Flashcard[] = [updatedCard];
+    courseBundlesRef.current = courseBundlesRef.current.map(bundle => {
+      if (bundle.courseId === courseId) {
+        const newCards = [...bundle.cards];
+        newCards[cardIndex] = updatedCard;
+        latestCardsList = newCards;
+        return { ...bundle, cards: newCards };
+      }
+      return bundle;
     });
+    setCourseBundles(courseBundlesRef.current);
+
+    const baseGen = courseGenerationsRef.current.get(courseId) || {};
+    const newGenerations = {
+      ...baseGen,
+      flashcards: latestCardsList
+    };
+    courseGenerationsRef.current.set(courseId, newGenerations);
+    updateCachedCourseData(courseId, { generations: newGenerations });
 
     // 2. Update LocalStorage
     const localKey = `aura_subject_${courseId}`;
     const localStr = localStorage.getItem(localKey);
-    let existingGenerations: any = {};
     if (localStr) {
       try {
         const parsed = JSON.parse(localStr);
-        existingGenerations = parsed.generations || {};
-        existingGenerations.flashcards = courseBundles
-          .find(b => b.courseId === courseId)?.cards
-          .map((c, i) => (i === cardIndex ? updatedCard : c)) || [updatedCard];
-        parsed.generations = existingGenerations;
+        parsed.generations = { ...(parsed.generations || {}), flashcards: latestCardsList };
         localStorage.setItem(localKey, JSON.stringify(parsed));
       } catch {}
     }
 
-    // 3. Update Supabase
+    // 3. Update Supabase using the latest ref snapshot
     if (profile) {
       try {
-        // Fetch current course_data generations to safely merge
-        const { data } = await supabase
-          .from('course_data')
-          .select('generations')
-          .eq('course_id', courseId)
-          .single();
-
-        const currentGen = data?.generations || existingGenerations;
-        const targetBundle = courseBundles.find(b => b.courseId === courseId);
-        const updatedCardsList = targetBundle?.cards.map((c, i) => (i === cardIndex ? updatedCard : c)) || [updatedCard];
-
-        const newGenerations = {
-          ...currentGen,
-          flashcards: updatedCardsList
-        };
-
         await supabase.from('course_data').upsert({
           user_id: profile.id,
           course_id: courseId,
-          generations: newGenerations,
+          generations: courseGenerationsRef.current.get(courseId) || newGenerations,
           updated_at: new Date().toISOString()
         }, { onConflict: 'course_id' });
       } catch (e) {

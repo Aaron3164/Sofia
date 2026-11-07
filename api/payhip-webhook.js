@@ -120,11 +120,11 @@ export default async function handler(req, res) {
     const activeProductId = body.product_id || body.pricing_plan_id || 'unknown';
     console.log(`[Payhip Webhook] Processing purchase of product/plan: ${activeProductId} for email: ${buyerEmail}`);
 
-    // 1. Fetch users from Supabase Auth using admin API with pagination
+    // 1. Fetch users from Supabase Auth using admin API with pagination (1000 per page for fast lookup even at 500+ accounts)
     let user = null;
     let page = 1;
     let hasMore = true;
-    const perPage = 50;
+    const perPage = 1000;
 
     while (!user && hasMore) {
       const { data, error: fetchError } = await supabase.auth.admin.listUsers({ page, perPage });

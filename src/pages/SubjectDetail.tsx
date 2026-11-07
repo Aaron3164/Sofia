@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
+import { updateCachedCourseData } from '../lib/courseDataCache';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
 import { checkPDFPageCount, extractCourseContentFromPDF } from '../lib/pdf-extractor';
 import { InteractiveMCQ } from '../components/library/InteractiveMCQ';
@@ -214,6 +215,7 @@ export default function SubjectDetail() {
     } else {
       setSyncStatus('connected');
       setSyncError(null);
+      updateCachedCourseData(id, cleanUpdates);
     }
   };
 
