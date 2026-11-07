@@ -210,21 +210,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function updatePreferences(newPrefs: Partial<Preferences>) {
-    if (!user || !profile) return;
+    if (!user) return;
     
     const updatedPreferences = {
-      ...profile.preferences,
+      ...(profile?.preferences || {}),
       ...newPrefs
     };
+
+    // Optimistic state update so UI and theme never revert
+    setProfile(prev => prev ? { ...prev, preferences: updatedPreferences } : null);
 
     const { error } = await supabase
       .from('profiles')
       .update({ preferences: updatedPreferences })
       .eq('id', user.id);
     
-    if (!error) {
-      setProfile(prev => prev ? { ...prev, preferences: updatedPreferences } : null);
-    } else {
+    if (error) {
       throw error;
     }
   }

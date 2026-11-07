@@ -18,17 +18,19 @@ const FlashcardsExplorer = lazy(() => import('./pages/FlashcardsExplorer'));
 import { DialogProvider } from './context/DialogContext';
 import { useTheme } from './context/ThemeContext';
 import { PomodoroProvider } from './context/PomodoroContext';
+import { FileSystemProvider } from './hooks/useFileSystem';
+import { SpacedRepetitionProvider } from './hooks/useSpacedRepetition';
 
 function AppContent() {
   const { user, profile, loading } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
 
-  // Sync theme from profile
+  // Sync theme from profile only when profile preference changes
   useEffect(() => {
-    if (profile?.preferences?.theme && profile.preferences.theme !== theme) {
+    if (profile?.preferences?.theme) {
       setTheme(profile.preferences.theme);
     }
-  }, [profile, theme, setTheme]);
+  }, [profile?.preferences?.theme, setTheme]);
 
   // If auth is still checking and user hasn't been established
   if (loading) {
@@ -78,11 +80,15 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <DialogProvider>
-        <PomodoroProvider>
-          <AppContent />
-        </PomodoroProvider>
-      </DialogProvider>
+      <FileSystemProvider>
+        <SpacedRepetitionProvider>
+          <DialogProvider>
+            <PomodoroProvider>
+              <AppContent />
+            </PomodoroProvider>
+          </DialogProvider>
+        </SpacedRepetitionProvider>
+      </FileSystemProvider>
     </AuthProvider>
   );
 }

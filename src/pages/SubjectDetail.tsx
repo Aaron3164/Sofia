@@ -112,27 +112,37 @@ export default function SubjectDetail() {
   useEffect(() => {
     async function loadData() {
       if (!id || isUploading) return;
-      setDataLoading(true);
       setCustomInstructions(''); // Reset state on course switch to prevent state leak across courses
+
+      // Instant local cache preload to avoid full-screen loading flash on navigation
+      let hasInstantLocalData = false;
+      const savedLocal = localStorage.getItem(storageKey);
+      if (savedLocal) {
+        try {
+          const parsed = JSON.parse(savedLocal);
+          if (parsed.extractedContent !== undefined) setExtractedContent(parsed.extractedContent);
+          if (parsed.generations) setGenerations(parsed.generations);
+          if (parsed.pdfUrl !== undefined) setPdfUrl(parsed.pdfUrl);
+          if (parsed.fileName !== undefined) setFileName(parsed.fileName);
+          if (parsed.naiveAttachments) setNaiveAttachments(parsed.naiveAttachments);
+          setCustomInstructions(parsed.customInstructions || '');
+          hasInstantLocalData = Boolean(
+            parsed.extractedContent ||
+            parsed.pdfUrl ||
+            (parsed.generations && Object.values(parsed.generations).some(v => v !== null && (!Array.isArray(v) || v.length > 0)))
+          );
+        } catch (e) {
+          console.error('Failed to preload local data');
+        }
+      }
+
+      if (!hasInstantLocalData) {
+        setDataLoading(true);
+      }
 
       try {
         setSyncStatus('syncing');
         if (!profile) {
-          // Fallback to local
-          const saved = localStorage.getItem(storageKey);
-          if (saved) {
-            try {
-              const parsed = JSON.parse(saved);
-              if (parsed.extractedContent) setExtractedContent(parsed.extractedContent);
-              if (parsed.generations) setGenerations(parsed.generations);
-              if (parsed.pdfUrl) setPdfUrl(parsed.pdfUrl);
-              if (parsed.fileName) setFileName(parsed.fileName);
-              if (parsed.naiveAttachments) setNaiveAttachments(parsed.naiveAttachments);
-              setCustomInstructions(parsed.customInstructions || '');
-            } catch (e) {
-              console.error('Failed to load local data');
-            }
-          }
           setDataLoading(false);
           setSyncStatus('connected');
           return;
@@ -146,21 +156,7 @@ export default function SubjectDetail() {
           .single();
 
         if (error && error.code === 'PGRST116') {
-          // If not in cloud yet or just seeded, check local storage before giving up
-          const saved = localStorage.getItem(storageKey);
-          if (saved) {
-            try {
-              const parsed = JSON.parse(saved);
-              if (parsed.extractedContent) setExtractedContent(parsed.extractedContent);
-              if (parsed.generations) setGenerations(parsed.generations);
-              if (parsed.pdfUrl) setPdfUrl(parsed.pdfUrl);
-              if (parsed.fileName) setFileName(parsed.fileName);
-              if (parsed.naiveAttachments) setNaiveAttachments(parsed.naiveAttachments);
-              setCustomInstructions(parsed.customInstructions || '');
-            } catch (e) {
-              console.error('Failed to parse local fallback data');
-            }
-          } else {
+          if (!hasInstantLocalData) {
             setCustomInstructions('');
           }
           setSyncStatus('connected');

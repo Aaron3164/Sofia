@@ -13,7 +13,15 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>('glass');
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const saved = localStorage.getItem('theme') as Theme | null;
+      if (saved === 'light' || saved === 'dark' || saved === 'glass') {
+        return saved;
+      }
+    } catch {}
+    return 'glass';
+  });
   const [subjectColors, setSubjectColors] = useState<Record<string, string>>({
     'math': '#3b82f6', // blue
     'physics': '#8b5cf6', // purple
@@ -22,22 +30,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else {
-      setTheme('glass');
-    }
-  }, []);
-
-  useEffect(() => {
     document.documentElement.classList.remove('dark', 'glass');
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else if (theme === 'glass') {
       document.documentElement.classList.add('glass');
     }
-    localStorage.setItem('theme', theme);
+    try {
+      localStorage.setItem('theme', theme);
+    } catch {}
   }, [theme]);
 
   const toggleTheme = () => {

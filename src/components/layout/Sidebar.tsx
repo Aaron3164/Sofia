@@ -39,20 +39,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     };
   }, [user]);
 
-  const handleToggleTheme = async () => {
-    const nextTheme = theme === 'light' ? 'dark' : theme === 'dark' ? 'glass' : 'light';
-    setTheme(nextTheme);
+  const handleSelectTheme = async (targetTheme: 'light' | 'dark' | 'glass') => {
+    setTheme(targetTheme);
     if (user && updatePreferences) {
       try {
-        await updatePreferences({ theme: nextTheme });
+        await updatePreferences({ theme: targetTheme });
       } catch (err) {
         console.error('Failed to update theme preference:', err);
       }
     }
   };
 
-  const themeLabel = theme === 'light' ? 'Mode Sombre' : theme === 'dark' ? 'Mode Aurora' : 'Mode Clair';
-  const themeIcon = theme === 'light' ? <Moon size={15} /> : theme === 'dark' ? <Sparkles size={15} /> : <Sun size={15} />;
+  const themeOptions: { id: 'light' | 'dark' | 'glass'; label: string; icon: React.ReactNode }[] = [
+    { id: 'light', label: 'Clair', icon: <Sun size={14} /> },
+    { id: 'dark', label: 'Sombre', icon: <Moon size={14} /> },
+    { id: 'glass', label: 'Aurore', icon: <Sparkles size={14} /> },
+  ];
 
   return (
     <aside className={`sidebar glass-panel ${isOpen ? 'open' : ''}`}>
@@ -174,10 +176,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </>
         )}
 
-        <button className="theme-toggle" onClick={handleToggleTheme} aria-label="Changer de thème">
-          {themeIcon}
-          <span>{themeLabel}</span>
-        </button>
+        <div className="theme-selector-group" role="group" aria-label="Sélecteur de thème">
+          {themeOptions.map((opt) => {
+            const isActive = theme === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                className={`theme-selector-btn ${isActive ? 'active' : ''}`}
+                onClick={() => handleSelectTheme(opt.id)}
+                title={`Thème ${opt.label}${isActive ? ' (Actif)' : ''}`}
+                aria-pressed={isActive}
+              >
+                {opt.icon}
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </aside>
   );

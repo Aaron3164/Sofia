@@ -272,7 +272,7 @@ p { color: var(--text-secondary); }
 }
 
 /* In light mode, glass-panel is just elevated card */
-:root .glass-panel {
+:root:not(.dark):not(.glass) .glass-panel {
   background: var(--bg-secondary);
   border-color: var(--border-color);
   box-shadow: var(--shadow-sm);

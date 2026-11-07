@@ -17,7 +17,7 @@ export default function Library() {
   const navigate = useNavigate();
   const { alert, confirm, prompt } = useDialog();
   const { profile } = useAuth();
-  const { nodes, deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes } = useFileSystem();
+  const { nodes, isInitialLoad, deleteNode, getChildren, getNode, addNode, renameNode, moveNode, reorderNodes } = useFileSystem();
   
   const currentFolderId = folderId || null;
   const [nodeToMove, setNodeToMove] = useState<FileNode | null>(null);
@@ -264,7 +264,38 @@ export default function Library() {
         }}
       />
 
-      {items.length === 0 ? (
+      {isInitialLoad && items.length === 0 ? (
+        <div className="folder-grid" aria-busy="true">
+          {[1, 2, 3, 4].map((skeletonIdx) => (
+            <div
+              key={skeletonIdx}
+              className="folder-card glass-panel"
+              style={{ pointerEvents: 'none', minHeight: '115px', justifyContent: 'space-between' }}
+            >
+              <div className="folder-header">
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-elevated)',
+                    animation: 'pulse 1.5s infinite ease-in-out',
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  height: '16px',
+                  width: '65%',
+                  borderRadius: '6px',
+                  background: 'var(--bg-elevated)',
+                  animation: 'pulse 1.5s infinite ease-in-out',
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      ) : items.length === 0 ? (
         <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', borderRadius: '1.5rem', minHeight: '300px' }}>
           <Folder size={64} style={{ opacity: 0.3, marginBottom: '1.5rem' }} />
           <h3 style={{ margin: 0 }}>C'est bien vide par ici...</h3>

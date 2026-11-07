@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { addDays, format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -15,17 +15,27 @@ export type RepetitionItem = {
 const STORAGE_KEY = 'aura_spaced_repetition';
 const J_STEPS = [1, 3, 7, 14, 30];
 
-export function useSpacedRepetition() {
+function getInitialCachedItems(): RepetitionItem[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function useSpacedRepetitionInternal() {
   const { user } = useAuth();
-  const [items, setItems] = useState<RepetitionItem[]>([]);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [items, setItems] = useState<RepetitionItem[]>(getInitialCachedItems);
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(() => getInitialCachedItems().length === 0);
 
   // Initial load & migration
   useEffect(() => {
     async function loadData() {
       if (!user) {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        setItems(saved ? JSON.parse(saved) : []);
+        setItems(getInitialCachedItems());
         setIsInitialLoad(false);
         return;
       }
@@ -37,49 +47,54 @@ export function useSpacedRepetition() {
         .order('date', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        setItems(data.map(n => ({
+        const mapped = data.map(n => ({
           id: n.id,
           courseId: n.course_id,
           courseName: n.course_name,
           date: n.date,
           step: n.step,
           completed: n.completed
-        })));
+        }));
+        setItems(mapped);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+        } catch {}
       } else if (error && error.code !== 'PGRST116') {
         console.error('Error fetching spaced repetition:', error);
       } else {
         // 2. Migration Bridge
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const localItems = JSON.parse(saved);
-          if (localItems.length > 0) {
-            console.log('Migrating local spaced repetition to Supabase...');
-            const toInsert = localItems.map((n: any) => ({
-              id: n.id,
-              user_id: user.id,
-              course_id: n.courseId,
-              course_name: n.courseName,
-              date: n.date,
-              step: n.step,
-              completed: n.completed
-            }));
+        const localItems = getInitialCachedItems();
+        if (localItems.length > 0) {
+          console.log('Migrating local spaced repetition to Supabase...');
+          const toInsert = localItems.map((n: any) => ({
+            id: n.id,
+            user_id: user.id,
+            course_id: n.courseId,
+            course_name: n.courseName,
+            date: n.date,
+            step: n.step,
+            completed: n.completed
+          }));
 
-            const { error: insertError } = await supabase.from('spaced_repetition').insert(toInsert);
-            if (!insertError) setItems(localItems);
-          }
+          const { error: insertError } = await supabase.from('spaced_repetition').insert(toInsert);
+          if (!insertError) setItems(localItems);
+        } else {
+          setItems([]);
         }
       }
       setIsInitialLoad(false);
     }
     loadData();
-  }, [user]);
+  }, [user?.id]);
 
-  // Sync back to local if not logged in
+  // Sync back to local buffer
   useEffect(() => {
-    if (!user && !isInitialLoad) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    if (!isInitialLoad) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      } catch {}
     }
-  }, [items, user, isInitialLoad]);
+  }, [items, isInitialLoad]);
 
   const scheduleCourse = async (courseId: string, courseName: string) => {
     const today = new Date();
@@ -259,4 +274,21 @@ export function useSpacedRepetition() {
     hasScheduledCourse,
     removeCourseSchedules
   };
+}
+
+type SpacedRepetitionContextType = ReturnType<typeof useSpacedRepetitionInternal>;
+
+const SpacedRepetitionContext = createContext<SpacedRepetitionContextType | undefined>(undefined);
+
+export function SpacedRepetitionProvider({ children }: { children: React.ReactNode }) {
+  const value = useSpacedRepetitionInternal();
+  return React.createElement(SpacedRepetitionContext.Provider, { value }, children);
+}
+
+export function useSpacedRepetition(): SpacedRepetitionContextType {
+  const context = useContext(SpacedRepetitionContext);
+  if (!context) {
+    throw new Error('useSpacedRepetition must be used within a SpacedRepetitionProvider');
+  }
+  return context;
 }

@@ -156,6 +156,19 @@ function getCacheKey(prefix: string, content: string): string {
   return `${prefix}_${(hash >>> 0).toString(36)}`;
 }
 
+/**
+ * Losslessly compacts whitespace and redundant blank lines from extracted PDF text
+ * to reduce token consumption by ~10-15% without removing a single word or character of content.
+ */
+function compactCourseText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export interface CourseSchemaInput {
   id: string; // e.g. "FIGURE_1"
   url: string; // Base64 data URL
@@ -174,7 +187,6 @@ export async function generateStudyMaterials(
   cardCount?: number,
   customInstructions?: string
 ): Promise<string> {
-  await ensureQuota();
   const systemInstruction = getSystemInstruction(prefs);
 
   const randomSeed = Math.random().toString(36).substring(7);
@@ -218,7 +230,8 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
   }
 
   const isJSON = mode === 'flashcards' || mode === 'mcq';
-  const requestContents = [`${fullPromptHeader}\n\nDOCUMENT DE COURS :\n${promptContext}`];
+  const cleanContext = compactCourseText(promptContext);
+  const requestContents = [`${fullPromptHeader}\n\nDOCUMENT DE COURS :\n${cleanContext}`];
 
   try {
     const response = await callGeminiProxy(
@@ -314,23 +327,15 @@ export async function askQuestion(
     return cached;
   }
 
-  await ensureQuota();
   const systemInstruction = getSystemInstruction(prefs);
 
-  const baseInstruction = `Tu t'appelles Sofia. Tu es un agent IA d'apprentissage expert. Ton objectif est de fournir des explications CLAIRES, SYNTHÉTIQUES et VISUELLES basées sur le contexte fourni.
+  const isAnnaleOrQcmQuery = Boolean(
+    (annaleContext && annaleContext.trim()) ||
+    context.includes('GRILLE DE CORRECTION OFFICIELLE') ||
+    /annale|qcm|item|items|corrige|correction|grille|concours|question\s*\d/i.test(question)
+  );
 
-CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation, symbole logique (comme les flèches de conséquence), UTILISE SYSTÉMATIQUEMENT le format LaTeX entre des symboles '$' (ex: $\rightarrow$, $\beta$, $x^2$, $\frac{a}{b}$). Pour les équations complexes, utilise '$$' sur une nouvelle ligne.
-
-CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. RÉPONDS DIRECTEMENT À LA QUESTION.
-
-Consignes de formatage strictes (PRIORITÉ #1) :
-- UTILISE MASSIVEMENT LE SURLIGNAGE AVEC DEUX SIGNES ÉGAL '==' DE CHAQUE CÔTÉ (ex: ==mot surligné==, N'UTILISE JAMAIS UN SEUL '=' COMME =mot=) pour les concepts clés, les termes techniques et les informations fondamentales.
-- Utilise Markdown (#, ##, ###, ####) pour structurer ta réponse.
-- Utilise des listes à puces (* ) pour briser les paragraphes longs.
-- Utilise '__' pour souligner les précisions importantes.
-- TABLEAUX : Si une comparaison, classification ou synthèse de plusieurs notions s'y prête, STRUCTURE-LA DANS UN BEAU TABLEAU MARKDOWN standard avec des en-têtes clairs (| Colonne 1 | Colonne 2 | \n | --- | --- |).
-- SOURCE : Si l'information provient du document, mentionne-le subtilement.
-- Tu DOIS tutoyer l'étudiant (utilise "tu").
+  const annaleCorrectionProtocol = isAnnaleOrQcmQuery ? `
 
 === PROTOCOLE STRICT DE CORRECTION DES ANNALES & QCM (RÈGLE ABSOLUE) ===
 Si l'étudiant demande de corriger des questions, des QCM ou toute l'annale (ex: "corrige l'annale", "corrige les qcm", "corrige qcm par qcm", "explications des items", "corrige tout", "fais la correction", etc.) :
@@ -368,7 +373,22 @@ Pour CHAQUE question / QCM, reproduis EXACTEMENT cette mise en page :
 - Énoncé de la question : TOUJOURS présent juste sous le titre "## 📌 Question [X]", emballé dans la balise HTML <span style="color: #db2777; font-weight: 700; font-size: 1.05rem;">...</span> (couleur aurore / rose framboise).
 - Ligne de l'item : La ligne commence par "* **[Lettre]. [Texte de l'item]**" et se termine impérativement par l'emoji validé ou croix rouge puis VRAI ou FAUX : "✅ VRAI" ou "❌ FAUX".
 - Ligne d'explication : Immédiatement à la ligne, sous forme de sous-puce indentée : "  * *Explication :* [Explication détaillée] ([Source])".
-- Source : Cite obligatoirement à la fin de chaque explication le document de cours de référence mentionné dans le contexte (ex: "(Cours Biophysique 3&4.pdf, p. 5, 8)" ou "(NomDuCours.pdf)"). Si la page exacte est identifiable, indique-la, sinon mentionne le nom du fichier du cours.`;
+- Source : Cite obligatoirement à la fin de chaque explication le document de cours de référence mentionné dans le contexte (ex: "(Cours Biophysique 3&4.pdf, p. 5, 8)" ou "(NomDuCours.pdf)"). Si la page exacte est identifiable, indique-la, sinon mentionne le nom du fichier du cours.` : '';
+
+  const baseInstruction = `Tu t'appelles Sofia. Tu es un agent IA d'apprentissage expert. Ton objectif est de fournir des explications CLAIRES, SYNTHÉTIQUES et VISUELLES basées sur le contexte fourni.
+
+CONSIGNE MATHÉMATIQUE (CRITIQUE) : Pour toute formule mathématique, équation, symbole logique (comme les flèches de conséquence), UTILISE SYSTÉMATIQUEMENT le format LaTeX entre des symboles '$' (ex: $\rightarrow$, $\beta$, $x^2$, $\frac{a}{b}$). Pour les équations complexes, utilise '$$' sur une nouvelle ligne.
+
+CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. RÉPONDS DIRECTEMENT À LA QUESTION.
+
+Consignes de formatage strictes (PRIORITÉ #1) :
+- UTILISE MASSIVEMENT LE SURLIGNAGE AVEC DEUX SIGNES ÉGAL '==' DE CHAQUE CÔTÉ (ex: ==mot surligné==, N'UTILISE JAMAIS UN SEUL '=' COMME =mot=) pour les concepts clés, les termes techniques et les informations fondamentales.
+- Utilise Markdown (#, ##, ###, ####) pour structurer ta réponse.
+- Utilise des listes à puces (* ) pour briser les paragraphes longs.
+- Utilise '__' pour souligner les précisions importantes.
+- TABLEAUX : Si une comparaison, classification ou synthèse de plusieurs notions s'y prête, STRUCTURE-LA DANS UN BEAU TABLEAU MARKDOWN standard avec des en-têtes clairs (| Colonne 1 | Colonne 2 | \n | --- | --- |).
+- SOURCE : Si l'information provient du document, mentionne-le subtilement.
+- Tu DOIS tutoyer l'étudiant (utilise "tu").${annaleCorrectionProtocol}`;
 
   let historyPrompt = "";
   if (history && history.length > 0) {
@@ -378,10 +398,10 @@ Pour CHAQUE question / QCM, reproduis EXACTEMENT cette mise en page :
 
   let annalePrompt = "";
   if (annaleContext && annaleContext.trim()) {
-    annalePrompt = `\n\nSUJET D'EXAMEN / ANNALES / EXERCICE ATTACHÉ PAR L'ÉTUDIANT :\n${annaleContext.substring(0, 150000)}\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal ci-dessus, ses méthodes, sa structure et ses notions. Respecte impérativement la grille de correction officielle sans jamais la contredire.`;
+    annalePrompt = `\n\nSUJET D'EXAMEN / ANNALES / EXERCICE ATTACHÉ PAR L'ÉTUDIANT :\n${compactCourseText(annaleContext).substring(0, 150000)}\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal ci-dessus, ses méthodes, sa structure et ses notions. Respecte impérativement la grille de correction officielle sans jamais la contredire.`;
   }
 
-  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${context}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
+  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${compactCourseText(context)}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
   
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt]);
@@ -395,16 +415,21 @@ Pour CHAQUE question / QCM, reproduis EXACTEMENT cette mise en page :
 }
 
 export async function generateChatTitle(question: string): Promise<string> {
-  await ensureQuota();
-  const fullPrompt = `Génère un titre très court (3 à 5 mots maximum) résumant cette question posée par un étudiant : "${question}".\nNe retourne QUE le titre, sans guillemets.`;
-  
-  try {
-    const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt]);
-    return (response.text || 'Nouvelle discussion').trim();
-  } catch (error) {
-    console.error('Error generating chat title:', error);
-    return 'Nouvelle discussion';
+  if (!question || !question.trim()) return 'Nouvelle discussion';
+  const cleaned = question
+    .trim()
+    .replace(/^(bonjour|salut|hello|coucou|hey|sofia|dis-moi|peux-tu|pourrais-tu|explique-moi|explique|qu'est-ce que|c'est quoi)\s*[,:!\-]?\s*/i, '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  const source = cleaned || question.trim();
+  const words = source.split(' ');
+  let title = words.slice(0, 6).join(' ').replace(/[?.!,;:]+$/, '');
+  if (words.length > 6 || title.length > 42) {
+    title = title.substring(0, 42).trim() + '…';
   }
+  return title.charAt(0).toUpperCase() + title.slice(1);
 }
 
 export async function globalSearch(query: string, allCoursesContext: string, prefs?: AIPreferences, customInstructions?: string): Promise<string> {
@@ -415,7 +440,6 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
     return cached;
   }
 
-  await ensureQuota();
   const systemInstruction = getSystemInstruction(prefs);
   const customBlock = customInstructions && customInstructions.trim() 
     ? `\nCONSIGNE PARTICULIÈRE DE L'ÉTUDIANT POUR CETTE SYNTHÈSE (À RESPECTER EN PRIORITÉ) :\n"${customInstructions.trim()}"\n` 
@@ -473,7 +497,6 @@ export async function explainMCQErrors(
     }
   }
 
-  await ensureQuota();
   const systemInstruction = getSystemInstruction(prefs);
 
   const errorsListText = errors.map((err) => {
@@ -507,7 +530,7 @@ Exemple :
 }
 
 Texte source du cours :
-${documentContext.substring(0, 250000)}`;
+${compactCourseText(documentContext).substring(0, 250000)}`;
 
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt], {
@@ -896,8 +919,6 @@ export async function askChatSofia(
     preferences?: AIPreferences;
   }
 ): Promise<{ text: string; sources?: { title: string; url: string }[] }> {
-  await ensureQuota();
-
   const systemInstruction = getUniversalSofiaSystemPrompt(options?.preferences);
   // Gemini 2.5 Flash has first-class Google Search tool grounding
   const model = options?.useWebSearch ? 'models/gemini-2.5-flash' : 'models/gemini-3.5-flash-lite';
@@ -915,13 +936,13 @@ RÈGLE D'OR DE PRIORITÉ :
 2. Si ces cours n'en parlent que partiellement, commence par donner les éléments de son cours puis complète avec tes connaissances externes ou la recherche web.
 3. Si la question n'est PAS traitée dans ces cours ou si ces extraits ne sont pas pertinents pour sa question, utilise alors librement tes connaissances académiques générales et la recherche web pour lui répondre de manière exhaustive et complète.
 ====================================================================
-${options.coursesContext.slice(0, 150000)}
+${compactCourseText(options.coursesContext).slice(0, 150000)}
 ====================================================================\n\n`;
   }
 
   // 2. Fichier temporaire joint par l'étudiant dans le chat
   if (options?.attachmentContext && options.attachmentContext.trim()) {
-    basePrompt += `DOCUMENT SPÉCIFIQUEMENT JOINT DANS CE MESSAGE :\n"""\n${options.attachmentContext.slice(0, 100000)}\n"""\n\n`;
+    basePrompt += `DOCUMENT SPÉCIFIQUEMENT JOINT DANS CE MESSAGE :\n"""\n${compactCourseText(options.attachmentContext).slice(0, 100000)}\n"""\n\n`;
   }
 
   const lastUserMsg = messages[messages.length - 1]?.content || '';

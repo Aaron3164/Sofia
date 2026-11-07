@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { supabase, deletePDFFromR2 } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { seedDemoCourseIfEmpty } from '../lib/OnboardingHelper';
@@ -16,17 +16,45 @@ export type FileNode = {
 const STORAGE_KEY = 'aura_file_system';
 const COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#06b6d4'];
 
-export function useFileSystem() {
+function getInitialCachedNodes(): FileNode[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.warn('Failed to read initial nodes from localStorage:', e);
+  }
+  return [];
+}
+
+type FileSystemContextType = {
+  nodes: FileNode[];
+  isInitialLoad: boolean;
+  addNode: (name: string, type: 'folder' | 'course', parentId: string | null) => Promise<FileNode>;
+  deleteNode: (id: string) => Promise<void>;
+  getChildren: (parentId: string | null) => FileNode[];
+  getNode: (id: string | null) => FileNode | null;
+  renameNode: (id: string, newName: string) => Promise<void>;
+  moveNode: (id: string, newParentId: string | null) => Promise<void>;
+  reorderNodes: (parentId: string | null, orderedIds: string[]) => Promise<void>;
+  updateNodeColor: (id: string, newColor: string) => Promise<void>;
+  refreshNodes: () => Promise<void>;
+};
+
+const FileSystemContext = createContext<FileSystemContextType | undefined>(undefined);
+
+function useFileSystemInternal(): FileSystemContextType {
   const { user } = useAuth();
-  const [nodes, setNodes] = useState<FileNode[]>([]);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [nodes, setNodes] = useState<FileNode[]>(getInitialCachedNodes);
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(() => getInitialCachedNodes().length === 0);
 
   // Initial data loading & migration
   const loadData = useCallback(async () => {
     if (!user) {
       // Fallback to local if not logged in
-      const saved = localStorage.getItem(STORAGE_KEY);
-      const localNodes = saved ? JSON.parse(saved) : [];
+      const localNodes = getInitialCachedNodes();
       if (localNodes.length > 0) {
         setNodes(localNodes);
       } else {
@@ -39,59 +67,65 @@ export function useFileSystem() {
       return;
     }
 
-      // 1. Fetch from Supabase
-      const { data: cloudNodes, error } = await supabase
-        .from('nodes')
-        .select('*')
-        .order('order', { ascending: true });
+    // 1. Fetch from Supabase
+    const { data: cloudNodes, error } = await supabase
+      .from('nodes')
+      .select('*')
+      .order('order', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching nodes:', error);
-        return;
-      }
+    if (error) {
+      console.error('Error fetching nodes:', error);
+      setIsInitialLoad(false);
+      return;
+    }
 
-      if (cloudNodes && cloudNodes.length > 0) {
-        // We have cloud data, use it
-        setNodes(cloudNodes.map(n => ({
+    if (cloudNodes && cloudNodes.length > 0) {
+      // We have cloud data, use it
+      const mappedNodes: FileNode[] = cloudNodes.map(n => ({
+        id: n.id,
+        name: n.name,
+        type: n.type,
+        parentId: n.parent_id,
+        createdAt: n.created_at,
+        color: n.color,
+        order: n.order
+      }));
+      setNodes(mappedNodes);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(mappedNodes));
+      } catch {}
+    } else {
+      // 2. Migration Bridge: Check for local data to upload
+      const localNodes = getInitialCachedNodes();
+      if (localNodes.length > 0) {
+        console.log('Migrating local nodes to Supabase...');
+        const toInsert = localNodes.map((n: any) => ({
           id: n.id,
+          user_id: user.id,
           name: n.name,
           type: n.type,
-          parentId: n.parent_id,
-          createdAt: n.created_at,
+          parent_id: n.parentId,
           color: n.color,
-          order: n.order
-        })));
-      } else {
-        // 2. Migration Bridge: Check for local data to upload
-        const saved = localStorage.getItem(STORAGE_KEY);
-        const localNodes = saved ? JSON.parse(saved) : [];
-        if (localNodes.length > 0) {
-          console.log('Migrating local nodes to Supabase...');
-          const toInsert = localNodes.map((n: any) => ({
-            id: n.id,
-            user_id: user.id,
-            name: n.name,
-            type: n.type,
-            parent_id: n.parentId,
-            color: n.color,
-            "order": n.order,
-            created_at: new Date(n.createdAt).toISOString()
-          }));
+          "order": n.order,
+          created_at: new Date(n.createdAt).toISOString()
+        }));
 
-          const { error: insertError } = await supabase.from('nodes').insert(toInsert);
-          if (!insertError) {
-            setNodes(localNodes);
-          }
+        const { error: insertError } = await supabase.from('nodes').insert(toInsert);
+        if (!insertError) {
+          setNodes(localNodes);
+        }
+      } else {
+        // Brand new user: Seed demo course!
+        const seeded = await seedDemoCourseIfEmpty(user.id);
+        if (seeded) {
+          setNodes([seeded.folderNode, seeded.courseNode]);
         } else {
-          // Brand new user: Seed demo course!
-          const seeded = await seedDemoCourseIfEmpty(user.id);
-          if (seeded) {
-            setNodes([seeded.folderNode, seeded.courseNode]);
-          }
+          setNodes([]);
         }
       }
-      setIsInitialLoad(false);
-  }, [user]);
+    }
+    setIsInitialLoad(false);
+  }, [user?.id]);
 
   useEffect(() => {
     loadData();
@@ -100,7 +134,9 @@ export function useFileSystem() {
   // Save local fallback (Buffer)
   useEffect(() => {
     if (!isInitialLoad) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes));
+      } catch {}
     }
   }, [nodes, isInitialLoad]);
 
@@ -240,4 +276,17 @@ export function useFileSystem() {
   };
 
   return { nodes, isInitialLoad, addNode, deleteNode, getChildren, getNode, renameNode, moveNode, reorderNodes, updateNodeColor, refreshNodes: loadData };
+}
+
+export function FileSystemProvider({ children }: { children: React.ReactNode }) {
+  const value = useFileSystemInternal();
+  return React.createElement(FileSystemContext.Provider, { value }, children);
+}
+
+export function useFileSystem(): FileSystemContextType {
+  const context = useContext(FileSystemContext);
+  if (!context) {
+    throw new Error('useFileSystem must be used within a FileSystemProvider');
+  }
+  return context;
 }
