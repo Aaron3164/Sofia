@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   BookX, Trash2, CheckCircle2, RotateCcw, Search, 
-  Eye, EyeOff, AlertTriangle, Check, Folder, Layers
+  Eye, EyeOff, AlertTriangle, Check, Folder, Layers, ChevronDown
 } from 'lucide-react';
 import { ErrorBookService, type ErrorQuestionItem } from '../lib/ErrorBookService';
 import { useDialog } from '../context/DialogContext';
@@ -17,7 +17,14 @@ export default function ErrorBookPage() {
   const [activePracticeItem, setActivePracticeItem] = useState<ErrorQuestionItem | null>(null);
   const [practiceSelected, setPracticeSelected] = useState<string[]>([]);
   const [practiceAnswerChecked, setPracticeAnswerChecked] = useState(false);
+  const [allTabLimit, setAllTabLimit] = useState<number>(30);
+  const [subjectLimits, setSubjectLimits] = useState<Record<string, number>>({});
   const { confirm } = useDialog();
+
+  useEffect(() => {
+    setAllTabLimit(30);
+    setSubjectLimits({});
+  }, [filterType, selectedFolderFilter, searchQuery]);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -55,11 +62,10 @@ export default function ErrorBookPage() {
       .sort((a, b) => b.count - a.count);
   }, [errors, getSubjectNameForCourse]);
 
-  // Filtered errors
-  const filteredErrors = useMemo(() => {
+  // Base filtered errors (by subject and search query, before type filter)
+  const baseFilteredErrors = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return errors.filter(item => {
-      if (filterType !== 'all' && item.type !== filterType) return false;
       const subject = getSubjectNameForCourse(item.courseId, item.courseName, item.folderPath);
       if (selectedFolderFilter !== 'all' && subject !== selectedFolderFilter) return false;
       if (!q) return true;
@@ -70,19 +76,26 @@ export default function ErrorBookPage() {
         (item.back && item.back.toLowerCase().includes(q))
       );
     });
-  }, [errors, filterType, selectedFolderFilter, searchQuery, getSubjectNameForCourse]);
+  }, [errors, selectedFolderFilter, searchQuery, getSubjectNameForCourse]);
+
+  // Filtered errors (including type filter)
+  const filteredErrors = useMemo(() => {
+    if (filterType === 'all') return baseFilteredErrors;
+    return baseFilteredErrors.filter(item => item.type === filterType);
+  }, [baseFilteredErrors, filterType]);
 
   // Grouped errors by subject (for structured layout)
   const groupedErrors = useMemo(() => {
     const map = new Map<string, ErrorQuestionItem[]>();
-    filteredErrors.forEach(item => {
+    const sourceList = filterType === 'all' ? filteredErrors.slice(0, allTabLimit) : filteredErrors;
+    sourceList.forEach(item => {
       const subject = getSubjectNameForCourse(item.courseId, item.courseName, item.folderPath);
       const list = map.get(subject) || [];
       list.push(item);
       map.set(subject, list);
     });
     return map;
-  }, [filteredErrors, getSubjectNameForCourse]);
+  }, [filteredErrors, filterType, allTabLimit, getSubjectNameForCourse]);
 
   const handleClearAll = async () => {
     const ok = await confirm("Voulez-vous vraiment vider tout le carnet d'erreurs ?");
@@ -155,7 +168,7 @@ export default function ErrorBookPage() {
               <BookX size={18} />
             </div>
             <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
-              Carnet d'Erreurs Intelligent
+              Carnet d'Erreurs
             </h1>
           </div>
           <p className="subtitle" style={{ margin: 0, fontSize: '0.875rem' }}>
@@ -276,7 +289,7 @@ export default function ErrorBookPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            Tous ({filteredErrors.length})
+            Tous ({baseFilteredErrors.length})
           </button>
           <button
             type="button"
@@ -293,7 +306,7 @@ export default function ErrorBookPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            QCM ({filteredErrors.filter(e => e.type === 'mcq').length})
+            QCM ({baseFilteredErrors.filter(e => e.type === 'mcq').length})
           </button>
           <button
             type="button"
@@ -310,7 +323,7 @@ export default function ErrorBookPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            Flashcards ({filteredErrors.filter(e => e.type === 'flashcard').length})
+            Flashcards ({baseFilteredErrors.filter(e => e.type === 'flashcard').length})
           </button>
         </div>
 
@@ -564,169 +577,221 @@ export default function ErrorBookPage() {
       ) : (
         /* ── Grouped Sections by Subject ─────────────── */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {Array.from(groupedErrors.entries()).map(([subjectName, itemsInSubject]) => (
-            <section key={subjectName}>
-              {/* Section Header: Subject name */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                marginBottom: '1rem',
-                paddingBottom: '0.5rem',
-                borderBottom: '1px solid var(--border-subtle)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <Folder size={17} color="var(--accent-primary)" />
-                  <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {subjectName}
-                  </h2>
-                  <span style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    color: 'var(--accent-primary)',
-                    background: 'var(--accent-light)',
-                    padding: '0.15rem 0.5rem',
-                    borderRadius: 'var(--radius-full)'
-                  }}>
-                    {itemsInSubject.length} question{itemsInSubject.length > 1 ? 's' : ''}
-                  </span>
+          {Array.from(groupedErrors.entries()).map(([subjectName, itemsInSubject]) => {
+            const currentSubjectLimit = subjectLimits[subjectName] ?? 3;
+            const visibleItemsInSubject = filterType === 'all'
+              ? itemsInSubject
+              : itemsInSubject.slice(0, currentSubjectLimit);
+            const hasMoreInSubject = filterType !== 'all' && visibleItemsInSubject.length < itemsInSubject.length;
+
+            return (
+              <section key={subjectName}>
+                {/* Section Header: Subject name */}
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  marginBottom: '1rem',
+                  paddingBottom: '0.5rem',
+                  borderBottom: '1px solid var(--border-subtle)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Folder size={17} color="var(--accent-primary)" />
+                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {subjectName}
+                    </h2>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: 'var(--accent-primary)',
+                      background: 'var(--accent-light)',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: 'var(--radius-full)'
+                    }}>
+                      {itemsInSubject.length} question{itemsInSubject.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Grid of cards in this subject */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
-                {itemsInSubject.map((item) => {
-                  const isRevealed = Boolean(revealedIds[item.id]);
+                {/* Grid of cards in this subject */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
+                  {visibleItemsInSubject.map((item) => {
+                    const isRevealed = Boolean(revealedIds[item.id]);
 
-                  return (
-                    <div 
-                      key={item.id}
-                      className="card"
+                    return (
+                      <div 
+                        key={item.id}
+                        className="card"
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          padding: '1.25rem',
+                          borderRadius: 'var(--radius-lg)',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          position: 'relative'
+                        }}
+                      >
+                        {/* Header row: Course name & badge */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <span style={{ 
+                              fontSize: '0.7rem', 
+                              fontWeight: 600, 
+                              color: item.type === 'mcq' ? '#f59e0b' : 'var(--accent-primary)',
+                              background: item.type === 'mcq' ? 'rgba(245, 158, 11, 0.12)' : 'var(--accent-light)',
+                              border: `1px solid ${item.type === 'mcq' ? 'rgba(245, 158, 11, 0.25)' : 'var(--accent-glow)'}`,
+                              padding: '0.15rem 0.45rem', 
+                              borderRadius: 'var(--radius-sm)',
+                              textTransform: 'uppercase'
+                            }}>
+                              {item.type === 'mcq' ? 'QCM' : 'Flashcard'}
+                            </span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                              {item.courseName}
+                            </span>
+                          </div>
+
+                          {item.failCount > 1 && (
+                            <span style={{ fontSize: '0.72rem', color: 'var(--danger)', fontWeight: 600, background: 'var(--danger-light)', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-sm)' }}>
+                              Raté {item.failCount}x
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Question body */}
+                        <div style={{ flex: 1, marginBottom: '1rem' }}>
+                          <p style={{ margin: 0, fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                            {item.question}
+                          </p>
+
+                          {/* MCQ Options preview if revealed */}
+                          {item.type === 'mcq' && item.options && isRevealed && (
+                            <div style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                              {item.options.map((opt, oIdx) => {
+                                const isCorrect = item.correctAnswers?.includes(opt);
+                                const wasSelected = item.userSelected?.includes(opt);
+
+                                return (
+                                  <div 
+                                    key={oIdx}
+                                    style={{
+                                      fontSize: '0.82rem',
+                                      padding: '0.4rem 0.65rem',
+                                      borderRadius: 'var(--radius-sm)',
+                                      background: isCorrect ? 'var(--success-light)' : wasSelected ? 'var(--danger-light)' : 'var(--bg-elevated)',
+                                      border: isCorrect ? '1px solid rgba(16, 185, 129, 0.3)' : wasSelected ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid var(--border-subtle)',
+                                      color: isCorrect ? 'var(--success)' : wasSelected ? 'var(--danger)' : 'var(--text-secondary)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      gap: '0.5rem'
+                                    }}
+                                  >
+                                    <span>{opt}</span>
+                                    {isCorrect && <Check size={13} color="var(--success)" />}
+                                    {!isCorrect && wasSelected && <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>Ta sélection</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Flashcard back if revealed */}
+                          {item.type === 'flashcard' && item.back && isRevealed && (
+                            <div style={{ marginTop: '0.85rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--success)', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Réponse attendue :</span>
+                              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                                {item.back}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Footer action buttons */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.35rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => toggleReveal(item.id)}
+                              className="btn btn-outline"
+                              style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
+                              title={isRevealed ? "Cacher la correction" : "Voir la correction"}
+                            >
+                              {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+                              <span>{isRevealed ? 'Cacher' : 'Solution'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startPractice(item)}
+                              className="btn btn-primary"
+                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                            >
+                              <RotateCcw size={13} /> Re-tester
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOne(item.id)}
+                            className="btn btn-outline"
+                            style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}
+                            title="Supprimer du carnet"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Per-subject "Voir plus" button (+10) in QCM / Flashcards tabs */}
+                {hasMoreInSubject && (
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSubjectLimits(prev => ({ ...prev, [subjectName]: (prev[subjectName] ?? 3) + 10 }))}
+                      className="btn btn-outline"
                       style={{
                         display: 'flex',
-                        flexDirection: 'column',
-                        padding: '1.25rem',
-                        borderRadius: 'var(--radius-lg)',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-color)',
-                        position: 'relative'
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        padding: '0.5rem 1.25rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        borderRadius: 'var(--radius-full)'
                       }}
                     >
-                      {/* Header row: Course name & badge */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.85rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                          <span style={{ 
-                            fontSize: '0.7rem', 
-                            fontWeight: 600, 
-                            color: item.type === 'mcq' ? '#f59e0b' : 'var(--accent-primary)',
-                            background: item.type === 'mcq' ? 'rgba(245, 158, 11, 0.12)' : 'var(--accent-light)',
-                            border: `1px solid ${item.type === 'mcq' ? 'rgba(245, 158, 11, 0.25)' : 'var(--accent-glow)'}`,
-                            padding: '0.15rem 0.45rem', 
-                            borderRadius: 'var(--radius-sm)',
-                            textTransform: 'uppercase'
-                          }}>
-                            {item.type === 'mcq' ? 'QCM' : 'Flashcard'}
-                          </span>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                            {item.courseName}
-                          </span>
-                        </div>
+                      <ChevronDown size={15} /> Voir plus ({itemsInSubject.length - visibleItemsInSubject.length} restante{itemsInSubject.length - visibleItemsInSubject.length > 1 ? 's' : ''})
+                    </button>
+                  </div>
+                )}
+              </section>
+            );
+          })}
 
-                        {item.failCount > 1 && (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--danger)', fontWeight: 600, background: 'var(--danger-light)', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-sm)' }}>
-                            Raté {item.failCount}x
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Question body */}
-                      <div style={{ flex: 1, marginBottom: '1rem' }}>
-                        <p style={{ margin: 0, fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                          {item.question}
-                        </p>
-
-                        {/* MCQ Options preview if revealed */}
-                        {item.type === 'mcq' && item.options && isRevealed && (
-                          <div style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                            {item.options.map((opt, oIdx) => {
-                              const isCorrect = item.correctAnswers?.includes(opt);
-                              const wasSelected = item.userSelected?.includes(opt);
-
-                              return (
-                                <div 
-                                  key={oIdx}
-                                  style={{
-                                    fontSize: '0.82rem',
-                                    padding: '0.4rem 0.65rem',
-                                    borderRadius: 'var(--radius-sm)',
-                                    background: isCorrect ? 'var(--success-light)' : wasSelected ? 'var(--danger-light)' : 'var(--bg-elevated)',
-                                    border: isCorrect ? '1px solid rgba(16, 185, 129, 0.3)' : wasSelected ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid var(--border-subtle)',
-                                    color: isCorrect ? 'var(--success)' : wasSelected ? 'var(--danger)' : 'var(--text-secondary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    gap: '0.5rem'
-                                  }}
-                                >
-                                  <span>{opt}</span>
-                                  {isCorrect && <Check size={13} color="var(--success)" />}
-                                  {!isCorrect && wasSelected && <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>Ta sélection</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {/* Flashcard back if revealed */}
-                        {item.type === 'flashcard' && item.back && isRevealed && (
-                          <div style={{ marginTop: '0.85rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--success)', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Réponse attendue :</span>
-                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                              {item.back}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Footer action buttons */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', gap: '0.35rem' }}>
-                          <button
-                            type="button"
-                            onClick={() => toggleReveal(item.id)}
-                            className="btn btn-outline"
-                            style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
-                            title={isRevealed ? "Cacher la correction" : "Voir la correction"}
-                          >
-                            {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
-                            <span>{isRevealed ? 'Cacher' : 'Solution'}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => startPractice(item)}
-                            className="btn btn-primary"
-                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
-                          >
-                            <RotateCcw size={13} /> Re-tester
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveOne(item.id)}
-                          className="btn btn-outline"
-                          style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}
-                          title="Supprimer du carnet"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+          {/* Global "Voir plus" button (+30) in "Tous" tab */}
+          {filterType === 'all' && allTabLimit < filteredErrors.length && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setAllTabLimit(prev => prev + 30)}
+                className="btn btn-outline"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.65rem 1.5rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  borderRadius: 'var(--radius-full)'
+                }}
+              >
+                <ChevronDown size={16} /> Voir plus ({filteredErrors.length - allTabLimit} restante{filteredErrors.length - allTabLimit > 1 ? 's' : ''})
+              </button>
+            </div>
+          )}
         </div>
       )}
 

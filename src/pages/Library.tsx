@@ -419,6 +419,33 @@ export default function Library() {
                         >
                           <button
                             onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                              setRevisionFolder({ id: item.id, name: cleanName });
+                            }}
+                            className="hover-bg-subtle"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.55rem',
+                              padding: '0.5rem 0.7rem',
+                              borderRadius: '0.5rem',
+                              border: 'none',
+                              background: 'transparent',
+                              color: 'var(--text-primary)',
+                              fontSize: '0.82rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%'
+                            }}
+                          >
+                            <Zap size={14} color="var(--accent-primary)" />
+                            <span>Réviser</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
                               setOpenMenuId(null);
                               handleRename(e, item);
                             }}

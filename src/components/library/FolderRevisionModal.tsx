@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  X, Zap, RotateCcw, Award, BookOpen, 
+  X, RotateCcw, Award, BookOpen, 
   Play, Check, AlertCircle, Layers
 } from 'lucide-react';
 import { type FileNode } from '../../hooks/useFileSystem';
@@ -79,11 +79,16 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
   const [againCount, setAgainCount] = useState(0);
   const [firstTrySuccessCount, setFirstTrySuccessCount] = useState(0);
 
-  // Helper: Find all descendant courses in the folder
+  // Helper: Find all descendant courses in the folder (or the single course itself if parentId is a course)
   const getDescendantCourses = (parentId: string | null): FileNode[] => {
     if (!parentId) {
       // Root library: all courses
       return allNodes.filter(n => n.type === 'course');
+    }
+
+    const targetNode = allNodes.find(n => n.id === parentId);
+    if (targetNode && targetNode.type === 'course') {
+      return [targetNode];
     }
 
     const courses: FileNode[] = [];
@@ -463,14 +468,11 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
 
           {/* Header */}
           <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-primary)', padding: '0.35rem 0.85rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-              <Zap size={15} /> Répétition Espacée SM-2
-            </div>
             <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.6rem', fontWeight: 700 }}>
               Révision Globale : {folderName}
             </h2>
             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.5 }}>
-              Révisez toutes les notions des cours de ce dossier grâce à l'algorithme d'espacement Anki (100% instantané).
+              Révisez toutes les notions sélectionnées grâce à l'algorithme d'espacement Anki (100% instantané).
             </p>
           </div>
 
@@ -687,9 +689,6 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
                     {currentItem.card.front}
                   </div>
                 )}
-                <div style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: 0.7 }}>
-                  <span>Appuyez sur <kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-primary)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>Espace</kbd> pour afficher la réponse</span>
-                </div>
               </div>
 
               {/* VERSO (Answer Side) */}
