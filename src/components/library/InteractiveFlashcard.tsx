@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Edit2, Save, X, Trash2, Plus, Image as ImageIcon, Sparkles, Clock, CheckCircle2 } from 'lucide-react';
+import { useDialog } from '../../context/DialogContext';
 import { OccludedImageViewer, type OcclusionRect } from './OccludedImageViewer';
 import { ImageOcclusionModal } from './ImageOcclusionModal';
 import { compressImage, getImageFromClipboard } from '../../lib/image-utils';
@@ -25,6 +26,7 @@ export const InteractiveFlashcard: React.FC<{
   courseId?: string,
   mode?: 'standard' | 'spaced-repetition'
 }> = ({ data, onUpdate, courseId, mode = 'standard' }) => {
+  const { confirm } = useDialog();
   const [currentIndex, setCurrentIndex] = useState(() => {
     if (courseId) {
       const saved = sessionStorage.getItem(`aura_flashcard_idx_${courseId}`);
@@ -102,7 +104,7 @@ export const InteractiveFlashcard: React.FC<{
             className="btn btn-primary"
             onClick={() => {
               isManualChangeRef.current = true;
-              onUpdate([{ front: 'Nouvelle Question', back: 'Nouvelle Réponse' }]);
+              onUpdate([{ front: '', back: '' }]);
               setCurrentIndex(0);
             }}
           >
@@ -193,8 +195,8 @@ export const InteractiveFlashcard: React.FC<{
     setIsEditing(false);
   };
 
-  const handleDelete = () => {
-    if (confirm('Voulez-vous vraiment supprimer cette flashcard ?')) {
+  const handleDelete = async () => {
+    if (await confirm('Voulez-vous vraiment supprimer cette flashcard ?')) {
       const newCards = cards.filter((_, i) => i !== currentIndex);
       isManualChangeRef.current = true;
       onUpdate?.(newCards);
@@ -208,7 +210,7 @@ export const InteractiveFlashcard: React.FC<{
 
   const handleAdd = () => {
     const insertIndex = currentIndex + 1;
-    const newCard: Flashcard = { front: 'Nouvelle Question', back: 'Nouvelle Réponse' };
+    const newCard: Flashcard = { front: '', back: '' };
     const newCards = [...cards.slice(0, insertIndex), newCard, ...cards.slice(insertIndex)];
 
     isManualChangeRef.current = true;
@@ -216,8 +218,8 @@ export const InteractiveFlashcard: React.FC<{
 
     setCurrentIndex(insertIndex);
     setIsFlipped(false);
-    setEditFront('Nouvelle Question');
-    setEditBack('Nouvelle Réponse');
+    setEditFront('');
+    setEditBack('');
     setEditImage(undefined);
     setEditOcclusions([]);
     setEditImageSide('both');
