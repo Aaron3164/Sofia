@@ -17,12 +17,10 @@ export default function ErrorBookPage() {
   const [activePracticeItem, setActivePracticeItem] = useState<ErrorQuestionItem | null>(null);
   const [practiceSelected, setPracticeSelected] = useState<string[]>([]);
   const [practiceAnswerChecked, setPracticeAnswerChecked] = useState(false);
-  const [allTabLimit, setAllTabLimit] = useState<number>(30);
   const [subjectLimits, setSubjectLimits] = useState<Record<string, number>>({});
   const { confirm } = useDialog();
 
   useEffect(() => {
-    setAllTabLimit(30);
     setSubjectLimits({});
   }, [filterType, selectedFolderFilter, searchQuery]);
 
@@ -87,15 +85,14 @@ export default function ErrorBookPage() {
   // Grouped errors by subject (for structured layout)
   const groupedErrors = useMemo(() => {
     const map = new Map<string, ErrorQuestionItem[]>();
-    const sourceList = filterType === 'all' ? filteredErrors.slice(0, allTabLimit) : filteredErrors;
-    sourceList.forEach(item => {
+    filteredErrors.forEach(item => {
       const subject = getSubjectNameForCourse(item.courseId, item.courseName, item.folderPath);
       const list = map.get(subject) || [];
       list.push(item);
       map.set(subject, list);
     });
     return map;
-  }, [filteredErrors, filterType, allTabLimit, getSubjectNameForCourse]);
+  }, [filteredErrors, getSubjectNameForCourse]);
 
   const handleClearAll = async () => {
     const ok = await confirm("Voulez-vous vraiment vider tout le carnet d'erreurs ?");
@@ -578,11 +575,12 @@ export default function ErrorBookPage() {
         /* ── Grouped Sections by Subject ─────────────── */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {Array.from(groupedErrors.entries()).map(([subjectName, itemsInSubject]) => {
-            const currentSubjectLimit = subjectLimits[subjectName] ?? 3;
-            const visibleItemsInSubject = filterType === 'all'
-              ? itemsInSubject
-              : itemsInSubject.slice(0, currentSubjectLimit);
-            const hasMoreInSubject = filterType !== 'all' && visibleItemsInSubject.length < itemsInSubject.length;
+            const isSingleSubjectView = selectedFolderFilter !== 'all';
+            const defaultLimit = isSingleSubjectView ? 30 : 3;
+            const currentLimit = subjectLimits[subjectName] ?? defaultLimit;
+            const step = isSingleSubjectView ? 30 : 10;
+            const visibleItemsInSubject = itemsInSubject.slice(0, currentLimit);
+            const hasMoreInSubject = visibleItemsInSubject.length < itemsInSubject.length;
 
             return (
               <section key={subjectName}>
@@ -746,12 +744,12 @@ export default function ErrorBookPage() {
                   })}
                 </div>
 
-                {/* Per-subject "Voir plus" button (+10) in QCM / Flashcards tabs */}
+                {/* Per-subject "Voir plus" button */}
                 {hasMoreInSubject && (
                   <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
                     <button
                       type="button"
-                      onClick={() => setSubjectLimits(prev => ({ ...prev, [subjectName]: (prev[subjectName] ?? 3) + 10 }))}
+                      onClick={() => setSubjectLimits(prev => ({ ...prev, [subjectName]: (prev[subjectName] ?? defaultLimit) + step }))}
                       className="btn btn-outline"
                       style={{
                         display: 'flex',
@@ -770,28 +768,6 @@ export default function ErrorBookPage() {
               </section>
             );
           })}
-
-          {/* Global "Voir plus" button (+30) in "Tous" tab */}
-          {filterType === 'all' && allTabLimit < filteredErrors.length && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={() => setAllTabLimit(prev => prev + 30)}
-                className="btn btn-outline"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.65rem 1.5rem',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  borderRadius: 'var(--radius-full)'
-                }}
-              >
-                <ChevronDown size={16} /> Voir plus ({filteredErrors.length - allTabLimit} restante{filteredErrors.length - allTabLimit > 1 ? 's' : ''})
-              </button>
-            </div>
-          )}
         </div>
       )}
 
