@@ -28,6 +28,7 @@ export default async function handler(req, res) {
   let supabaseClient = null;
   let authenticatedUserId = null;
   let quotaWasIncremented = false;
+  let isPremiumUser = false;
 
   if (supabaseUrl && supabaseAnonKey) {
     // Client initialized with user's access token so auth.uid() is populated in Supabase RPC
@@ -45,6 +46,24 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Session invalide ou expirée. Veuillez vous reconnecter.' });
     }
     authenticatedUserId = user.id;
+
+    // Fetch user plan for tier segmentation (Premium vs Free)
+    try {
+      const { data: profileData } = await supabaseClient
+        .from('profiles')
+        .select('plan, premium_until')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileData && profileData.plan === 'premium') {
+        const isExpired = profileData.premium_until
+          ? new Date(profileData.premium_until) < new Date()
+          : false;
+        isPremiumUser = !isExpired;
+      }
+    } catch (profileErr) {
+      console.warn('[Gemini Proxy] Impossible de vérifier le plan utilisateur, repli sur gratuit:', profileErr);
+    }
 
     // 2. Strict Server-Side Quota Verification & Increment
     const { data: quotaAllowed, error: quotaError } = await supabaseClient.rpc('check_and_increment_ai_usage');
@@ -89,14 +108,21 @@ export default async function handler(req, res) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Models cascade fallback on 503 / high demand:
-    // If the requested model is saturated, automatically try another reliable active flash model
-    const candidateModels = Array.from(new Set([
-      model,
-      'models/gemini-2.5-flash',
-      'models/gemini-2.5-flash-lite',
-      'models/gemini-2.0-flash'
-    ]));
+    // Models cascade fallback on 503 / high demand with Tier Segmentation:
+    // - Premium users start at the top-tier model (models/gemini-3.5-flash-lite or requested model)
+    // - Free users start directly at Repli 1 (models/gemini-2.5-flash) and keep the full fallback cascade
+    const candidateModels = isPremiumUser
+      ? Array.from(new Set([
+          model,
+          'models/gemini-2.5-flash',
+          'models/gemini-2.5-flash-lite',
+          'models/gemini-2.0-flash'
+        ]))
+      : Array.from(new Set([
+          'models/gemini-2.5-flash',
+          'models/gemini-2.5-flash-lite',
+          'models/gemini-2.0-flash'
+        ]));
 
     let lastError = null;
 
@@ -147,16 +173,37 @@ export default async function handler(req, res) {
     // Refund the daily quota credit if the Gemini call failed completely
     if (quotaWasIncremented && supabaseClient && authenticatedUserId) {
       try {
-        const { data: usageRow } = await supabaseClient
+        const now = new Date();
+        const utcDate = now.toISOString().split('T')[0];
+
+        // 1. Try modern schema (user_id, usage_date, generation_count)
+        const { data: dateRow, error: dateErr } = await supabaseClient
           .from('ai_usage')
-          .select('count')
+          .select('generation_count, usage_date')
           .eq('user_id', authenticatedUserId)
-          .single();
-        if (usageRow && usageRow.count > 0) {
+          .order('usage_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!dateErr && dateRow && typeof dateRow.generation_count === 'number' && dateRow.generation_count > 0) {
           await supabaseClient
             .from('ai_usage')
-            .update({ count: Math.max(0, usageRow.count - 1) })
-            .eq('user_id', authenticatedUserId);
+            .update({ generation_count: Math.max(0, dateRow.generation_count - 1) })
+            .eq('user_id', authenticatedUserId)
+            .eq('usage_date', dateRow.usage_date || utcDate);
+        } else {
+          // 2. Fallback to legacy schema (user_id, count)
+          const { data: usageRow } = await supabaseClient
+            .from('ai_usage')
+            .select('count')
+            .eq('user_id', authenticatedUserId)
+            .maybeSingle();
+          if (usageRow && typeof usageRow.count === 'number' && usageRow.count > 0) {
+            await supabaseClient
+              .from('ai_usage')
+              .update({ count: Math.max(0, usageRow.count - 1) })
+              .eq('user_id', authenticatedUserId);
+          }
         }
       } catch (refundErr) {
         console.warn('[Gemini Proxy] Could not refund quota credit:', refundErr);

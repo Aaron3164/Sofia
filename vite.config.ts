@@ -37,16 +37,35 @@ export default defineConfig(({ mode }) => {
               return res.end(JSON.stringify({ error: 'La clé GEMINI_API_KEY est manquante dans .env' }));
             }
 
-            // Quota verification in development
+            // Quota & Plan segmentation verification in development
             const authHeader = req.headers['authorization'];
             const token = authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
             const sbUrl = env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
             const sbKey = env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+            let isPremiumUser = false;
 
             if (token && sbUrl && sbKey) {
               const supabase = createClient(sbUrl, sbKey, {
                 global: { headers: { Authorization: `Bearer ${token}` } }
               });
+              try {
+                const { data: { user } } = await supabase.auth.getUser(token);
+                if (user) {
+                  const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('plan, premium_until')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                  if (profileData && profileData.plan === 'premium') {
+                    const isExpired = profileData.premium_until
+                      ? new Date(profileData.premium_until) < new Date()
+                      : false;
+                    isPremiumUser = !isExpired;
+                  }
+                }
+              } catch (e) {
+                console.warn('[Vite Dev Gemini Proxy] Profile check error:', e);
+              }
               const { data: quotaAllowed, error: quotaError } = await supabase.rpc('check_and_increment_ai_usage');
               if (quotaError) {
                 console.warn('[Vite Dev Gemini Proxy] Quota RPC error:', quotaError.message);
@@ -70,25 +89,51 @@ export default defineConfig(({ mode }) => {
                 const { model = 'models/gemini-3.5-flash-lite', contents, config } = body;
 
                 const ai = new GoogleGenAI({ apiKey });
-                let attempts = 0;
+                const candidateModels = isPremiumUser
+                  ? Array.from(new Set([
+                      model,
+                      'models/gemini-2.5-flash',
+                      'models/gemini-2.5-flash-lite',
+                      'models/gemini-2.0-flash'
+                    ]))
+                  : Array.from(new Set([
+                      'models/gemini-2.5-flash',
+                      'models/gemini-2.5-flash-lite',
+                      'models/gemini-2.0-flash'
+                    ]));
+
                 let lastError: any = null;
 
-                while (attempts < 3) {
-                  try {
-                    attempts++;
-                    const response = await ai.models.generateContent({ model, contents, config });
-                    res.setHeader('Content-Type', 'application/json');
-                    return res.end(JSON.stringify({ 
-                      text: response.text || '',
-                      groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
-                    }));
-                  } catch (err: any) {
-                    lastError = err;
-                    const errMsg = String(err?.message || err);
-                    if ((errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand')) && attempts < 3) {
-                      await new Promise((r) => setTimeout(r, 1500));
-                    } else {
-                      throw err;
+                for (const currentModel of candidateModels) {
+                  let attempts = 0;
+                  while (attempts < 2) {
+                    try {
+                      attempts++;
+                      const response = await ai.models.generateContent({ model: currentModel, contents, config });
+                      res.setHeader('Content-Type', 'application/json');
+                      return res.end(JSON.stringify({ 
+                        text: response.text || '',
+                        groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
+                      }));
+                    } catch (err: any) {
+                      lastError = err;
+                      const errMsg = String(err?.message || err);
+                      const is503Or404 =
+                        errMsg.includes('503') ||
+                        errMsg.includes('UNAVAILABLE') ||
+                        errMsg.includes('high demand') ||
+                        errMsg.includes('overloaded') ||
+                        errMsg.includes('404') ||
+                        errMsg.includes('NOT_FOUND');
+
+                      if (is503Or404) {
+                        if (errMsg.includes('404') || errMsg.includes('NOT_FOUND')) {
+                          break;
+                        }
+                        await new Promise((r) => setTimeout(r, 1200));
+                      } else {
+                        throw err;
+                      }
                     }
                   }
                 }
