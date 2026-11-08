@@ -1,14 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   BookX, Trash2, CheckCircle2, RotateCcw, Search, 
-  Eye, EyeOff, AlertTriangle, Check
+  Eye, EyeOff, AlertTriangle, Check, Folder, Layers
 } from 'lucide-react';
 import { ErrorBookService, type ErrorQuestionItem } from '../lib/ErrorBookService';
 import { useDialog } from '../context/DialogContext';
+import { useFileSystem } from '../hooks/useFileSystem';
 
 export default function ErrorBookPage() {
+  const { nodes, getNode } = useFileSystem();
   const [errors, setErrors] = useState<ErrorQuestionItem[]>(() => ErrorBookService.getErrors());
   const [filterType, setFilterType] = useState<'all' | 'mcq' | 'flashcard'>('all');
+  const [selectedFolderFilter, setSelectedFolderFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
   const [activePracticeItem, setActivePracticeItem] = useState<ErrorQuestionItem | null>(null);
@@ -24,18 +27,62 @@ export default function ErrorBookPage() {
     return () => window.removeEventListener('sofia-error-book-updated', handleUpdate);
   }, []);
 
+  // Resolves the primary subject / root folder name for a given course
+  const getSubjectNameForCourse = useMemo(() => {
+    return (courseId: string, itemCourseName: string, itemFolderPath?: string[]): string => {
+      if (itemFolderPath && itemFolderPath.length > 0) {
+        return itemFolderPath[itemFolderPath.length - 1]; // Closest parent folder or root
+      }
+      const courseNode = nodes.find(n => n.id === courseId);
+      if (courseNode && courseNode.parentId) {
+        const parentFolder = getNode(courseNode.parentId);
+        if (parentFolder) return parentFolder.name;
+      }
+      return itemCourseName || 'Autre matière';
+    };
+  }, [nodes, getNode]);
+
+  // Available subjects with error count
+  const subjectsList = useMemo(() => {
+    const counts = new Map<string, number>();
+    errors.forEach(item => {
+      const subject = getSubjectNameForCourse(item.courseId, item.courseName, item.folderPath);
+      counts.set(subject, (counts.get(subject) || 0) + 1);
+    });
+
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [errors, getSubjectNameForCourse]);
+
+  // Filtered errors
   const filteredErrors = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return errors.filter(item => {
       if (filterType !== 'all' && item.type !== filterType) return false;
+      const subject = getSubjectNameForCourse(item.courseId, item.courseName, item.folderPath);
+      if (selectedFolderFilter !== 'all' && subject !== selectedFolderFilter) return false;
       if (!q) return true;
       return (
         item.question.toLowerCase().includes(q) ||
         item.courseName.toLowerCase().includes(q) ||
+        subject.toLowerCase().includes(q) ||
         (item.back && item.back.toLowerCase().includes(q))
       );
     });
-  }, [errors, filterType, searchQuery]);
+  }, [errors, filterType, selectedFolderFilter, searchQuery, getSubjectNameForCourse]);
+
+  // Grouped errors by subject (for structured layout)
+  const groupedErrors = useMemo(() => {
+    const map = new Map<string, ErrorQuestionItem[]>();
+    filteredErrors.forEach(item => {
+      const subject = getSubjectNameForCourse(item.courseId, item.courseName, item.folderPath);
+      const list = map.get(subject) || [];
+      list.push(item);
+      map.set(subject, list);
+    });
+    return map;
+  }, [filteredErrors, getSubjectNameForCourse]);
 
   const handleClearAll = async () => {
     const ok = await confirm("Voulez-vous vraiment vider tout le carnet d'erreurs ?");
@@ -112,7 +159,7 @@ export default function ErrorBookPage() {
             </h1>
           </div>
           <p className="subtitle" style={{ margin: 0, fontSize: '0.875rem' }}>
-            {errors.length} notion{errors.length > 1 ? 's' : ''} ou question{errors.length > 1 ? 's' : ''} à consolider • 100% accessible sans aucun token IA
+            {errors.length} notion{errors.length > 1 ? 's' : ''} ou question{errors.length > 1 ? 's' : ''} à consolider, triées par matière • 100% accessible sans aucun token IA
           </p>
         </div>
 
@@ -129,7 +176,81 @@ export default function ErrorBookPage() {
         )}
       </header>
 
-      {/* ── Filters & Search ───────────────────────── */}
+      {/* ── Top Filters Row: Subject pills ─────────── */}
+      {subjectsList.length > 0 && (
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <Folder size={14} color="var(--accent-primary)" />
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Filtrer par matière / dossier :
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedFolderFilter('all')}
+              style={{
+                background: selectedFolderFilter === 'all' ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                color: selectedFolderFilter === 'all' ? '#ffffff' : 'var(--text-secondary)',
+                border: selectedFolderFilter === 'all' ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                padding: '0.35rem 0.8rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+            >
+              <Layers size={13} />
+              <span>Toutes les matières</span>
+              <span style={{ opacity: 0.85, fontSize: '0.72rem' }}>({errors.length})</span>
+            </button>
+
+            {subjectsList.map(subj => {
+              const isSelected = selectedFolderFilter === subj.name;
+              return (
+                <button
+                  key={subj.name}
+                  type="button"
+                  onClick={() => setSelectedFolderFilter(subj.name)}
+                  style={{
+                    background: isSelected ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                    color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                    border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                    padding: '0.35rem 0.8rem',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.78rem',
+                    fontWeight: isSelected ? 600 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem'
+                  }}
+                >
+                  <Folder size={12} />
+                  <span>{subj.name}</span>
+                  <span style={{ 
+                    background: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(225, 29, 72, 0.1)', 
+                    color: isSelected ? '#ffffff' : 'var(--accent-primary)',
+                    padding: '0.1rem 0.35rem', 
+                    borderRadius: '999px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700 
+                  }}>
+                    {subj.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Sub-Filters & Search ───────────────────── */}
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
@@ -155,7 +276,7 @@ export default function ErrorBookPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            Tous ({errors.length})
+            Tous ({filteredErrors.length})
           </button>
           <button
             type="button"
@@ -172,7 +293,7 @@ export default function ErrorBookPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            QCM ({errors.filter(e => e.type === 'mcq').length})
+            QCM ({filteredErrors.filter(e => e.type === 'mcq').length})
           </button>
           <button
             type="button"
@@ -189,7 +310,7 @@ export default function ErrorBookPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            Flashcards ({errors.filter(e => e.type === 'flashcard').length})
+            Flashcards ({filteredErrors.filter(e => e.type === 'flashcard').length})
           </button>
         </div>
 
@@ -215,7 +336,7 @@ export default function ErrorBookPage() {
         </div>
       </div>
 
-      {/* ── Active Practice Modal ───────────────────── */}
+      {/* ── Active Practice Box ─────────────────────── */}
       {activePracticeItem && (
         <div style={{
           marginBottom: '2rem',
@@ -433,149 +554,182 @@ export default function ErrorBookPage() {
             Aucune erreur enregistrée !
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
-            Quand tu te trompes sur un QCM ou que tu cliques sur <em>« À revoir »</em> dans une session de flashcards, les questions s'ajouteront automatiquement ici pour que tu puisses les revoir en 1 clic.
+            Quand tu te trompes sur un QCM ou que tu cliques sur <em>« À revoir »</em> dans une session de flashcards, les questions s'ajouteront automatiquement ici pour que tu puisses les revoir par matière en 1 clic.
           </p>
         </div>
       ) : filteredErrors.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-          Aucune erreur ne correspond à votre filtre.
+          Aucune erreur ne correspond à ce filtre ou cette matière.
         </div>
       ) : (
-        /* ── Grid of Error Cards ─────────────────────── */
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
-          {filteredErrors.map((item) => {
-            const isRevealed = Boolean(revealedIds[item.id]);
-
-            return (
-              <div 
-                key={item.id}
-                className="card"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '1.25rem',
-                  borderRadius: 'var(--radius-lg)',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  position: 'relative'
-                }}
-              >
-                {/* Header row: Course & badge */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.85rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    <span style={{ 
-                      fontSize: '0.7rem', 
-                      fontWeight: 600, 
-                      color: item.type === 'mcq' ? '#f59e0b' : 'var(--accent-primary)',
-                      background: item.type === 'mcq' ? 'rgba(245, 158, 11, 0.12)' : 'var(--accent-light)',
-                      border: `1px solid ${item.type === 'mcq' ? 'rgba(245, 158, 11, 0.25)' : 'var(--accent-glow)'}`,
-                      padding: '0.15rem 0.45rem', 
-                      borderRadius: 'var(--radius-sm)',
-                      textTransform: 'uppercase'
-                    }}>
-                      {item.type === 'mcq' ? 'QCM' : 'Flashcard'}
-                    </span>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                      {item.courseName}
-                    </span>
-                  </div>
-
-                  {item.failCount > 1 && (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--danger)', fontWeight: 600, background: 'var(--danger-light)', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-sm)' }}>
-                      Raté {item.failCount}x
-                    </span>
-                  )}
-                </div>
-
-                {/* Question body */}
-                <div style={{ flex: 1, marginBottom: '1rem' }}>
-                  <p style={{ margin: 0, fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                    {item.question}
-                  </p>
-
-                  {/* MCQ Options preview if revealed */}
-                  {item.type === 'mcq' && item.options && isRevealed && (
-                    <div style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                      {item.options.map((opt, oIdx) => {
-                        const isCorrect = item.correctAnswers?.includes(opt);
-                        const wasSelected = item.userSelected?.includes(opt);
-
-                        return (
-                          <div 
-                            key={oIdx}
-                            style={{
-                              fontSize: '0.82rem',
-                              padding: '0.4rem 0.65rem',
-                              borderRadius: 'var(--radius-sm)',
-                              background: isCorrect ? 'var(--success-light)' : wasSelected ? 'var(--danger-light)' : 'var(--bg-elevated)',
-                              border: isCorrect ? '1px solid rgba(16, 185, 129, 0.3)' : wasSelected ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid var(--border-subtle)',
-                              color: isCorrect ? 'var(--success)' : wasSelected ? 'var(--danger)' : 'var(--text-secondary)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '0.5rem'
-                            }}
-                          >
-                            <span>{opt}</span>
-                            {isCorrect && <Check size={13} color="var(--success)" />}
-                            {!isCorrect && wasSelected && <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>Ta sélection</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Flashcard back if revealed */}
-                  {item.type === 'flashcard' && item.back && isRevealed && (
-                    <div style={{ marginTop: '0.85rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--success)', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Réponse attendue :</span>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                        {item.back}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer action buttons */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => toggleReveal(item.id)}
-                      className="btn btn-outline"
-                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
-                      title={isRevealed ? "Cacher la correction" : "Voir la correction"}
-                    >
-                      {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
-                      <span>{isRevealed ? 'Cacher' : 'Solution'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startPractice(item)}
-                      className="btn btn-primary"
-                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
-                    >
-                      <RotateCcw size={13} /> Re-tester
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveOne(item.id)}
-                    className="btn btn-outline"
-                    style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}
-                    title="Supprimer du carnet"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+        /* ── Grouped Sections by Subject ─────────────── */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          {Array.from(groupedErrors.entries()).map(([subjectName, itemsInSubject]) => (
+            <section key={subjectName}>
+              {/* Section Header: Subject name */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                marginBottom: '1rem',
+                paddingBottom: '0.5rem',
+                borderBottom: '1px solid var(--border-subtle)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <Folder size={17} color="var(--accent-primary)" />
+                  <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {subjectName}
+                  </h2>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: 'var(--accent-primary)',
+                    background: 'var(--accent-light)',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: 'var(--radius-full)'
+                  }}>
+                    {itemsInSubject.length} question{itemsInSubject.length > 1 ? 's' : ''}
+                  </span>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Grid of cards in this subject */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
+                {itemsInSubject.map((item) => {
+                  const isRevealed = Boolean(revealedIds[item.id]);
+
+                  return (
+                    <div 
+                      key={item.id}
+                      className="card"
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '1.25rem',
+                        borderRadius: 'var(--radius-lg)',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        position: 'relative'
+                      }}
+                    >
+                      {/* Header row: Course name & badge */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span style={{ 
+                            fontSize: '0.7rem', 
+                            fontWeight: 600, 
+                            color: item.type === 'mcq' ? '#f59e0b' : 'var(--accent-primary)',
+                            background: item.type === 'mcq' ? 'rgba(245, 158, 11, 0.12)' : 'var(--accent-light)',
+                            border: `1px solid ${item.type === 'mcq' ? 'rgba(245, 158, 11, 0.25)' : 'var(--accent-glow)'}`,
+                            padding: '0.15rem 0.45rem', 
+                            borderRadius: 'var(--radius-sm)',
+                            textTransform: 'uppercase'
+                          }}>
+                            {item.type === 'mcq' ? 'QCM' : 'Flashcard'}
+                          </span>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                            {item.courseName}
+                          </span>
+                        </div>
+
+                        {item.failCount > 1 && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--danger)', fontWeight: 600, background: 'var(--danger-light)', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-sm)' }}>
+                            Raté {item.failCount}x
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Question body */}
+                      <div style={{ flex: 1, marginBottom: '1rem' }}>
+                        <p style={{ margin: 0, fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                          {item.question}
+                        </p>
+
+                        {/* MCQ Options preview if revealed */}
+                        {item.type === 'mcq' && item.options && isRevealed && (
+                          <div style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            {item.options.map((opt, oIdx) => {
+                              const isCorrect = item.correctAnswers?.includes(opt);
+                              const wasSelected = item.userSelected?.includes(opt);
+
+                              return (
+                                <div 
+                                  key={oIdx}
+                                  style={{
+                                    fontSize: '0.82rem',
+                                    padding: '0.4rem 0.65rem',
+                                    borderRadius: 'var(--radius-sm)',
+                                    background: isCorrect ? 'var(--success-light)' : wasSelected ? 'var(--danger-light)' : 'var(--bg-elevated)',
+                                    border: isCorrect ? '1px solid rgba(16, 185, 129, 0.3)' : wasSelected ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid var(--border-subtle)',
+                                    color: isCorrect ? 'var(--success)' : wasSelected ? 'var(--danger)' : 'var(--text-secondary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '0.5rem'
+                                  }}
+                                >
+                                  <span>{opt}</span>
+                                  {isCorrect && <Check size={13} color="var(--success)" />}
+                                  {!isCorrect && wasSelected && <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>Ta sélection</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Flashcard back if revealed */}
+                        {item.type === 'flashcard' && item.back && isRevealed && (
+                          <div style={{ marginTop: '0.85rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--success)', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Réponse attendue :</span>
+                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                              {item.back}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer action buttons */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.35rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => toggleReveal(item.id)}
+                            className="btn btn-outline"
+                            style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
+                            title={isRevealed ? "Cacher la correction" : "Voir la correction"}
+                          >
+                            {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+                            <span>{isRevealed ? 'Cacher' : 'Solution'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => startPractice(item)}
+                            className="btn btn-primary"
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                          >
+                            <RotateCcw size={13} /> Re-tester
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOne(item.id)}
+                          className="btn btn-outline"
+                          style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}
+                          title="Supprimer du carnet"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
     </div>
   );
 }
-

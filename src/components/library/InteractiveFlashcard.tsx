@@ -10,6 +10,7 @@ import {
   type CardRating, 
   type SpacedCardData 
 } from '../../lib/spaced-repetition';
+import { ErrorBookService } from '../../lib/ErrorBookService';
 
 export interface Flashcard extends SpacedCardData {
   id?: string;
@@ -227,6 +228,16 @@ export const InteractiveFlashcard: React.FC<{
   };
 
   const handleRate = (rating: CardRating) => {
+    if (rating === 1 && currentCard) {
+      ErrorBookService.addFlashcardError({
+        courseId: courseId || 'unknown',
+        courseName: 'Flashcards',
+        front: currentCard.front,
+        back: currentCard.back,
+        image: currentCard.image
+      });
+    }
+
     const nextSchedule = calculateNextSchedule(currentCard, rating);
     const newCards = [...cards];
     newCards[currentIndex] = { 
