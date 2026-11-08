@@ -14,6 +14,7 @@ import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
+import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
 import { isGoogleDriveUrl } from '../lib/google-drive';
 import { AIProgressCard } from '../components/common/AIProgressCard';
 import './SubjectDetail.css';
@@ -24,7 +25,7 @@ export default function SubjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { alert, confirm } = useDialog();
-  const { getNode, deleteNode, updateNodeColor } = useFileSystem();
+  const { getNode, deleteNode, updateNodeColor, nodes } = useFileSystem();
   const { scheduleCourse, hasScheduledCourse, removeCourseSchedules, loading: isSpacedLoading } = useSpacedRepetition();
   const { profile } = useAuth();
   
@@ -35,6 +36,7 @@ export default function SubjectDetail() {
   const isQuotaReached = dailyUsage >= maxGenerations;
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
   
   const [extractedContent, setExtractedContent] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
@@ -600,6 +602,18 @@ export default function SubjectDetail() {
           )}
         </div>
         <div className="action-group">
+          <button
+            className="btn btn-outline hover-lift"
+            onClick={() => setIsRevisionModalOpen(true)}
+            style={{
+              borderColor: 'var(--accent-glow)',
+              color: 'var(--accent-primary)',
+              background: 'var(--accent-light)'
+            }}
+            title="Lancer la révision globale / espacée de ce cours"
+          >
+            <Zap size={18} /> <span>Réviser</span>
+          </button>
           {isSpacedLoading ? (
             <button className="btn btn-outline" disabled>
               <RefreshCw className="animate-spin" size={18} /> <span className="desktop-only">Chargement...</span>
@@ -1138,6 +1152,17 @@ export default function SubjectDetail() {
           setActiveTab('source');
         }}
       />
+
+      {/* Course Revision Modal */}
+      {id && isRevisionModalOpen && (
+        <FolderRevisionModal
+          isOpen={isRevisionModalOpen}
+          onClose={() => setIsRevisionModalOpen(false)}
+          folderId={id}
+          folderName={courseNode?.name || fileName || 'Cours'}
+          allNodes={nodes}
+        />
+      )}
     </div>
   );
 }
