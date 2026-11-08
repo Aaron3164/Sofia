@@ -6,6 +6,12 @@ import { ThemeProvider } from './context/ThemeContext.tsx';
 import 'katex/dist/katex.min.css';
 import './index.css';
 
+// Automatically handle Vite/Vercel chunk dynamic import errors after a new deployment
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  window.location.reload();
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
