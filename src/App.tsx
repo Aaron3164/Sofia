@@ -14,6 +14,7 @@ const SubjectDetail = lazy(() => import('./pages/SubjectDetail'));
 const AnnaleDetail = lazy(() => import('./pages/AnnaleDetail'));
 const Statistics = lazy(() => import('./pages/StatsPage'));
 const FlashcardsExplorer = lazy(() => import('./pages/FlashcardsExplorer'));
+const ErrorBookPage = lazy(() => import('./pages/ErrorBookPage'));
 
 import { DialogProvider } from './context/DialogContext';
 import { useTheme } from './context/ThemeContext';
@@ -68,6 +69,7 @@ function AppContent() {
             <Route path="/planning" element={<PlanningCenter />} />
             <Route path="/statistics" element={<Statistics />} />
             <Route path="/flashcards" element={<FlashcardsExplorer />} />
+            <Route path="/errors" element={<ErrorBookPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

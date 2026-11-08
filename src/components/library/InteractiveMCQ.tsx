@@ -10,6 +10,7 @@ import {
 } from '../../lib/gemini';
 import { BookOpen, Loader2, Sparkles, RotateCcw, MapPin, Undo2, CheckCircle2 } from 'lucide-react';
 import { AIProgressCard } from '../common/AIProgressCard';
+import { ErrorBookService } from '../../lib/ErrorBookService';
 
 export interface MarkerPin {
   id: number;
@@ -509,6 +510,24 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
 
   const handleValidate = async () => {
     setShowResults(true);
+
+    // Enregistrer automatiquement les questions erronées dans le Carnet d'Erreurs (zéro token IA)
+    if (courseId && courseName && wrongQuestions.length > 0) {
+      wrongQuestions.forEach(({ q, idx }) => {
+        const correctOpts = getCorrectAnswers(q);
+        const correctTexts = q.options.filter((opt, i) => isCorrectOption(correctOpts, opt, i));
+        ErrorBookService.addMCQError({
+          courseId,
+          courseName,
+          question: q.question,
+          options: q.options,
+          correctAnswers: correctTexts,
+          userSelected: selectedAnswers[idx] || [],
+          explanation: q.explanation || detailedCorrections[idx],
+        });
+      });
+    }
+
     if (courseId && courseName && qcmCount > 0) {
       const newGrade = {
         id: crypto.randomUUID(),

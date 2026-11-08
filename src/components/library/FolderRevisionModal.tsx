@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { updateCachedCourseData } from '../../lib/courseDataCache';
 import { OccludedImageViewer, type OcclusionRect } from './OccludedImageViewer';
+import { ErrorBookService } from '../../lib/ErrorBookService';
 import { 
   calculateNextSchedule, 
   getSchedulePreviews, 
@@ -304,8 +305,16 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
     setReviewedCount(prev => prev + 1);
 
     if (rating === 1) {
-      // Again: Re-insert card at end of session queue!
+      // Again: Re-insert card at end of session queue & add to Error Book (sans aucun token IA)
       setAgainCount(prev => prev + 1);
+      ErrorBookService.addFlashcardError({
+        courseId: currentItem.courseId,
+        courseName: currentItem.courseName,
+        front: currentItem.card.front,
+        back: currentItem.card.back,
+        image: currentItem.card.image
+      });
+
       const failedItem: SessionQueueItem = {
         ...currentItem,
         card: updatedCard,

@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search } from 'lucide-react';
+import { Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search, BookX } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getDailyUsage } from '../../lib/gemini';
+import { ErrorBookService } from '../../lib/ErrorBookService';
 import './Layout.css';
 
 interface SidebarProps {
@@ -15,11 +16,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { theme, setTheme } = useTheme();
   const { user, profile, updatePreferences } = useAuth();
   const [usage, setUsage] = React.useState<number | null>(null);
+  const [errorCount, setErrorCount] = React.useState<number>(() => ErrorBookService.getErrors().length);
+
+  React.useEffect(() => {
+    const handleErrorsUpdate = () => {
+      setErrorCount(ErrorBookService.getErrors().length);
+    };
+    window.addEventListener('sofia-error-book-updated', handleErrorsUpdate);
+    return () => window.removeEventListener('sofia-error-book-updated', handleErrorsUpdate);
+  }, []);
 
   const navItems = [
     { to: '/', label: 'Bibliothèque', icon: <Library size={17} />, exact: true },
     { to: '/planning', label: 'Planification', icon: <Calendar size={17} /> },
     { to: '/flashcards', label: 'Flashcards', icon: <Zap size={17} /> },
+    { to: '/errors', label: "Carnet d'erreurs", icon: <BookX size={17} />, badge: errorCount > 0 ? errorCount : undefined },
     { to: '/statistics', label: 'Statistiques', icon: <BarChart3 size={17} /> },
     { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={17} /> },
   ];
@@ -81,7 +92,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             }}
           >
             <span className="nav-item-icon">{item.icon}</span>
-            {item.label}
+            <span style={{ flex: 1 }}>{item.label}</span>
+            {item.badge !== undefined && (
+              <span style={{
+                background: 'rgba(225, 29, 72, 0.15)',
+                color: 'var(--accent-primary)',
+                border: '1px solid rgba(225, 29, 72, 0.3)',
+                padding: '0.1rem 0.45rem',
+                borderRadius: '999px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                lineHeight: 1
+              }}>
+                {item.badge}
+              </span>
+            )}
           </NavLink>
         ))}
 

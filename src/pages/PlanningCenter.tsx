@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, Circle, Edit2, Plus, Palette, Trash2, X, Search, Folder, ChevronDown, FolderPlus } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CheckCircle, Circle, Edit2, Plus, Palette, Trash2, X, Search, Folder, ChevronDown, FolderPlus, Sparkles } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
@@ -8,6 +8,7 @@ import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useDialog } from '../context/DialogContext';
 import { useNavigate } from 'react-router-dom';
 import { PomodoroTimer } from '../components/planning/PomodoroTimer';
+import { RetrospectivePlannerModal } from '../components/planning/RetrospectivePlannerModal';
 
 type PlanMode = 'spaced' | 'pomodoro';
 
@@ -34,6 +35,7 @@ export default function PlanningCenter() {
 
   // Modals state
   const [selectedDayForAdd, setSelectedDayForAdd] = useState<string | null>(null);
+  const [isRetroPlannerOpen, setIsRetroPlannerOpen] = useState(false);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [colorPickerTargetCourse, setColorPickerTargetCourse] = useState<{ id: string; name: string; currentColor: string } | null>(null);
@@ -264,12 +266,35 @@ export default function PlanningCenter() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <button className="icon-button" onClick={prevMonth}><ChevronLeft size={20} /></button>
-                <h4 style={{ minWidth: '150px', textAlign: 'center', textTransform: 'capitalize' }}>
-                  {format(currentDate, 'MMMM yyyy', { locale: fr })}
-                </h4>
-                <button className="icon-button" onClick={nextMonth}><ChevronRight size={20} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsRetroPlannerOpen(true)}
+                  className="btn btn-outline"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    fontSize: '0.82rem',
+                    borderColor: 'var(--accent-glow)',
+                    color: 'var(--accent-primary)',
+                    background: 'var(--accent-light)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '0.45rem 0.85rem',
+                    fontWeight: 600
+                  }}
+                  title="Planification rétrospective automatique vers une date d'examen"
+                >
+                  <Sparkles size={15} /> Planning Rétrospectif d'Examen
+                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button className="icon-button" onClick={prevMonth}><ChevronLeft size={20} /></button>
+                  <h4 style={{ minWidth: '140px', textAlign: 'center', textTransform: 'capitalize', margin: 0 }}>
+                    {format(currentDate, 'MMMM yyyy', { locale: fr })}
+                  </h4>
+                  <button className="icon-button" onClick={nextMonth}><ChevronRight size={20} /></button>
+                </div>
               </div>
             </div>
 
@@ -901,6 +926,26 @@ export default function PlanningCenter() {
         </div>,
         document.body
       )}
+      {/* Modal: Retrospective Planner */}
+      <RetrospectivePlannerModal
+        isOpen={isRetroPlannerOpen}
+        onClose={() => setIsRetroPlannerOpen(false)}
+        allNodes={nodes}
+        onApplySchedule={async (entries) => {
+          // Group by date to use addCoursesBatchToDate
+          const dateMap = new Map<string, { id: string; name: string }[]>();
+          for (const item of entries) {
+            const list = dateMap.get(item.dateStr) || [];
+            list.push({ id: item.courseId, name: item.courseName });
+            dateMap.set(item.dateStr, list);
+          }
+
+          for (const [dateStr, coursesList] of dateMap.entries()) {
+            await addCoursesBatchToDate(coursesList, dateStr);
+          }
+          await alert(`${entries.length} séances de révision ont été générées et ajoutées avec succès dans votre calendrier !`);
+        }}
+      />
     </div>
   );
 }
