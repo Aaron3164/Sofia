@@ -1,14 +1,22 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { compressImage } from './image-utils';
 
-// Use local Vite URL for the pdf worker to avoid Cloudflare/CDN blocking, with CDN fallback
-try {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.js',
-    import.meta.url
-  ).toString();
-} catch (e) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+let pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+
+async function getPdfJs() {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = import('pdfjs-dist').then((pdfjsLib) => {
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.js',
+          import.meta.url
+        ).toString();
+      } catch (e) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      }
+      return pdfjsLib;
+    });
+  }
+  return pdfjsLibPromise;
 }
 
 export interface ExtractedCourseSchema {
@@ -90,6 +98,7 @@ function appendWithSmartSpace(target: string, addition: string): string {
 }
 
 export async function getPDFPageCount(file: File | Blob | ArrayBuffer): Promise<number> {
+  const pdfjsLib = await getPdfJs();
   const arrayBuffer = file instanceof ArrayBuffer ? file : await (file as Blob).arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   return pdf.numPages;
@@ -180,6 +189,7 @@ async function extractImagesFromPage(
   if (maxAllowed <= 0) return schemas;
 
   try {
+    const pdfjsLib = await getPdfJs();
     const ops = await page.getOperatorList();
     const imageObjIds: string[] = [];
 
@@ -331,6 +341,7 @@ export async function extractCourseContentFromPDF(
   options?: { maxPages?: number; maxSchemas?: number }
 ): Promise<ExtractedCourseData> {
   try {
+    const pdfjsLib = await getPdfJs();
     const arrayBuffer = file instanceof ArrayBuffer ? file : await (file as Blob).arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const numPages = pdf.numPages;

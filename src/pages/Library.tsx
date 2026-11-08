@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useDialog } from '../context/DialogContext';
 import { useAuth } from '../context/AuthContext';
-import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, ChevronLeft, Zap, GraduationCap } from 'lucide-react';
+import { Folder, FileText, Plus, Trash2, ChevronRight, Edit3, Move, Zap, GraduationCap, MoreHorizontal, GripVertical } from 'lucide-react';
 import { MoveNodeModal } from '../components/library/MoveNodeModal';
 import { AnnaleExamImportModal } from '../components/library/AnnaleExamImportModal';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
@@ -24,6 +24,16 @@ export default function Library() {
   const [isAnnaleModalOpen, setIsAnnaleModalOpen] = useState(false);
   const [revisionFolder, setRevisionFolder] = useState<{ id: string | null; name: string } | null>(null);
   const [dailyUsage, setDailyUsage] = useState<number>(0);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const closeMenu = () => setOpenMenuId(null);
+    window.addEventListener('click', closeMenu);
+    return () => window.removeEventListener('click', closeMenu);
+  }, [openMenuId]);
 
   const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
   const isQuotaReached = dailyUsage >= maxGenerations;
@@ -93,18 +103,48 @@ export default function Library() {
     setNodeToMove(item);
   };
 
-  const handleReorder = (e: React.MouseEvent, item: FileNode, direction: 'prev' | 'next') => {
-    e.stopPropagation();
-    const currentIndex = items.indexOf(item);
-    if (direction === 'prev' && currentIndex > 0) {
-      const newItems = [...items];
-      [newItems[currentIndex], newItems[currentIndex - 1]] = [newItems[currentIndex - 1], newItems[currentIndex]];
-      reorderNodes(currentFolderId, newItems.map(i => i.id));
-    } else if (direction === 'next' && currentIndex < items.length - 1) {
-      const newItems = [...items];
-      [newItems[currentIndex], newItems[currentIndex + 1]] = [newItems[currentIndex + 1], newItems[currentIndex]];
-      reorderNodes(currentFolderId, newItems.map(i => i.id));
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    setOpenMenuId(null);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedId && draggedId !== targetId && dragOverId !== targetId) {
+      setDragOverId(targetId);
     }
+  };
+
+  const handleDragLeave = (targetId: string) => {
+    if (dragOverId === targetId) {
+      setDragOverId(null);
+    }
+  };
+
+  const handleDropReorder = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceId = draggedId || e.dataTransfer.getData('text/plain');
+    setDraggedId(null);
+    setDragOverId(null);
+    if (!sourceId || sourceId === targetId) return;
+
+    const fromIndex = items.findIndex(i => i.id === sourceId);
+    const toIndex = items.findIndex(i => i.id === targetId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const newItems = [...items];
+    const [moved] = newItems.splice(fromIndex, 1);
+    newItems.splice(toIndex, 0, moved);
+    reorderNodes(currentFolderId, newItems.map(i => i.id));
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverId(null);
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -306,19 +346,32 @@ export default function Library() {
           {items.map(item => {
             const isAnnale = item.type === 'course' && item.name.startsWith('🎓');
             const cleanName = isAnnale ? item.name.replace(/^🎓\s*/, '') : item.name;
+            const isMenuOpen = openMenuId === item.id;
+            const isBeingDragged = draggedId === item.id;
+            const isDragTarget = dragOverId === item.id && draggedId !== item.id;
 
             return (
               <div 
                 key={item.id} 
-                className="folder-card hover-lift glass-panel"
+                draggable
+                onDragStart={(e) => handleDragStart(e, item.id)}
+                onDragOver={(e) => handleDragOver(e, item.id)}
+                onDragLeave={() => handleDragLeave(item.id)}
+                onDrop={(e) => handleDropReorder(e, item.id)}
+                onDragEnd={handleDragEnd}
+                className={`folder-card hover-lift glass-panel ${isBeingDragged ? 'is-dragging' : ''} ${isDragTarget ? 'is-drag-over' : ''}`}
                 onClick={() => handleItemClick(item)}
-                style={
-                  isAnnale 
+                style={{
+                  ...(isAnnale 
                     ? { border: '1px solid rgba(219, 39, 119, 0.4)', background: 'linear-gradient(145deg, var(--bg-surface), rgba(219, 39, 119, 0.05))' }
                     : item.type === 'course' 
                     ? { border: '1px solid var(--accent-primary)' } 
-                    : {}
-                }
+                    : {}),
+                  ...(isDragTarget ? { border: '2px dashed var(--accent-primary)', transform: 'scale(1.02)' } : {}),
+                  ...(isBeingDragged ? { opacity: 0.45 } : {}),
+                  overflow: isMenuOpen ? 'visible' : 'hidden',
+                  zIndex: isMenuOpen ? 30 : 1
+                }}
               >
                 <div className="folder-header">
                   <div 
@@ -331,36 +384,139 @@ export default function Library() {
                     {item.type === 'folder' ? <Folder size={28} /> : isAnnale ? <GraduationCap size={28} /> : <FileText size={28} />}
                   </div>
                   
-                  <div className="folder-actions" style={{ display: 'flex', gap: '0.4rem' }}>
-                    {item.type === 'folder' && (
-                      <button 
-                        data-tour="tour-revision-btn"
-                        className="icon-button" 
+                  <div className="folder-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', opacity: isMenuOpen ? 1 : undefined, transform: isMenuOpen ? 'none' : undefined }}>
+                    <div
+                      className="drag-handle-hint"
+                      title="Glisser-déposer pour réorganiser l'ordre"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-muted)',
+                        cursor: 'grab',
+                        padding: '0.25rem',
+                        opacity: 0.65
+                      }}
+                    >
+                      <GripVertical size={16} />
+                    </div>
+
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        className="icon-button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setRevisionFolder({ id: item.id, name: item.name });
-                        }} 
-                        title="Réviser les flashcards de ce dossier"
-                        style={{ color: 'var(--accent-primary)' }}
+                          setOpenMenuId(isMenuOpen ? null : item.id);
+                        }}
+                        title="Options (Modifier, Déplacer, Supprimer)"
+                        aria-label="Options"
                       >
-                        <Zap size={16} />
+                        <MoreHorizontal size={17} />
                       </button>
-                    )}
-                     <button className="icon-button" onClick={(e) => handleReorder(e, item, 'prev')} title="Déplacer vers la gauche" disabled={items.indexOf(item) === 0} style={{ opacity: items.indexOf(item) === 0 ? 0.3 : 1 }}>
-                      <ChevronLeft size={16} />
-                    </button>
-                    <button className="icon-button" onClick={(e) => handleReorder(e, item, 'next')} title="Déplacer vers la droite" disabled={items.indexOf(item) === items.length - 1} style={{ opacity: items.indexOf(item) === items.length - 1 ? 0.3 : 1 }}>
-                      <ChevronRight size={16} />
-                    </button>
-                     <button className="icon-button" onClick={(e) => handleRename(e, item)} title="Renommer">
-                      <Edit3 size={16} />
-                    </button>
-                    <button className="icon-button" onClick={(e) => handleMove(e, item)} title="Déplacer">
-                      <Move size={16} />
-                    </button>
-                    <button className="icon-button delete-btn" onClick={(e) => handleDelete(e, item.id)} title="Supprimer">
-                      <Trash2 size={16} />
-                    </button>
+
+                      {isMenuOpen && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: 'absolute',
+                            top: 'calc(100% + 6px)',
+                            right: 0,
+                            minWidth: '155px',
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '0.75rem',
+                            boxShadow: 'var(--shadow-lg)',
+                            padding: '0.35rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.15rem',
+                            zIndex: 50,
+                            animation: 'fadeIn 0.15s ease-out'
+                          }}
+                        >
+                          <button
+                            onClick={(e) => {
+                              setOpenMenuId(null);
+                              handleRename(e, item);
+                            }}
+                            className="hover-bg-subtle"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.55rem',
+                              padding: '0.5rem 0.7rem',
+                              borderRadius: '0.5rem',
+                              border: 'none',
+                              background: 'transparent',
+                              color: 'var(--text-primary)',
+                              fontSize: '0.82rem',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%'
+                            }}
+                          >
+                            <Edit3 size={14} color="var(--accent-primary)" />
+                            <span>Renommer</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              setOpenMenuId(null);
+                              handleMove(e, item);
+                            }}
+                            className="hover-bg-subtle"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.55rem',
+                              padding: '0.5rem 0.7rem',
+                              borderRadius: '0.5rem',
+                              border: 'none',
+                              background: 'transparent',
+                              color: 'var(--text-primary)',
+                              fontSize: '0.82rem',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%'
+                            }}
+                          >
+                            <Move size={14} color="var(--accent-primary)" />
+                            <span>Déplacer</span>
+                          </button>
+
+                          <div style={{ height: '1px', backgroundColor: 'var(--border-subtle)', margin: '0.15rem 0.25rem' }} />
+
+                          <button
+                            onClick={(e) => {
+                              setOpenMenuId(null);
+                              handleDelete(e, item.id);
+                            }}
+                            className="hover-bg-subtle"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.55rem',
+                              padding: '0.5rem 0.7rem',
+                              borderRadius: '0.5rem',
+                              border: 'none',
+                              background: 'transparent',
+                              color: 'var(--danger)',
+                              fontSize: '0.82rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%'
+                            }}
+                          >
+                            <Trash2 size={14} color="var(--danger)" />
+                            <span>Supprimer</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="folder-info">

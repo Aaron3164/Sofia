@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Folder, 
   ChevronRight, 
@@ -354,7 +355,7 @@ export const MoveNodeModal: React.FC<MoveNodeModalProps> = ({
     );
   };
 
-  return (
+  return createPortal(
     <div 
       className="fade-in"
       style={{
@@ -364,8 +365,9 @@ export const MoveNodeModal: React.FC<MoveNodeModalProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.65)',
-        backdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(15, 18, 33, 0.55)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         padding: '1rem'
       }}
       onClick={(e) => {
@@ -814,6 +816,7 @@ export const MoveNodeModal: React.FC<MoveNodeModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

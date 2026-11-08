@@ -336,6 +336,20 @@ export default defineConfig(({ mode }) => {
           });
         }
       }
-    ]
+    ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('pdfjs-dist')) return 'vendor-pdf';
+              if (id.includes('katex')) return 'vendor-katex';
+              if (id.includes('@supabase')) return 'vendor-supabase';
+              if (id.includes('lucide-react')) return 'vendor-icons';
+            }
+          }
+        }
+      }
+    }
   };
 });

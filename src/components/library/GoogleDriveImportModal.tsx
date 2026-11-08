@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { 
   X, 
@@ -169,7 +170,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div className="gdrive-modal-overlay" onClick={onClose}>
       <div className="gdrive-modal" onClick={e => e.stopPropagation()}>
         {/* Header */}
@@ -276,6 +277,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

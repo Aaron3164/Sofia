@@ -198,10 +198,13 @@ export default function PlanningCenter() {
   };
 
   const toggleFolderCollapse = (folderId: string) => {
-    setCollapsedFolders(prev => ({
-      ...prev,
-      [folderId]: !prev[folderId]
-    }));
+    setCollapsedFolders(prev => {
+      const currentIsCollapsed = prev[folderId] ?? true;
+      return {
+        ...prev,
+        [folderId]: !currentIsCollapsed
+      };
+    });
   };
 
   const handleSetCourseColor = (newColor: string) => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, Zap, RotateCcw, Award, BookOpen, 
   Play, Check, AlertCircle, Layers
@@ -387,14 +388,15 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
   const countLearning = remainingCards.filter(i => i.card.state === 'learning' || i.card.state === 'relearning').length;
   const countReview = remainingCards.filter(i => i.card.state === 'review').length;
 
-  return (
+  return createPortal(
     <div 
       style={{
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        backgroundColor: 'rgba(5, 7, 15, 0.88)',
-        backdropFilter: 'blur(16px)',
+        backgroundColor: 'rgba(15, 18, 33, 0.55)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -402,6 +404,9 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
         padding: '1.5rem',
         animation: 'fadeIn 0.25s ease-out',
         color: 'var(--text-primary)',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !sessionStarted) onClose();
       }}
     >
       {/* 1. MODAL STATE: LOADING */}
@@ -933,6 +938,7 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -27,7 +27,6 @@ export default function FlashcardsExplorer() {
   const [searchQuery, setSearchQuery] = useState('');
   const [allCards, setAllCards] = useState<FlashcardSource[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
 
   const getFolderPath = (node: FileNode): string[] => {
@@ -42,7 +41,6 @@ export default function FlashcardsExplorer() {
 
   const loadAllCards = async () => {
     setLoading(true);
-    setIsSyncing(true);
     const cards: FlashcardSource[] = [];
     const processedCourseIds = new Set<string>();
 
@@ -100,7 +98,6 @@ export default function FlashcardsExplorer() {
     
     setAllCards(cards);
     setLoading(false);
-    setIsSyncing(false);
   };
 
   const parseFlashcards = (data: any): Flashcard[] | null => {
@@ -160,15 +157,6 @@ export default function FlashcardsExplorer() {
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
           >
             <Zap size={16} /> Révision Globale (SM-2)
-          </button>
-          <button 
-            onClick={() => loadAllCards()} 
-            disabled={isSyncing}
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            {isSyncing ? <div className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }}></div> : <div style={{ transform: 'rotate(0deg)' }}>🔄</div>}
-            {isSyncing ? 'Synchronisation...' : 'Actualiser'}
           </button>
         </div>
       </header>

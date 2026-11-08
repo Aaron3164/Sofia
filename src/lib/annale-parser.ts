@@ -1,8 +1,15 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { compressImage } from './image-utils';
 
-// Ensure PDF.js worker is properly configured
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+let pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+async function getPdfJs() {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = import('pdfjs-dist').then((lib) => {
+      lib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${lib.version}/pdf.worker.min.js`;
+      return lib;
+    });
+  }
+  return pdfjsLibPromise;
+}
 
 export interface ExtractedQuestion {
   id: string;
@@ -113,6 +120,7 @@ async function extractImagesFromPage(page: any, pageNumber: number): Promise<str
   const images: string[] = [];
 
   try {
+    const pdfjsLib = await getPdfJs();
     const ops = await page.getOperatorList();
     const imageObjIds: string[] = [];
 
@@ -573,6 +581,7 @@ export async function parseAnnalePDF(
   onProgress?: (progressText: string, current: number, total: number) => void,
   options?: { maxPages?: number }
 ): Promise<AnnaleParseResult> {
+  const pdfjsLib = await getPdfJs();
   const arrayBuffer = file instanceof ArrayBuffer ? file : await (file as Blob).arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const numPages = pdf.numPages;

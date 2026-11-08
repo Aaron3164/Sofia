@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Send,
   Bot,
@@ -19,7 +20,11 @@ import {
   Stethoscope,
   Atom,
   Lightbulb,
-  Code
+  Code,
+  Folder,
+  ChevronDown,
+  Search,
+  FolderPlus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
@@ -100,6 +105,35 @@ export default function ChatSofia() {
   // Attached file
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const [isAttaching, setIsAttaching] = useState(false);
+
+  // Course / Folder Target Selector state (like PlanningCenter)
+  const [selectedTargetNode, setSelectedTargetNode] = useState<{ id: string; name: string; type: 'course' | 'folder' } | null>(null);
+  const [isCourseSelectorOpen, setIsCourseSelectorOpen] = useState(false);
+  const [courseSearchQuery, setCourseSearchQuery] = useState('');
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
+
+  const toggleFolderCollapse = (folderId: string) => {
+    setCollapsedFolders(prev => {
+      const currentIsCollapsed = prev[folderId] ?? true;
+      return {
+        ...prev,
+        [folderId]: !currentIsCollapsed
+      };
+    });
+  };
+
+  const getDescendantCourses = (folderId: string): FileNode[] => {
+    const directChildren = nodes
+      .filter(n => n.parentId === folderId)
+      .sort((a, b) => a.order - b.order);
+    const directCourses = directChildren.filter(n => n.type === 'course');
+    const subFolders = directChildren.filter(n => n.type === 'folder');
+    let all: FileNode[] = [...directCourses];
+    for (const sub of subFolders) {
+      all = all.concat(getDescendantCourses(sub.id));
+    }
+    return all;
+  };
 
   // Quota tracking
   const [dailyUsage, setDailyUsage] = useState<number>(0);
@@ -280,72 +314,101 @@ export default function ChatSofia() {
       // Retrieve relevant course excerpts from the student's imported PDFs & courses
       let relevantCoursesContext = '';
       try {
-        const courseNodes = nodes.filter((n: FileNode) => n.type === 'course');
-        if (courseNodes.length > 0) {
-          // Normalize query tokens for matching
-          const cleanQ = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          const tokens = cleanQ.split(/[\s,.'";:!?()\-+/]+/).filter(t => t.length >= 3);
+        const cloudData = await getCachedAllCourseData(profile?.id);
+        const getCourseText = (node: FileNode) => {
+          const cRow = cloudData?.find(r => r.course_id === node.id);
+          let content = cRow?.extracted_content || '';
+          let resume = cRow?.generations?.resume || '';
 
-          if (tokens.length > 0) {
-            // Fetch cloud course data from session memory cache
-            const cloudData = await getCachedAllCourseData(profile?.id);
+          if (!content || !resume) {
+            const local = localStorage.getItem(`aura_subject_${node.id}`);
+            if (local) {
+              try {
+                const parsed = JSON.parse(local);
+                if (!content) content = parsed.extractedContent || '';
+                if (!resume) resume = parsed.generations?.resume || '';
+              } catch {}
+            }
+          }
+          return { content, resume };
+        };
 
-            const matchedBlocks: { name: string; text: string; score: number }[] = [];
+        if (selectedTargetNode) {
+          // Explicit Course or Folder Target selected by the student
+          if (selectedTargetNode.type === 'course') {
+            const targetCourse = nodes.find(n => n.id === selectedTargetNode.id);
+            if (targetCourse) {
+              const { content, resume } = getCourseText(targetCourse);
+              relevantCoursesContext = `--- COURS CIBLÉ PAR L'ÉTUDIANT : ${targetCourse.name} ---\n${content || resume || 'Aucun texte extrait pour ce cours.'}`;
+            }
+          } else {
+            const folderCourses = getDescendantCourses(selectedTargetNode.id);
+            const blocks: string[] = [];
+            let totalChars = 0;
+            const maxFolderBudget = 160000;
 
-            for (const node of courseNodes) {
-              const cRow = cloudData?.find(r => r.course_id === node.id);
-              let content = cRow?.extracted_content || '';
-              let resume = cRow?.generations?.resume || '';
-
-              if (!content || !resume) {
-                const local = localStorage.getItem(`aura_subject_${node.id}`);
-                if (local) {
-                  try {
-                    const parsed = JSON.parse(local);
-                    if (!content) content = parsed.extractedContent || '';
-                    if (!resume) resume = parsed.generations?.resume || '';
-                  } catch {}
-                }
-              }
-
-              const combined = `${node.name} ${resume} ${content}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-              let score = 0;
-              for (const token of tokens) {
-                if (combined.includes(token)) score++;
-              }
-
-              if (score > 0) {
-                // Extract snippets around matched tokens
-                const snippetParts: string[] = [];
-                if (resume) snippetParts.push(resume.slice(0, 1500));
-                
-                // Add excerpts from raw content
-                for (const token of tokens) {
-                  const idx = combined.indexOf(token);
-                  if (idx !== -1 && content) {
-                    const start = Math.max(0, idx - 200);
-                    const end = Math.min(content.length, idx + 400);
-                    snippetParts.push(content.substring(start, end));
-                    if (snippetParts.length >= 3) break;
-                  }
-                }
-
-                matchedBlocks.push({
-                  name: node.name,
-                  text: snippetParts.join('\n...\n').slice(0, 4000),
-                  score
-                });
+            for (const cNode of folderCourses) {
+              if (totalChars >= maxFolderBudget) break;
+              const { content, resume } = getCourseText(cNode);
+              const textToUse = content || resume;
+              if (textToUse) {
+                const slice = textToUse.slice(0, Math.max(15000, Math.floor(maxFolderBudget / Math.max(1, folderCourses.length))));
+                blocks.push(`--- COURS DU DOSSIER "${selectedTargetNode.name}" : ${cNode.name} ---\n${slice}`);
+                totalChars += slice.length;
               }
             }
+            if (blocks.length > 0) {
+              relevantCoursesContext = blocks.join('\n\n');
+            }
+          }
+        } else {
+          // Automatic keyword scan across all courses
+          const courseNodes = nodes.filter((n: FileNode) => n.type === 'course');
+          if (courseNodes.length > 0) {
+            const cleanQ = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const tokens = cleanQ.split(/[\s,.'";:!?()\-+/]+/).filter(t => t.length >= 3);
 
-            // Sort by relevance score and format
-            matchedBlocks.sort((a, b) => b.score - a.score);
-            const topBlocks = matchedBlocks.slice(0, 5);
+            if (tokens.length > 0) {
+              const matchedBlocks: { name: string; text: string; score: number }[] = [];
 
-            if (topBlocks.length > 0) {
-              relevantCoursesContext = topBlocks.map(b => 
-                `--- COURS : ${b.name} ---\n${b.text}`
-              ).join('\n\n');
+              for (const node of courseNodes) {
+                const { content, resume } = getCourseText(node);
+                const combined = `${node.name} ${resume} ${content}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                let score = 0;
+                for (const token of tokens) {
+                  if (combined.includes(token)) score++;
+                }
+
+                if (score > 0) {
+                  const snippetParts: string[] = [];
+                  if (resume) snippetParts.push(resume.slice(0, 1500));
+                  
+                  for (const token of tokens) {
+                    const idx = combined.indexOf(token);
+                    if (idx !== -1 && content) {
+                      const start = Math.max(0, idx - 200);
+                      const end = Math.min(content.length, idx + 400);
+                      snippetParts.push(content.substring(start, end));
+                      if (snippetParts.length >= 3) break;
+                    }
+                  }
+
+                  matchedBlocks.push({
+                    name: node.name,
+                    text: snippetParts.join('\n...\n').slice(0, 4000),
+                    score
+                  });
+                }
+              }
+
+              matchedBlocks.sort((a, b) => b.score - a.score);
+              const topBlocks = matchedBlocks.slice(0, 5);
+
+              if (topBlocks.length > 0) {
+                relevantCoursesContext = topBlocks.map(b => 
+                  `--- COURS : ${b.name} ---\n${b.text}`
+                ).join('\n\n');
+              }
             }
           }
         }
@@ -507,6 +570,30 @@ export default function ChatSofia() {
           </div>
 
           <div className="chat-header-actions">
+            <button
+              className={`web-search-toggle ${selectedTargetNode ? 'active' : ''}`}
+              onClick={() => setIsCourseSelectorOpen(true)}
+              title="Cibler un cours ou un dossier précis de votre bibliothèque"
+              style={selectedTargetNode ? { borderColor: 'var(--accent-primary)', background: 'var(--accent-light)', color: 'var(--accent-primary)' } : undefined}
+            >
+              {selectedTargetNode?.type === 'folder' ? <Folder size={14} /> : <BookOpen size={14} />}
+              <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {selectedTargetNode ? selectedTargetNode.name : '+ Cibler un cours / dossier'}
+              </span>
+              {selectedTargetNode && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedTargetNode(null);
+                  }}
+                  title="Retirer le ciblage"
+                  style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.2rem', opacity: 0.8 }}
+                >
+                  <X size={13} />
+                </span>
+              )}
+            </button>
+
             <button
               className={`web-search-toggle ${useWebSearch ? 'active' : ''}`}
               onClick={() => setUseWebSearch(!useWebSearch)}
@@ -683,6 +770,27 @@ export default function ChatSofia() {
 
         {/* INPUT FOOTER */}
         <div className="chat-input-footer">
+          {/* Active Course/Folder Target bar */}
+          {selectedTargetNode && (
+            <div className="chat-attached-bar" style={{ borderColor: 'var(--accent-primary)', backgroundColor: 'var(--accent-light)' }}>
+              <div className="chat-attached-name" style={{ color: 'var(--accent-primary)' }}>
+                {selectedTargetNode.type === 'folder' ? <Folder size={15} /> : <BookOpen size={15} />}
+                <span>
+                  {selectedTargetNode.type === 'folder' ? 'Dossier ciblé :' : 'Cours ciblé :'}{' '}
+                  <strong>{selectedTargetNode.name}</strong>
+                </span>
+              </div>
+              <button
+                className="chat-tool-btn"
+                style={{ width: '24px', height: '24px' }}
+                onClick={() => setSelectedTargetNode(null)}
+                title="Revenir à toute la bibliothèque"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           {/* Attached file bar */}
           {attachedFile && (
             <div className="chat-attached-bar">
@@ -713,7 +821,11 @@ export default function ChatSofia() {
             <textarea
               ref={textareaRef}
               className="chat-textarea"
-              placeholder="Posez votre question à SofIA (ex: concept, formule, méthodologie, code...)..."
+              placeholder={
+                selectedTargetNode
+                  ? `Posez votre question sur « ${selectedTargetNode.name} »...`
+                  : "Posez votre question à SofIA (ex: concept, formule, méthodologie, code...)..."
+              }
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -721,6 +833,16 @@ export default function ChatSofia() {
             />
 
             <div className="chat-input-tools">
+              <button
+                className={`chat-tool-btn ${selectedTargetNode ? 'active' : ''}`}
+                onClick={() => setIsCourseSelectorOpen(true)}
+                disabled={isLoading}
+                title="Cibler un cours ou dossier de la bibliothèque"
+                style={{ color: selectedTargetNode ? 'var(--accent-primary)' : undefined }}
+              >
+                <BookOpen size={17} />
+              </button>
+
               <button
                 className="chat-tool-btn"
                 onClick={() => fileInputRef.current?.click()}
@@ -762,6 +884,357 @@ export default function ChatSofia() {
           </div>
         </div>
       </div>
+
+      {/* Modal: Course / Folder Selector (same tree presentation as PlanningCenter) */}
+      {isCourseSelectorOpen && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 18, 33, 0.55)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem'
+          }}
+          onClick={() => {
+            setIsCourseSelectorOpen(false);
+            setCourseSearchQuery('');
+          }}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              backgroundColor: 'var(--bg-elevated)',
+              borderRadius: '1.25rem',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              border: '1px solid var(--border-color)',
+              boxShadow: 'var(--shadow-xl)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Cibler un cours ou dossier</h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  SofIA s'appuiera prioritairement sur votre sélection
+                </p>
+              </div>
+              <button
+                className="icon-button"
+                onClick={() => {
+                  setIsCourseSelectorOpen(false);
+                  setCourseSearchQuery('');
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+              <input
+                type="text"
+                placeholder="Rechercher un cours ou dossier..."
+                value={courseSearchQuery}
+                onChange={(e) => setCourseSearchQuery(e.target.value)}
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '0.6rem 0.75rem 0.6rem 2.2rem',
+                  borderRadius: '0.6rem',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.9rem',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            {selectedTargetNode && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--accent-light)', border: '1px solid var(--accent-primary)', fontSize: '0.82rem' }}>
+                <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>
+                  Actuel : {selectedTargetNode.name}
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedTargetNode(null);
+                    setIsCourseSelectorOpen(false);
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.78rem', textDecoration: 'underline' }}
+                >
+                  Réinitialiser (Tout)
+                </button>
+              </div>
+            )}
+
+            <div style={{ maxHeight: '380px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingRight: '0.25rem' }}>
+              {courseSearchQuery.trim() ? (
+                (() => {
+                  const q = courseSearchQuery.toLowerCase().trim();
+                  const matched = nodes.filter(n => n.name.toLowerCase().includes(q));
+                  if (matched.length === 0) {
+                    return (
+                      <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        Aucun cours ou dossier correspondant.
+                      </div>
+                    );
+                  }
+                  return matched.map(item => {
+                    const parentFolder = nodes.find(n => n.id === item.parentId);
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => {
+                          setSelectedTargetNode({ id: item.id, name: item.name, type: item.type });
+                          setIsCourseSelectorOpen(false);
+                          setCourseSearchQuery('');
+                        }}
+                        className="hover-lift"
+                        style={{
+                          padding: '0.65rem 0.85rem',
+                          backgroundColor: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.75rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', overflow: 'hidden' }}>
+                          {item.type === 'folder' ? (
+                            <Folder size={16} color={item.color || 'var(--accent-primary)'} />
+                          ) : (
+                            <FileText size={16} color="var(--accent-primary)" />
+                          )}
+                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.name}
+                            </span>
+                            {parentFolder && (
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                📁 {parentFolder.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button className="btn btn-outline" style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem', height: 'auto', flexShrink: 0 }}>
+                          Cibler
+                        </button>
+                      </div>
+                    );
+                  });
+                })()
+              ) : nodes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  Aucun cours dans votre bibliothèque.
+                </div>
+              ) : (
+                <ChatCourseTreeSelector
+                  nodes={nodes}
+                  parentId={null}
+                  depth={0}
+                  collapsedFolders={collapsedFolders}
+                  onToggleFolder={toggleFolderCollapse}
+                  onSelectCourse={(course) => {
+                    setSelectedTargetNode({ id: course.id, name: course.name, type: 'course' });
+                    setIsCourseSelectorOpen(false);
+                    setCourseSearchQuery('');
+                  }}
+                  onSelectFolder={(folder) => {
+                    setSelectedTargetNode({ id: folder.id, name: folder.name, type: 'folder' });
+                    setIsCourseSelectorOpen(false);
+                    setCourseSearchQuery('');
+                  }}
+                  getDescendantCourses={getDescendantCourses}
+                />
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+interface ChatCourseTreeSelectorProps {
+  nodes: FileNode[];
+  parentId: string | null;
+  depth: number;
+  collapsedFolders: Record<string, boolean>;
+  onToggleFolder: (id: string) => void;
+  onSelectCourse: (course: FileNode) => void;
+  onSelectFolder: (folder: FileNode) => void;
+  getDescendantCourses: (folderId: string) => FileNode[];
+}
+
+function ChatCourseTreeSelector({
+  nodes,
+  parentId,
+  depth,
+  collapsedFolders,
+  onToggleFolder,
+  onSelectCourse,
+  onSelectFolder,
+  getDescendantCourses,
+}: ChatCourseTreeSelectorProps) {
+  const currentNodes = nodes
+    .filter(n => n.parentId === parentId)
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+      return a.order - b.order;
+    });
+
+  if (currentNodes.length === 0) return null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginLeft: depth > 0 ? '1rem' : 0 }}>
+      {currentNodes.map(node => {
+        if (node.type === 'folder') {
+          const isCollapsed = collapsedFolders[node.id] ?? true;
+          const descendantCourses = getDescendantCourses(node.id);
+
+          return (
+            <div
+              key={node.id}
+              style={{
+                borderRadius: '0.5rem',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: depth === 0 ? 'var(--bg-secondary)' : 'var(--bg-primary)',
+                padding: '0.4rem 0.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem'
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  padding: '0.2rem 0.25rem'
+                }}
+                onClick={() => onToggleFolder(node.id)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      color: 'var(--text-secondary)',
+                      transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease'
+                    }}
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                  <Folder size={16} color={node.color || 'var(--accent-primary)'} />
+                  <span style={{ fontSize: '0.86rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {node.name}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', opacity: 0.8 }}>
+                    ({descendantCourses.length} cours)
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectFolder(node);
+                  }}
+                  disabled={descendantCourses.length === 0}
+                  className="btn btn-outline hover-lift"
+                  style={{
+                    fontSize: '0.7rem',
+                    padding: '0.25rem 0.6rem',
+                    height: 'auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    whiteSpace: 'nowrap',
+                    opacity: descendantCourses.length === 0 ? 0.4 : 1,
+                    borderColor: 'var(--accent-primary)',
+                    color: 'var(--accent-primary)'
+                  }}
+                  title={`Cibler les ${descendantCourses.length} cours de ce dossier`}
+                >
+                  <FolderPlus size={12} />
+                  <span>Tout le dossier</span>
+                </button>
+              </div>
+
+              {!isCollapsed && (
+                <div style={{ marginTop: '0.15rem' }}>
+                  <ChatCourseTreeSelector
+                    nodes={nodes}
+                    parentId={node.id}
+                    depth={depth + 1}
+                    collapsedFolders={collapsedFolders}
+                    onToggleFolder={onToggleFolder}
+                    onSelectCourse={onSelectCourse}
+                    onSelectFolder={onSelectFolder}
+                    getDescendantCourses={getDescendantCourses}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={node.id}
+            onClick={() => onSelectCourse(node)}
+            className="hover-lift"
+            style={{
+              padding: '0.5rem 0.75rem',
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '0.45rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.6rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+              <FileText size={14} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: '0.85rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {node.name}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', height: 'auto', flexShrink: 0 }}
+            >
+              Cibler
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

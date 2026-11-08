@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   FileText, UploadCloud, X, Check, AlertCircle, Plus, Trash2, 
   Image as ImageIcon, ArrowRight, RefreshCw, KeyRound, Sparkles, GraduationCap 
@@ -257,7 +258,7 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
   }).length;
   const totalImagesCount = questions.reduce((acc, q) => acc + (q.images?.length || 0), 0);
 
-  return (
+  return createPortal(
     <div className="annale-modal-overlay" onClick={onClose}>
       <div className="annale-modal-container" onClick={e => e.stopPropagation()}>
         
@@ -923,6 +924,7 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
           />
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
