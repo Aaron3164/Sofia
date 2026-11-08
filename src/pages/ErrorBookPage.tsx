@@ -159,7 +159,7 @@ export default function ErrorBookPage() {
             </h1>
           </div>
           <p className="subtitle" style={{ margin: 0, fontSize: '0.875rem' }}>
-            {errors.length} notion{errors.length > 1 ? 's' : ''} ou question{errors.length > 1 ? 's' : ''} à consolider, triées par matière • 100% accessible sans aucun token IA
+            {errors.length} notion{errors.length > 1 ? 's' : ''} ou question{errors.length > 1 ? 's' : ''} à consolider, triées par matière
           </p>
         </div>
 
