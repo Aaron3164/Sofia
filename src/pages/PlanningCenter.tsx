@@ -931,7 +931,48 @@ export default function PlanningCenter() {
         isOpen={isRetroPlannerOpen}
         onClose={() => setIsRetroPlannerOpen(false)}
         allNodes={nodes}
+        hasExistingProgram={(() => {
+          try {
+            const raw = localStorage.getItem('sofia_last_retro_program_ids');
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) && parsed.length > 0;
+          } catch {
+            return false;
+          }
+        })()}
+        onClearProgram={async () => {
+          try {
+            const raw = localStorage.getItem('sofia_last_retro_program_ids');
+            if (!raw) return;
+            const idsToDelete: string[] = JSON.parse(raw);
+            if (!Array.isArray(idsToDelete) || idsToDelete.length === 0) return;
+
+            const ok = await confirm(`Voulez-vous vraiment supprimer tout le programme rétrospectif injecté (${idsToDelete.length} séances au total) ?`);
+            if (ok) {
+              await deleteScheduleItemsBatch(idsToDelete);
+              localStorage.removeItem('sofia_last_retro_program_ids');
+              await alert('Le programme rétrospectif a été entièrement supprimé du calendrier.');
+            }
+          } catch (e) {
+            console.error('Failed to clear retrospective program:', e);
+          }
+        }}
         onApplySchedule={async (entries) => {
+          // If there's already a saved program, ask user if they want to replace or keep
+          const rawExisting = localStorage.getItem('sofia_last_retro_program_ids');
+          if (rawExisting) {
+            try {
+              const existingIds: string[] = JSON.parse(rawExisting);
+              if (Array.isArray(existingIds) && existingIds.length > 0) {
+                const replace = await confirm('Un programme rétrospectif existe déjà dans votre calendrier. Voulez-vous le remplacer (supprimer l\'ancien programme avant d\'injecter le nouveau) ?');
+                if (replace) {
+                  await deleteScheduleItemsBatch(existingIds);
+                }
+              }
+            } catch {}
+          }
+
           // Group by date to use addCoursesBatchToDate
           const dateMap = new Map<string, { id: string; name: string }[]>();
           for (const item of entries) {
@@ -940,9 +981,21 @@ export default function PlanningCenter() {
             dateMap.set(item.dateStr, list);
           }
 
+          const newlyCreatedIds: string[] = [];
           for (const [dateStr, coursesList] of dateMap.entries()) {
-            await addCoursesBatchToDate(coursesList, dateStr);
+            const createdItems = await addCoursesBatchToDate(coursesList, dateStr);
+            if (Array.isArray(createdItems)) {
+              createdItems.forEach(ci => newlyCreatedIds.push(ci.id));
+            }
           }
+
+          // Save the batch IDs so the user can wipe/reset the entire program with 1 click
+          try {
+            localStorage.setItem('sofia_last_retro_program_ids', JSON.stringify(newlyCreatedIds));
+          } catch (e) {
+            console.warn('Could not save retro program ids to localStorage:', e);
+          }
+
           await alert(`${entries.length} séances de révision ont été générées et ajoutées avec succès dans votre calendrier !`);
         }}
       />

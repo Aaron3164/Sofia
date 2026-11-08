@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calendar, Sparkles, Folder, X, ChevronDown, Check } from 'lucide-react';
+import { Calendar, Sparkles, Folder, X, ChevronDown, Check, Trash2 } from 'lucide-react';
 import { format, addDays, differenceInCalendarDays, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { type FileNode } from '../../hooks/useFileSystem';
@@ -9,13 +9,17 @@ interface RetrospectivePlannerModalProps {
   onClose: () => void;
   allNodes: FileNode[];
   onApplySchedule: (scheduleEntries: { courseId: string; courseName: string; dateStr: string }[]) => Promise<void>;
+  onClearProgram?: () => Promise<void>;
+  hasExistingProgram?: boolean;
 }
 
 export function RetrospectivePlannerModal({
   isOpen,
   onClose,
   allNodes,
-  onApplySchedule
+  onApplySchedule,
+  onClearProgram,
+  hasExistingProgram = false
 }: RetrospectivePlannerModalProps) {
   // 1. Form state
   const [examDateStr, setExamDateStr] = useState<string>(() => {
@@ -26,6 +30,7 @@ export function RetrospectivePlannerModal({
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [excludeWeekends, setExcludeWeekends] = useState<boolean>(false);
   const [isApplying, setIsApplying] = useState<boolean>(false);
+  const [isClearing, setIsClearing] = useState<boolean>(false);
 
   // Recursively collect all courses inside a folder (and subfolders)
   const getCoursesInFolder = useMemo(() => {
@@ -405,39 +410,76 @@ export function RetrospectivePlannerModal({
           padding: '1.25rem 1.75rem',
           borderTop: '1px solid var(--border-subtle)',
           display: 'flex',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           gap: '0.75rem',
-          background: 'var(--bg-elevated)'
+          background: 'var(--bg-elevated)',
+          flexWrap: 'wrap'
         }}>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-outline"
-            style={{ fontSize: '0.85rem' }}
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={handleApply}
-            disabled={generatedSchedule.length === 0 || isApplying}
-            className="btn btn-primary"
-            style={{
-              fontSize: '0.85rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              opacity: (generatedSchedule.length === 0 || isApplying) ? 0.6 : 1
-            }}
-          >
-            {isApplying ? (
-              'Application...'
-            ) : (
-              <>
-                <Calendar size={15} /> Injecter dans mon planning ({generatedSchedule.length} séances)
-              </>
+          <div>
+            {onClearProgram && hasExistingProgram && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (isClearing) return;
+                  setIsClearing(true);
+                  try {
+                    await onClearProgram();
+                    onClose();
+                  } finally {
+                    setIsClearing(false);
+                  }
+                }}
+                disabled={isClearing || isApplying}
+                className="btn btn-outline"
+                style={{
+                  fontSize: '0.82rem',
+                  color: 'var(--danger)',
+                  borderColor: 'rgba(239, 68, 68, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.45rem 0.85rem'
+                }}
+                title="Supprimer l'ensemble du programme de révision généré"
+              >
+                <Trash2 size={14} />
+                <span>{isClearing ? 'Suppression...' : 'Supprimer le programme existant'}</span>
+              </button>
             )}
-          </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-outline"
+              style={{ fontSize: '0.85rem' }}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={generatedSchedule.length === 0 || isApplying}
+              className="btn btn-primary"
+              style={{
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                opacity: (generatedSchedule.length === 0 || isApplying) ? 0.6 : 1
+              }}
+            >
+              {isApplying ? (
+                'Application...'
+              ) : (
+                <>
+                  <Calendar size={15} /> Injecter dans mon planning ({generatedSchedule.length} séances)
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
