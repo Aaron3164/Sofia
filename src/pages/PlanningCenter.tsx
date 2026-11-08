@@ -115,7 +115,7 @@ export default function PlanningCenter() {
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-  
+
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -216,7 +216,7 @@ export default function PlanningCenter() {
   };
 
   const allCourses = nodes.filter(n => n.type === 'course');
-  const filteredCourses = allCourses.filter(c => 
+  const filteredCourses = allCourses.filter(c =>
     c.name.toLowerCase().includes(courseSearchQuery.toLowerCase())
   );
 
@@ -281,12 +281,12 @@ export default function PlanningCenter() {
                 <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '0.75rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '0.5rem', marginBottom: '0.5rem', minWidth: '100%' }}>
                     {weekDays.map((day, colIdx) => (
-                      <div 
-                        key={day} 
-                        style={{ 
-                          textAlign: 'center', 
-                          fontWeight: 'bold', 
-                          color: 'var(--text-secondary)', 
+                      <div
+                        key={day}
+                        style={{
+                          textAlign: 'center',
+                          fontWeight: 'bold',
+                          color: 'var(--text-secondary)',
                           padding: '0.5rem 0',
                           position: 'relative',
                           userSelect: 'none'
@@ -347,7 +347,7 @@ export default function PlanningCenter() {
                       });
 
                       return (
-                        <div 
+                        <div
                           key={idx}
                           className="day-card"
                           style={{
@@ -428,13 +428,13 @@ export default function PlanningCenter() {
                                   {visibleItems.map(item => {
                                     const courseColor = getCourseColor(item.courseId);
                                     const masteryObj = MASTERY_LEVELS.find(m => m.color.toLowerCase() === courseColor.toLowerCase());
-                                    const textColor = item.completed 
-                                      ? 'var(--text-secondary)' 
+                                    const textColor = item.completed
+                                      ? 'var(--text-secondary)'
                                       : (masteryObj ? masteryObj.text : '#ffffff');
                                     const isHovered = hoveredCourseId === item.id;
 
                                     return (
-                                      <div 
+                                      <div
                                         key={item.id}
                                         className="hover-lift"
                                         onMouseEnter={() => setHoveredCourseId(item.id)}
@@ -455,22 +455,22 @@ export default function PlanningCenter() {
                                         }}
                                         title={`Cours: ${item.courseName} (J+${item.step})`}
                                       >
-                                        <button 
+                                        <button
                                           style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
                                           onClick={(e) => { e.stopPropagation(); markCompleted(item.id, !item.completed); }}
                                           title={item.completed ? "Marquer non fait" : "Marquer comme révisé"}
                                         >
                                           {item.completed ? <CheckCircle size={12} /> : <Circle size={12} />}
                                         </button>
-                                        
-                                        <span 
-                                          style={{ 
-                                            overflow: 'hidden', 
-                                            textOverflow: 'ellipsis', 
-                                            whiteSpace: 'nowrap', 
-                                            flex: 1, 
-                                            cursor: 'pointer', 
-                                            fontWeight: 500 
+
+                                        <span
+                                          style={{
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            flex: 1,
+                                            cursor: 'pointer',
+                                            fontWeight: 500
                                           }}
                                           onClick={() => navigate(`/subject/${item.courseId}`)}
                                         >
@@ -493,7 +493,7 @@ export default function PlanningCenter() {
                                             </button>
 
                                             {/* Reschedule button */}
-                                            <button 
+                                            <button
                                               className="reschedule-btn"
                                               style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.85, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                               onClick={(e) => handleReschedule(e, item)}
@@ -503,7 +503,7 @@ export default function PlanningCenter() {
                                             </button>
 
                                             {/* Delete single day item button */}
-                                            <button 
+                                            <button
                                               style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', opacity: 0.85, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                               onClick={(e) => handleDeleteItem(e, item)}
                                               title="Retirer de ce jour"
@@ -584,7 +584,7 @@ export default function PlanningCenter() {
 
       {/* Modal: Add course to single day */}
       {selectedDayForAdd && createPortal(
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -598,7 +598,7 @@ export default function PlanningCenter() {
           }}
           onClick={() => { setSelectedDayForAdd(null); setCourseSearchQuery(''); }}
         >
-          <div 
+          <div
             className="glass-panel"
             style={{
               width: '100%',
@@ -620,7 +620,7 @@ export default function PlanningCenter() {
                   Date : {format(new Date(selectedDayForAdd), 'EEEE d MMMM yyyy', { locale: fr })}
                 </p>
               </div>
-              <button 
+              <button
                 className="icon-button"
                 onClick={() => { setSelectedDayForAdd(null); setCourseSearchQuery(''); }}
               >
@@ -660,7 +660,7 @@ export default function PlanningCenter() {
                     const color = getCourseColor(course.id);
                     const parentFolder = nodes.find(n => n.id === course.parentId);
                     return (
-                      <div 
+                      <div
                         key={course.id}
                         onClick={() => handleAddCourseSingleDay(course)}
                         className="hover-lift"
@@ -724,7 +724,7 @@ export default function PlanningCenter() {
 
       {/* Modal: Reschedule Date Picker */}
       {rescheduleTarget && createPortal(
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -738,7 +738,7 @@ export default function PlanningCenter() {
           }}
           onClick={() => setRescheduleTarget(null)}
         >
-          <div 
+          <div
             className="glass-panel"
             style={{
               width: '100%',
@@ -760,7 +760,7 @@ export default function PlanningCenter() {
                   {rescheduleTarget.item.courseName}
                 </p>
               </div>
-              <button 
+              <button
                 className="icon-button"
                 onClick={() => setRescheduleTarget(null)}
               >
@@ -782,13 +782,13 @@ export default function PlanningCenter() {
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button 
+              <button
                 className="btn btn-outline"
                 onClick={() => setRescheduleTarget(null)}
               >
                 Annuler
               </button>
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={() => {
                   if (rescheduleTarget.targetDate) {
@@ -807,7 +807,7 @@ export default function PlanningCenter() {
 
       {/* Modal: Mastery Level & Color Picker */}
       {colorPickerTargetCourse && createPortal(
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -821,7 +821,7 @@ export default function PlanningCenter() {
           }}
           onClick={() => setColorPickerTargetCourse(null)}
         >
-          <div 
+          <div
             className="glass-panel"
             style={{
               width: '100%',
@@ -843,7 +843,7 @@ export default function PlanningCenter() {
                   {colorPickerTargetCourse.name}
                 </p>
               </div>
-              <button 
+              <button
                 className="icon-button"
                 onClick={() => setColorPickerTargetCourse(null)}
               >
@@ -875,7 +875,7 @@ export default function PlanningCenter() {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <span 
+                    <span
                       style={{
                         width: 18,
                         height: 18,
@@ -883,7 +883,7 @@ export default function PlanningCenter() {
                         backgroundColor: m.color,
                         boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                         flexShrink: 0
-                      }} 
+                      }}
                     />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: isSelected ? 700 : 500, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
@@ -950,8 +950,8 @@ function CourseTreeSelector({
           const descendantCourses = getDescendantCourses(node.id);
 
           return (
-            <div 
-              key={node.id} 
+            <div
+              key={node.id}
               style={{
                 borderRadius: '0.5rem',
                 border: '1px solid var(--border-subtle)',
@@ -963,7 +963,7 @@ function CourseTreeSelector({
               }}
             >
               {/* Folder Row */}
-              <div 
+              <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1050,7 +1050,7 @@ function CourseTreeSelector({
         // Course node
         const color = getCourseColor(node.id);
         return (
-          <div 
+          <div
             key={node.id}
             onClick={() => onAddCourse(node)}
             className="hover-lift"
@@ -1072,8 +1072,8 @@ function CourseTreeSelector({
                 {node.name}
               </span>
             </div>
-            <button 
-              className="btn btn-outline" 
+            <button
+              className="btn btn-outline"
               style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', height: 'auto', flexShrink: 0 }}
             >
               Ajouter
