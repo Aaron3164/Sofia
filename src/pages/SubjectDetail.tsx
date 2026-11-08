@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, FileText, BrainCircuit, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar } from 'lucide-react';
+import { ArrowLeft, UploadCloud, FileText, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar, Zap, GraduationCap, MessageSquare, BookOpen, SlidersHorizontal, CheckCircle2 } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { updateCachedCourseData } from '../lib/courseDataCache';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
@@ -543,10 +543,10 @@ export default function SubjectDetail() {
   };
 
   const tabs = [
-    { id: 'flashcards', label: '⚡ Flashcards' },
-    { id: 'mcq', label: '🎯 Examens Blancs (QCM)' },
-    { id: 'explications', label: '🤖 Explications (IA)' },
-    { id: 'resume', label: '✨ Résumé' },
+    { id: 'flashcards', label: 'Flashcards', icon: <Zap size={14} /> },
+    { id: 'mcq', label: 'Examens Blancs (QCM)', icon: <GraduationCap size={14} /> },
+    { id: 'explications', label: 'Explications (IA)', icon: <MessageSquare size={14} /> },
+    { id: 'resume', label: 'Résumé', icon: <BookOpen size={14} /> },
   ];
 
   const updateData = (tab: GenerationTab, newData: any) => {
@@ -677,20 +677,21 @@ export default function SubjectDetail() {
           </h3>
           
           {pdfUrl || extractedContent ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ padding: '1.5rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '1rem', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '0.5rem', backgroundColor: isGoogleDriveUrl(pdfUrl) ? '#3b82f620' : '#ef444420', color: isGoogleDriveUrl(pdfUrl) ? '#3b82f6' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FileText size={24} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ padding: '0.875rem 1rem', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-sm)', backgroundColor: isGoogleDriveUrl(pdfUrl) ? '#3b82f620' : '#ef444420', color: isGoogleDriveUrl(pdfUrl) ? '#3b82f6' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <FileText size={20} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p 
-                    style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}
                     title={fileName || 'Document mémorisé'}
                   >
                     {fileName || 'Document mémorisé'}
                   </p>
-                  <p style={{ fontSize: '0.8rem', color: isGoogleDriveUrl(pdfUrl) ? '#3b82f6' : 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    {isGoogleDriveUrl(pdfUrl) ? '☁️ Google Drive' : '✅ Prêt pour l\'étude'}
+                  <p style={{ fontSize: '0.75rem', color: isGoogleDriveUrl(pdfUrl) ? '#3b82f6' : 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <CheckCircle2 size={13} />
+                    <span>{isGoogleDriveUrl(pdfUrl) ? 'Google Drive' : 'Prêt pour l\'étude'}</span>
                   </p>
                 </div>
               </div>
@@ -824,7 +825,7 @@ export default function SubjectDetail() {
                onClick={() => setActiveTab('source')}
                className={`tab-button ${activeTab === 'source' ? 'active' : ''}`}
              >
-               📄 <span className="desktop-only">Source (PDF)</span><span className="mobile-only">PDF</span>
+               <FileText size={14} /> <span className="desktop-only">Source (PDF)</span><span className="mobile-only">PDF</span>
              </button>
             {tabs.map(tab => (
               <button
@@ -832,7 +833,7 @@ export default function SubjectDetail() {
                 onClick={() => setActiveTab(tab.id as GenerationTab)}
                 className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
               >
-                {tab.label.split(' ')[0]} <span className="desktop-only">{tab.label.split(' ').slice(1).join(' ')}</span>
+                {tab.icon} <span>{tab.label}</span>
               </button>
             ))}
 
@@ -859,30 +860,41 @@ export default function SubjectDetail() {
           </div>
 
           <div className="tab-content-area">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem', gap: '1rem', flexWrap: 'wrap' }}>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                <BrainCircuit size={20} className="text-accent" />
-                {tabs.find(t => t.id === activeTab)?.label.split('(')[0]}
+                {activeTab === 'source' ? (
+                  <>
+                    <FileText size={18} className="text-accent" />
+                    <span>Document Source</span>
+                  </>
+                ) : (
+                  <>
+                    {tabs.find(t => t.id === activeTab)?.icon}
+                    <span>{tabs.find(t => t.id === activeTab)?.label}</span>
+                  </>
+                )}
               </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
                 {activeTab !== 'explications' && activeTab !== 'source' && (
                   <button
                     className="btn btn-outline"
                     onClick={() => setShowCustomInstructions(!showCustomInstructions)}
                     style={{
-                      fontSize: '0.82rem',
-                      padding: '0.4rem 0.75rem',
+                      fontSize: '0.8125rem',
+                      padding: '0.35rem 0.65rem',
+                      minHeight: '32px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.4rem',
                       borderColor: customInstructions.trim() ? 'var(--accent-primary)' : 'var(--border-color)',
                       color: customInstructions.trim() ? 'var(--accent-primary)' : 'var(--text-secondary)',
                       backgroundColor: showCustomInstructions ? 'var(--bg-elevated)' : 'transparent',
-                      borderRadius: '0.5rem'
+                      borderRadius: 'var(--radius-sm)'
                     }}
                     title="Ajouter des consignes ou mots-clés spécifiques pour l'IA"
                   >
-                    <span>💡 Consignes IA</span>
+                    <SlidersHorizontal size={13} />
+                    <span>Consignes IA</span>
                     {customInstructions.trim() && (
                       <span 
                         onClick={(e) => {
@@ -891,16 +903,16 @@ export default function SubjectDetail() {
                         }}
                         style={{
                           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          width: '16px', height: '16px', borderRadius: '50%',
+                          width: '15px', height: '15px', borderRadius: '50%',
                           backgroundColor: 'var(--accent-primary)', color: 'white',
-                          fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
+                          fontSize: '9px', fontWeight: 'bold', cursor: 'pointer'
                         }}
                         title="Effacer la consigne enregistrée pour ce cours"
                       >
                         ✕
                       </span>
                     )}
-                    <ChevronDown size={14} style={{ transform: showCustomInstructions ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                    <ChevronDown size={13} style={{ transform: showCustomInstructions ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                   </button>
                 )}
 

@@ -140,104 +140,103 @@ export default function FlashcardsExplorer() {
   });
 
   return (
-    <div className="page-container" style={{ padding: '2rem', height: '100%', overflowY: 'auto' }}>
-      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <header style={{ marginBottom: '1.5rem', paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-            ⚡ Flashcards Globales
+          <h1 style={{ marginBottom: '0.25rem' }}>
+            Flashcards Globales
           </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>
+          <p className="subtitle" style={{ margin: 0 }}>
             Parcours et recherche parmi tes {allCards.length} flashcards disponibles.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button 
             onClick={() => setIsRevisionModalOpen(true)}
-            className="btn btn-primary shadow-sm hover-lift"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+            className="btn btn-primary"
           >
             <Zap size={16} /> Révision Globale (SM-2)
           </button>
         </div>
       </header>
 
-      <div style={{ marginBottom: '2rem', position: 'relative', maxWidth: '800px' }}>
+      <div style={{ marginBottom: '1.5rem', position: 'relative', maxWidth: '560px' }}>
         <input 
           type="text"
           placeholder="Rechercher un mot-clé, concept ou dossier..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          className="input-field shadow-sm"
+          className="input"
           style={{ 
             width: '100%', 
-            padding: '1.25rem 1.25rem 1.25rem 3.5rem', 
-            borderRadius: '1rem', 
+            padding: '0.625rem 1rem 0.625rem 2.5rem', 
+            borderRadius: 'var(--radius-md)', 
             border: '1px solid var(--border-color)', 
-            backgroundColor: 'var(--bg-elevated)', 
+            backgroundColor: 'var(--bg-secondary)', 
             color: 'var(--text-primary)', 
-            fontSize: '1rem' 
+            fontSize: '0.875rem' 
           }}
         />
-        <Search size={24} color="var(--text-secondary)" style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)' }} />
+        <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {loading ? (
-          <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
             Chargement de vos flashcards...
           </div>
         ) : filteredCards.length === 0 ? (
-          <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '1.5rem', border: '1px solid var(--border-color)' }}>
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
             Aucune flashcard ne correspond à "{searchQuery}".
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
             {filteredCards.map((source, idx) => (
-              <div key={idx} className="glass-panel hover-lift" style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-elevated)' }}>
+              <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1.25rem', borderRadius: 'var(--radius-lg)' }}>
                 
                 {/* Breadcrumb Info */}
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem', marginBottom: '1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                   {source.folderPath.map((folder, fidx) => (
                     <React.Fragment key={fidx}>
-                      <span style={{ backgroundColor: 'var(--bg-primary)', padding: '0.2rem 0.5rem', borderRadius: '0.25rem' }}>📁 {folder}</span>
-                      <span style={{ opacity: 0.5 }}>/</span>
+                      <span style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-sm)' }}>{folder}</span>
+                      <span style={{ opacity: 0.4 }}>/</span>
                     </React.Fragment>
                   ))}
-                  <span style={{ color: 'white', backgroundColor: 'var(--accent-primary)', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontWeight: 500 }}>📄 {source.courseName}</span>
+                  <span style={{ color: 'var(--accent-primary)', backgroundColor: 'var(--accent-light)', border: '1px solid var(--accent-glow)', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-sm)', fontWeight: 500 }}>{source.courseName}</span>
                 </div>
 
                 {/* Card Front */}
-                <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px dashed var(--border-color)' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'block' }}>Question</span>
+                <div style={{ marginBottom: '0.875rem', paddingBottom: '0.875rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Question</span>
                   {source.card.image && (source.card.imageSide === 'front' || source.card.imageSide === 'both' || !source.card.imageSide) && (
-                    <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ marginBottom: '0.625rem', display: 'flex', justifyContent: 'center' }}>
                       <OccludedImageViewer
                         imageUrl={source.card.image}
                         occlusions={source.card.occlusions}
                         isRevealed={false}
-                        maxHeight="160px"
+                        maxHeight="150px"
                         alt="Question"
                       />
                     </div>
                   )}
-                  <p style={{ fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '1.05rem' }}>{source.card.front}</p>
+                  <p style={{ fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '0.9375rem' }}>{source.card.front}</p>
                 </div>
 
                 {/* Card Back */}
                 <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--success)', marginBottom: '0.5rem', display: 'block' }}>Réponse</span>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--success)', marginBottom: '0.35rem', display: 'block' }}>Réponse</span>
                   {source.card.image && (source.card.imageSide === 'back' || source.card.imageSide === 'both') && (
-                    <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ marginBottom: '0.625rem', display: 'flex', justifyContent: 'center' }}>
                       <OccludedImageViewer
                         imageUrl={source.card.image}
                         occlusions={source.card.occlusions}
                         isRevealed={true}
-                        maxHeight="160px"
+                        maxHeight="150px"
                         alt="Réponse"
                       />
                     </div>
                   )}
-                  <p style={{ color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '0.95rem' }}>{source.card.back}</p>
+                  <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, fontSize: '0.875rem' }}>{source.card.back}</p>
                 </div>
               </div>
             ))}

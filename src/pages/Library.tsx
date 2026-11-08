@@ -222,32 +222,24 @@ export default function Library() {
             ))}
           </div>
           <h1>
-            {currentFolder ? `📁 ${currentFolder.name}` : '📚 Bibliothèque'}
+            {currentFolder ? currentFolder.name : 'Bibliothèque'}
           </h1>
         </div>
 
         <div className="action-buttons">
           <button 
             data-tour="tour-revision-btn"
-            className="btn btn-outline shadow-sm hover-lift" 
+            className="btn btn-outline" 
             onClick={() => setRevisionFolder({ id: currentFolderId, name: currentFolder ? currentFolder.name : 'Toute la bibliothèque' })}
             title="Lancer une révision globale des cartes de ce dossier"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              borderColor: 'rgba(99, 102, 241, 0.45)', 
-              color: 'var(--accent-primary)',
-              background: 'rgba(99, 102, 241, 0.08)'
-            }}
           >
-            <Zap size={16} />
+            <Zap size={16} style={{ color: 'var(--accent-primary)' }} />
             <span className="desktop-only">{currentFolder ? 'Réviser le dossier' : 'Révision Globale'}</span>
             <span className="mobile-only">Réviser</span>
           </button>
           <button 
             data-tour="tour-annale-btn"
-            className="btn btn-outline shadow-sm" 
+            className="btn btn-outline" 
             onClick={() => {
               if (isQuotaReached) {
                 alert(`Limite quotidienne de générations atteinte (${dailyUsage}/${maxGenerations} générations). ${profile?.plan === 'premium' ? 'Revenez demain !' : 'Passez au plan Premium pour 50 générations/jour !'}`);
@@ -258,24 +250,19 @@ export default function Library() {
             disabled={isQuotaReached}
             title={isQuotaReached ? `Limite d'IA atteinte (${dailyUsage}/${maxGenerations})` : "Importer une annale officielle au format PDF pour ce dossier"}
             style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              borderColor: 'rgba(219, 39, 119, 0.4)', 
-              color: 'var(--accent-primary)',
               opacity: isQuotaReached ? 0.45 : 1,
               cursor: isQuotaReached ? 'not-allowed' : 'pointer'
             }}
           >
-            <GraduationCap size={18} />
+            <GraduationCap size={16} style={{ color: 'var(--text-secondary)' }} />
             <span className="desktop-only">Importer une annale</span>
             <span className="mobile-only">Annale</span>
           </button>
-          <button className="btn btn-outline shadow-sm" onClick={handleCreateFolder}>
-            <Plus size={18} /> <span className="desktop-only">Dossier</span>
+          <button className="btn btn-outline" onClick={handleCreateFolder}>
+            <Plus size={16} /> <span className="desktop-only">Dossier</span>
           </button>
-          <button className="btn btn-primary shadow-md" onClick={handleCreateCourse}>
-            <Plus size={18} /> <span className="desktop-only">Nouveau Cours</span>
+          <button className="btn btn-primary" onClick={handleCreateCourse}>
+            <Plus size={16} /> <span className="desktop-only">Nouveau cours</span>
             <span className="mobile-only">Cours</span>
           </button>
         </div>

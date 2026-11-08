@@ -86,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </NavLink>
         ))}
 
-        <div className="nav-section-label" style={{ marginTop: '0.75rem' }}>Outils</div>
+        <div className="nav-section-label">Outils</div>
 
         <button
           className="nav-item"
@@ -101,11 +101,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             background: 'transparent', 
             cursor: 'pointer', 
             fontFamily: 'inherit', 
-            textAlign: 'left'
+            textAlign: 'left',
+            justifyContent: 'space-between'
           }}
         >
-          <span className="nav-item-icon"><Search size={17} /></span>
-          Recherche Globale
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="nav-item-icon"><Search size={17} /></span>
+            <span>Recherche</span>
+          </span>
+          <kbd style={{ fontSize: '0.68rem', color: 'var(--text-muted)', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '1px 5px', fontFamily: 'inherit', fontWeight: 500 }}>Ctrl K</kbd>
         </button>
 
         <NavLink
@@ -128,14 +132,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {user.user_metadata?.avatar_url ? (
                   <img src={user.user_metadata.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <UserIcon size={16} color="white" />
+                  <UserIcon size={15} />
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="user-name">{profile?.full_name || 'Utilisateur'}</div>
                 <div className="user-plan">
-                  {profile?.plan === 'premium' && <Crown size={9} />}
-                  Plan {profile?.plan || 'gratuit'}
+                  {profile?.plan === 'premium' && <Crown size={11} style={{ color: 'var(--accent-primary)' }} />}
+                  <span>Forfait {profile?.plan === 'premium' ? 'Premium' : 'Gratuit'}</span>
                 </div>
               </div>
             </NavLink>
@@ -143,8 +147,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             {usage !== null && (
               <div className="usage-bar-container">
                 <div className="usage-bar-header">
-                  <span>Générations IA (Aujourd'hui)</span>
-                  <span style={{ color: usage >= (profile?.plan === 'premium' ? 45 : 4) ? 'var(--danger)' : 'var(--text-muted)' }}>
+                  <span>Crédits IA du jour</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums', color: usage >= (profile?.plan === 'premium' ? 45 : 4) ? 'var(--danger)' : 'var(--text-muted)' }}>
                     {usage} / {profile?.plan === 'premium' ? 50 : 5}
                   </span>
                 </div>
@@ -158,10 +162,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   />
                 </div>
               </div>
-            )}
-
-            {profile?.plan === 'premium' && (
-              <div className="premium-badge">✦ Forfait Premium Actif</div>
             )}
           </>
         )}

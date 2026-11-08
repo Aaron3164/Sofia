@@ -117,8 +117,8 @@ export default function Statistics() {
   };
 
   const tabs = [
-    { id: 'qcm', label: '📝 Examens Blancs & Annales (QCM)' },
-    { id: 'time', label: '⏱️ Temps passé' },
+    { id: 'qcm', label: 'Examens Blancs & Annales (QCM)', icon: <GraduationCap size={15} /> },
+    { id: 'time', label: 'Temps passé', icon: <Clock size={15} /> },
   ];
 
   const formatSeconds = (totalSeconds: number) => {
@@ -130,25 +130,26 @@ export default function Statistics() {
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <header className="page-header" style={{ flexShrink: 0 }}>
-        <h1>📈 Statistiques & Progression</h1>
+      <header className="page-header" style={{ flexShrink: 0, paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)', marginBottom: '1.25rem' }}>
+        <h1>Statistiques & Progression</h1>
         <p className="subtitle">Suivez vos résultats et votre temps d'étude</p>
       </header>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', overflowX: 'auto', flexShrink: 0 }}>
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id as StatTab)}
-            className={`btn ${activeTab === t.id ? 'btn-primary' : 'btn-outline glass-panel'}`}
+            className={`btn ${activeTab === t.id ? 'btn-primary' : 'btn-outline'}`}
             style={{ whiteSpace: 'nowrap' }}
           >
-            {t.label}
+            {t.icon}
+            <span>{t.label}</span>
           </button>
         ))}
       </div>
 
-      <div className="glass-panel" style={{ flex: 1, padding: '2rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+      <div className="glass-panel" style={{ flex: 1, padding: '1.5rem', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
 
         {activeTab === 'qcm' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

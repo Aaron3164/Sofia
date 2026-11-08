@@ -73,48 +73,48 @@ export default function Dashboard() {
   if (!user) return null;
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
-      <header className="page-header" style={{ flexShrink: 0, marginBottom: '1rem' }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <header className="page-header" style={{ flexShrink: 0, paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)', marginBottom: '1.25rem' }}>
         <h1>Tableau de bord</h1>
         <p className="subtitle">Gérez votre compte et votre expérience Sof.IA</p>
       </header>
 
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
         <button 
           onClick={() => setActiveTab('profile')}
-          className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-          style={{ background: 'none', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer', color: activeTab === 'profile' ? 'var(--accent-primary)' : 'var(--text-secondary)', fontWeight: 600, borderBottom: activeTab === 'profile' ? '2px solid var(--accent-primary)' : 'none' }}
+          className={`btn ${activeTab === 'profile' ? 'btn-primary' : 'btn-outline'}`}
         >
-          👤 Mon Profil
+          <User size={15} />
+          <span>Mon Profil</span>
         </button>
         <button 
           onClick={() => setActiveTab('billing')}
-          className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`}
-          style={{ background: 'none', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer', color: activeTab === 'billing' ? 'var(--accent-primary)' : 'var(--text-secondary)', fontWeight: 600, borderBottom: activeTab === 'billing' ? '2px solid var(--accent-primary)' : 'none' }}
+          className={`btn ${activeTab === 'billing' ? 'btn-primary' : 'btn-outline'}`}
         >
-          ✨ Abonnement & Forfaits
+          <Crown size={15} />
+          <span>Abonnement & Forfaits</span>
         </button>
       </div>
 
-      <div style={{ paddingBottom: '4rem' }}>
+      <div style={{ paddingBottom: '3rem' }}>
         {activeTab === 'profile' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
             
             {/* Profile Card */}
-            <div className="glass-panel" style={{ padding: '2rem', borderRadius: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <UserCircle size={24} className="text-accent" />
+            <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                <UserCircle size={20} className="text-accent" />
                 Profil Personnel
               </h3>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '1.5rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
-                <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                   {user.user_metadata?.avatar_url ? (
                     <img src={user.user_metadata.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <User size={40} color="white" />
+                      <User size={28} color="white" />
                     </div>
                   )}
                 </div>
