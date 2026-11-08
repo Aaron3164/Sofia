@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
-import { Search, Zap } from 'lucide-react';
+import { Search, Zap, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
@@ -21,6 +21,8 @@ interface FlashcardSource {
   card: Flashcard;
 }
 
+const PAGE_SIZE = 40;
+
 export default function FlashcardsExplorer() {
   const { nodes, getNode } = useFileSystem();
   const { profile } = useAuth();
@@ -28,6 +30,7 @@ export default function FlashcardsExplorer() {
   const [allCards, setAllCards] = useState<FlashcardSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
   const getFolderPath = (node: FileNode): string[] => {
     const path: string[] = [];
@@ -129,15 +132,29 @@ export default function FlashcardsExplorer() {
     }
   }, [profile, nodes]);
 
-  const filteredCards = allCards.filter(source => {
-    const query = searchQuery.toLowerCase();
-    return (
-      source.card.front.toLowerCase().includes(query) ||
-      source.card.back.toLowerCase().includes(query) ||
-      source.courseName.toLowerCase().includes(query) ||
-      source.folderPath.some(folder => folder.toLowerCase().includes(query))
+  // Reset display count whenever search changes
+  useEffect(() => {
+    setDisplayCount(PAGE_SIZE);
+  }, [searchQuery]);
+
+  // Memoized search across ALL cards
+  const filteredCards = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allCards;
+    return allCards.filter(source =>
+      source.card.front.toLowerCase().includes(q) ||
+      source.card.back.toLowerCase().includes(q) ||
+      source.courseName.toLowerCase().includes(q) ||
+      source.folderPath.some(folder => folder.toLowerCase().includes(q))
     );
-  });
+  }, [allCards, searchQuery]);
+
+  // Sliced view for DOM rendering performance
+  const visibleCards = useMemo(() => {
+    return filteredCards.slice(0, displayCount);
+  }, [filteredCards, displayCount]);
+
+  const hasMore = visibleCards.length < filteredCards.length;
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -147,7 +164,8 @@ export default function FlashcardsExplorer() {
             Flashcards Globales
           </h1>
           <p className="subtitle" style={{ margin: 0 }}>
-            Parcours et recherche parmi tes {allCards.length} flashcards disponibles.
+            {filteredCards.length} flashcard{filteredCards.length > 1 ? 's' : ''} disponible{filteredCards.length > 1 ? 's' : ''}
+            {filteredCards.length > visibleCards.length && ` (affichage des ${visibleCards.length} premières)`}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -180,7 +198,7 @@ export default function FlashcardsExplorer() {
         <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '2rem' }}>
         {loading ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
             Chargement de vos flashcards...
@@ -190,57 +208,79 @@ export default function FlashcardsExplorer() {
             Aucune flashcard ne correspond à "{searchQuery}".
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
-            {filteredCards.map((source, idx) => (
-              <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1.25rem', borderRadius: 'var(--radius-lg)' }}>
-                
-                {/* Breadcrumb Info */}
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  {source.folderPath.map((folder, fidx) => (
-                    <React.Fragment key={fidx}>
-                      <span style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-sm)' }}>{folder}</span>
-                      <span style={{ opacity: 0.4 }}>/</span>
-                    </React.Fragment>
-                  ))}
-                  <span style={{ color: 'var(--accent-primary)', backgroundColor: 'var(--accent-light)', border: '1px solid var(--accent-glow)', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-sm)', fontWeight: 500 }}>{source.courseName}</span>
-                </div>
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+              {visibleCards.map((source, idx) => (
+                <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1.25rem', borderRadius: 'var(--radius-lg)' }}>
+                  
+                  {/* Breadcrumb Info */}
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    {source.folderPath.map((folder, fidx) => (
+                      <React.Fragment key={fidx}>
+                        <span style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-sm)' }}>{folder}</span>
+                        <span style={{ opacity: 0.4 }}>/</span>
+                      </React.Fragment>
+                    ))}
+                    <span style={{ color: 'var(--accent-primary)', backgroundColor: 'var(--accent-light)', border: '1px solid var(--accent-glow)', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-sm)', fontWeight: 500 }}>{source.courseName}</span>
+                  </div>
 
-                {/* Card Front */}
-                <div style={{ marginBottom: '0.875rem', paddingBottom: '0.875rem', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Question</span>
-                  {source.card.image && (source.card.imageSide === 'front' || source.card.imageSide === 'both' || !source.card.imageSide) && (
-                    <div style={{ marginBottom: '0.625rem', display: 'flex', justifyContent: 'center' }}>
-                      <OccludedImageViewer
-                        imageUrl={source.card.image}
-                        occlusions={source.card.occlusions}
-                        isRevealed={false}
-                        maxHeight="150px"
-                        alt="Question"
-                      />
-                    </div>
-                  )}
-                  <p style={{ fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '0.9375rem' }}>{source.card.front}</p>
-                </div>
+                  {/* Card Front */}
+                  <div style={{ marginBottom: '0.875rem', paddingBottom: '0.875rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Question</span>
+                    {source.card.image && (source.card.imageSide === 'front' || source.card.imageSide === 'both' || !source.card.imageSide) && (
+                      <div style={{ marginBottom: '0.625rem', display: 'flex', justifyContent: 'center' }}>
+                        <OccludedImageViewer
+                          imageUrl={source.card.image}
+                          occlusions={source.card.occlusions}
+                          isRevealed={false}
+                          maxHeight="150px"
+                          alt="Question"
+                        />
+                      </div>
+                    )}
+                    <p style={{ fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.5, fontSize: '0.9375rem' }}>{source.card.front}</p>
+                  </div>
 
-                {/* Card Back */}
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--success)', marginBottom: '0.35rem', display: 'block' }}>Réponse</span>
-                  {source.card.image && (source.card.imageSide === 'back' || source.card.imageSide === 'both') && (
-                    <div style={{ marginBottom: '0.625rem', display: 'flex', justifyContent: 'center' }}>
-                      <OccludedImageViewer
-                        imageUrl={source.card.image}
-                        occlusions={source.card.occlusions}
-                        isRevealed={true}
-                        maxHeight="150px"
-                        alt="Réponse"
-                      />
-                    </div>
-                  )}
-                  <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, fontSize: '0.875rem' }}>{source.card.back}</p>
+                  {/* Card Back */}
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--success)', marginBottom: '0.35rem', display: 'block' }}>Réponse</span>
+                    {source.card.image && (source.card.imageSide === 'back' || source.card.imageSide === 'both') && (
+                      <div style={{ marginBottom: '0.625rem', display: 'flex', justifyContent: 'center' }}>
+                        <OccludedImageViewer
+                          imageUrl={source.card.image}
+                          occlusions={source.card.occlusions}
+                          isRevealed={true}
+                          maxHeight="150px"
+                          alt="Réponse"
+                        />
+                      </div>
+                    )}
+                    <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, fontSize: '0.875rem' }}>{source.card.back}</p>
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {hasMore && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setDisplayCount(prev => prev + PAGE_SIZE)}
+                  className="btn btn-outline"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.65rem 1.5rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-full)'
+                  }}
+                >
+                  <ChevronDown size={16} /> Afficher 40 flashcards de plus ({filteredCards.length - visibleCards.length} restantes)
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 
