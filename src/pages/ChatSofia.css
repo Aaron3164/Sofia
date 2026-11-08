@@ -410,7 +410,7 @@
 }
 
 .chat-message-row.user .chat-msg-content {
-  background: linear-gradient(135deg, var(--accent-primary) 0%, #4338ca 100%);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #be123c 100%);
   color: white;
   padding: 0.9rem 1.25rem;
   border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
@@ -656,7 +656,7 @@
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+  background: linear-gradient(135deg, var(--accent-primary), #be123c);
   color: white;
   border: none;
   display: flex;
