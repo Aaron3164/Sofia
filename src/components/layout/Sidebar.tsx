@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { Sun, Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search } from 'lucide-react';
+import { Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getDailyUsage } from '../../lib/gemini';
 import './Layout.css';
@@ -39,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     };
   }, [user]);
 
-  const handleSelectTheme = async (targetTheme: 'light' | 'dark' | 'glass') => {
+  const handleSelectTheme = async (targetTheme: 'dark' | 'glass') => {
     setTheme(targetTheme);
     if (user && updatePreferences) {
       try {
@@ -50,8 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const themeOptions: { id: 'light' | 'dark' | 'glass'; label: string; icon: React.ReactNode }[] = [
-    { id: 'light', label: 'Clair', icon: <Sun size={14} /> },
+  const themeOptions: { id: 'dark' | 'glass'; label: string; icon: React.ReactNode }[] = [
     { id: 'dark', label: 'Sombre', icon: <Moon size={14} /> },
     { id: 'glass', label: 'Aurore', icon: <Sparkles size={14} /> },
   ];

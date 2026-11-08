@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
 type Preferences = {
-  theme?: 'light' | 'dark' | 'glass';
+  theme?: 'dark' | 'glass';
   ai_personality?: 'benevolent' | 'concise' | 'academic';
   ai_study_mode?: 'understanding' | 'memorization' | 'critical';
   ai_auto_flashcards?: boolean;

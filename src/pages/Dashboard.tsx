@@ -163,7 +163,6 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {[
                       { id: 'dark', label: 'Sombre' },
-                      { id: 'light', label: 'Clair' },
                       { id: 'glass', label: 'Aurore' }
                     ].map((t) => (
                       <button

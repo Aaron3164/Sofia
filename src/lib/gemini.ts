@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 export type AIPreferences = {
-  theme?: 'light' | 'dark' | 'glass';
+  theme?: 'dark' | 'glass';
   ai_personality?: 'benevolent' | 'concise' | 'academic';
   ai_study_mode?: 'understanding' | 'memorization' | 'critical';
   ai_auto_flashcards?: boolean;
