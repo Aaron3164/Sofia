@@ -86,8 +86,8 @@ export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
     id: 'how-annales-work',
     category: 'annales',
     title: 'Comment fonctionne le module Annales (Examens Blancs) ?',
-    keywords: ['annale', 'annales', 'examen blanc', 'concours', 'parser', '0 token', 'correction annale', 'qcm'],
-    answer: `Le module d'annales de SofIA est une exclusivité technologique :\n\n• **Retranscription mot pour mot (0 token, 0 hallucination)** : Un algorithme regex scanne votre PDF de concours, extrait exactement les énoncés originaux, les options A/B/C/D et la grille de correction.\n• **Figures & Illustrations** : Les schémas du sujet sont automatiquement capturés et intégrés aux questions.\n• **Entraînement en conditions réelles** : Chronomètre, grille de réponse interactive et calcul automatique de la note finale sur 20.`
+    keywords: ['annale', 'annales', 'examen blanc', 'concours', 'parser', 'retranscription', 'correction annale', 'qcm'],
+    answer: `Le module d'annales de SofIA est une exclusivité technologique :\n\n• **Retranscription mot pour mot fidèle** : Un algorithme regex scanne votre PDF de concours, extrait exactement les énoncés originaux, les options A/B/C/D et la grille de correction sans aucune altération.\n• **Figures & Illustrations** : Les schémas du sujet sont automatiquement capturés et intégrés aux questions.\n• **Entraînement en conditions réelles** : Chronomètre, grille de réponse interactive et calcul automatique de la note finale sur 20.`
   },
   {
     id: 'annale-button-disabled',

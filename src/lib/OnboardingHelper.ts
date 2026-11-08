@@ -21,7 +21,7 @@ export const ONBOARDING_STEPS: DemoStep[] = [
   },
   {
     title: "2. Les Flashcards & Répétition Espacée SM-2 ⚡",
-    description: "Utilisez l'algorithme Anki SM-2 déterministe (0 token). Utilisez la barre Espace pour retourner la carte, et les touches 1 à 4 pour évaluer votre maîtrise. Supporte aussi les masques d'occlusion sur schéma anatomique via Ctrl+V !",
+    description: "Utilisez l'algorithme Anki SM-2. Utilisez la barre Espace pour retourner la carte, et les touches 1 à 4 pour évaluer votre maîtrise. Supporte aussi les masques d'occlusion sur schéma anatomique via Ctrl+V !",
     tabTarget: 'flashcards',
     actionText: "Suivant : QCM & Explications"
   },
@@ -44,12 +44,12 @@ L'apprentissage passif (relecture simple d'un polycopié) offre un taux de réte
 
 2. LES 4 PILIERS DE SOFIA :
 - Résumés intelligents : Synthèse instantanée avec détection automatique des mots en gras et export PDF pour réviser hors-ligne.
-- Flashcards interactives : Répétition espacée déterministe (0 token), raccourcis claviers fluides (Espace, Flèches) et masques d'occlusion d'images (Ctrl+V).
+- Flashcards interactives : Répétition espacée, raccourcis claviers fluides (Espace, Flèches) et masques d'occlusion d'images (Ctrl+V).
 - Évaluation QCM : Questions ciblées avec distracteurs plausibles et explications fluides en une phrase.
-- Annales d'examen : Retranscription pure par regex, mot pour mot (0 token, 0 hallucination) avec extraction des schémas d'origine.
+- Annales d'examen : Retranscription mot pour mot avec extraction des schémas d'origine.
 
-3. OPTIMISATION ZERO-STORAGE :
-Importez vos gros polycopiés via Google Drive : extraction 100% en mémoire vive (RAM) et 0 octet consommé sur votre stockage Cloud !`,
+3. OPTIMISATION SANS ENCOMBREMENT :
+Importez vos gros polycopiés via Google Drive : extraction fluide en mémoire vive directement dans votre navigateur !`,
   generations: {
     resume: `<h1>Guide Interactif : Réussir avec SofIA 🚀</h1>
 <p>Bienvenue sur <strong>SofIA</strong>, votre second cerveau d'apprentissage pour les études exigeantes (Santé, Droit, Prépas, Concours).</p>
@@ -63,10 +63,10 @@ Importez vos gros polycopiés via Google Drive : extraction 100% en mémoire viv
 
 <h2>2. Les Fonctionnalités Majeures</h2>
 <ul>
-  <li><strong>Import Google Drive</strong> : Collez un lien partagé Drive pour analyser des cours de 300 pages sans saturer votre stockage.</li>
-  <li><strong>Parser d'Annales 0 Token</strong> : Retranscription intégrale de vos vrais sujets d'examen sans aucune hallucination IA.</li>
+  <li><strong>Import Google Drive</strong> : Collez un lien partagé Drive pour analyser des cours volumineux instantanément.</li>
+  <li><strong>Parser d'Annales Fidèle</strong> : Retranscription intégrale de vos vrais sujets d'examen avec schémas d'origine.</li>
   <li><strong>Recherche Globale (Ctrl+K)</strong> : Croisez instantanément l'ensemble de vos cours avec synthèse transversale et export PDF.</li>
-  <li><strong>Export PDF Haute Définition</strong> : Téléchargez vos fiches impeccablement mises en page (sans aucune mention d'IA si vous êtes Premium).</li>
+  <li><strong>Export PDF Haute Définition</strong> : Téléchargez vos fiches impeccablement mises en page.</li>
 </ul>`,
     flashcards: [
       {
@@ -91,8 +91,8 @@ Importez vos gros polycopiés via Google Drive : extraction 100% en mémoire viv
       },
       {
         id: 'fc-demo-3',
-        front: "Comment importer un polycopié volumineux sans consommer de stockage sur SofIA ?",
-        back: "Via l'option 'Importer via Google Drive' : l'extraction se fait en mémoire vive (RAM) dans votre navigateur (0 Mo consommé).",
+        front: "Comment importer un polycopié volumineux ?",
+        back: "Via l'option 'Importer via Google Drive' : l'analyse du document s'exécute directement et fluidement dans votre navigateur.",
         box: 1,
         easeFactor: 2.5,
         interval: 0,
@@ -101,8 +101,8 @@ Importez vos gros polycopiés via Google Drive : extraction 100% en mémoire viv
       },
       {
         id: 'fc-demo-4',
-        front: "Quelle est la particularité du module d'Annales de concours sur SofIA ?",
-        back: "Il utilise un parser regex déterministe : 0 token consommé, 0 hallucination, et retranscription exacte des questions et images d'origine.",
+        front: "Quelle est la particularité du module d'Annales d'examen sur SofIA ?",
+        back: "Il utilise une retranscription fidèle mot pour mot, avec les questions, choix et images officielles du concours.",
         box: 1,
         easeFactor: 2.5,
         interval: 0,

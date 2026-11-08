@@ -38,7 +38,7 @@ export const GAME_TOUR_STEPS: GameTourStep[] = [
     id: 'demo-flashcards',
     badge: 'Étape 2 / 5 • Répétition Espacée',
     title: 'Flashcards & Algorithme Anki SM-2 ⚡',
-    description: "Passez en mode apprentissage actif ! L'algorithme SM-2 déterministe (0 token) planifie vos révisions juste avant l'oubli. Raccourcis claviers fluides : Espace pour retourner la carte, 1 à 4 pour vous auto-évaluer. Supporte aussi les masques d'occlusion sur schéma (Ctrl+V) !",
+    description: "Passez en mode apprentissage actif ! L'algorithme SM-2 déterministe planifie vos révisions juste avant l'oubli. Raccourcis claviers fluides : Espace pour retourner la carte, 1 à 4 pour vous auto-évaluer. Supporte aussi les masques d'occlusion sur schéma (Ctrl+V) !",
     tab: 'flashcards',
     targetPath: (cid) => `/subject/${cid}`,
     actionText: 'Continuer : Les QCM ➔'
@@ -64,7 +64,7 @@ export const GAME_TOUR_STEPS: GameTourStep[] = [
     id: 'library-actions',
     badge: 'Étape 5 / 5 • Fonctionnalités Clés',
     title: 'Importer une Annale & Réviser un Dossier 🎯',
-    description: "Deux super-pouvoirs dans votre Bibliothèque :\n• 🎓 **Importer une annale** : Retranscription mot pour mot (0 token, 0 hallucination), extraction des schémas d'origine et chronomètre d'examen.\n• ⚡ **Réviser le dossier (l'éclair)** : Révisez toutes les flashcards de toutes vos matières en une seule session SM-2 globale !",
+    description: "Deux super-pouvoirs dans votre Bibliothèque :\n• 🎓 **Importer une annale** : Retranscription mot pour mot, extraction des schémas d'origine et chronomètre d'examen sans altération.\n• ⚡ **Réviser le dossier (l'éclair)** : Révisez toutes les flashcards de toutes vos matières en une seule session SM-2 globale !",
     targetPath: () => '/',
     actionText: '🎉 Terminer le tutoriel !'
   }

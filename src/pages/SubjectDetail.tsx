@@ -690,7 +690,7 @@ export default function SubjectDetail() {
                     {fileName || 'Document mémorisé'}
                   </p>
                   <p style={{ fontSize: '0.8rem', color: isGoogleDriveUrl(pdfUrl) ? '#3b82f6' : 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    {isGoogleDriveUrl(pdfUrl) ? '☁️ Google Drive (0 Mo R2)' : '✅ Prêt pour l\'étude'}
+                    {isGoogleDriveUrl(pdfUrl) ? '☁️ Google Drive' : '✅ Prêt pour l\'étude'}
                   </p>
                 </div>
               </div>
@@ -711,7 +711,7 @@ export default function SubjectDetail() {
                   onClick={() => setIsDriveModalOpen(true)}
                   className="btn btn-outline"
                   style={{ flex: 1, minWidth: '90px', fontSize: '0.85rem', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-                  title="Choisir un document depuis Google Drive (0 Mo R2)"
+                  title="Choisir un document depuis Google Drive"
                 >
                   <svg width="14" height="14" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066da"/>
@@ -765,7 +765,7 @@ export default function SubjectDetail() {
                     <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2L59.8 53z" fill="#2684fc"/>
                     <path d="M73.4 26.5 60.7 4.5C59.9 3.1 58.75 2 57.4 1.2L43.65 25l16.15 28h27.5c0-1.55-.4-3.1-1.2-4.5l-12.7-22z" fill="#ffba00"/>
                   </svg>
-                  <span>Google Drive (0 Mo R2)</span>
+                  <span>Google Drive</span>
                 </button>
               </div>
             </div>

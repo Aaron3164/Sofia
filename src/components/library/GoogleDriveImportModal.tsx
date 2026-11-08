@@ -189,7 +189,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
             <div>
               <h3>Importer depuis Google Drive</h3>
               <p>
-                <ShieldCheck size={14} /> 0 Mo de stockage R2 • Fichier hébergé sur Drive
+                <ShieldCheck size={14} /> Fichier hébergé directement sur Google Drive
               </p>
             </div>
           </div>
@@ -225,7 +225,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
                 )}
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Ce traitement est effectué temporairement en mémoire vive sans toucher à Cloudflare R2.
+                Ce traitement est effectué directement et temporairement en mémoire vive.
               </p>
             </div>
           ) : (

@@ -461,7 +461,7 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
               Révision Globale : {folderName}
             </h2>
             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.5 }}>
-              Révisez toutes les notions des cours de ce dossier grâce à l'algorithme d'espacement Anki (0 token, 100% instantané).
+              Révisez toutes les notions des cours de ce dossier grâce à l'algorithme d'espacement Anki (100% instantané).
             </p>
           </div>
 
