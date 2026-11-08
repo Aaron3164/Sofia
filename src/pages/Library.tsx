@@ -349,11 +349,6 @@ export default function Library() {
                 className={`folder-card hover-lift glass-panel ${isBeingDragged ? 'is-dragging' : ''} ${isDragTarget ? 'is-drag-over' : ''}`}
                 onClick={() => handleItemClick(item)}
                 style={{
-                  ...(isAnnale 
-                    ? { border: '1px solid rgba(219, 39, 119, 0.4)', background: 'linear-gradient(145deg, var(--bg-surface), rgba(219, 39, 119, 0.05))' }
-                    : item.type === 'course' 
-                    ? { border: '1px solid var(--accent-primary)' } 
-                    : {}),
                   ...(isDragTarget ? { border: '2px dashed var(--accent-primary)', transform: 'scale(1.02)' } : {}),
                   ...(isBeingDragged ? { opacity: 0.45 } : {}),
                   overflow: isMenuOpen ? 'visible' : 'hidden',
@@ -362,10 +357,10 @@ export default function Library() {
               >
                 <div className="folder-header">
                   <div 
-                    className="folder-icon-wrapper shadow-sm"
+                    className="folder-icon-wrapper"
                     style={{ 
-                      backgroundColor: isAnnale ? 'rgba(219, 39, 119, 0.15)' : item.type === 'folder' ? `${item.color}20` : 'var(--bg-elevated)', 
-                      color: isAnnale ? 'var(--accent-primary)' : item.type === 'folder' ? item.color : 'var(--accent-primary)' 
+                      backgroundColor: isAnnale ? 'rgba(124, 92, 252, 0.12)' : item.type === 'folder' ? `${item.color}20` : 'var(--bg-elevated)', 
+                      color: isAnnale ? 'var(--accent-primary)' : item.type === 'folder' ? item.color : 'var(--text-secondary)' 
                     }}
                   >
                     {item.type === 'folder' ? <Folder size={28} /> : isAnnale ? <GraduationCap size={28} /> : <FileText size={28} />}
@@ -512,11 +507,11 @@ export default function Library() {
                     {isAnnale && (
                       <span style={{
                         fontSize: '0.68rem',
-                        fontWeight: 800,
+                        fontWeight: 600,
                         textTransform: 'uppercase',
                         padding: '0.15rem 0.45rem',
-                        borderRadius: '0.5rem',
-                        backgroundColor: 'rgba(219, 39, 119, 0.15)',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: 'var(--accent-light)',
                         color: 'var(--accent-primary)',
                         flexShrink: 0
                       }}>
