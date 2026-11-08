@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calendar, Sparkles, Folder, X } from 'lucide-react';
+import { Calendar, Sparkles, Folder, X, ChevronDown, Check } from 'lucide-react';
 import { format, addDays, differenceInCalendarDays, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { type FileNode } from '../../hooks/useFileSystem';
@@ -23,27 +23,25 @@ export function RetrospectivePlannerModal({
   });
   const [targetPasses, setTargetPasses] = useState<number>(3); // Nombre de passages / tours
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [excludeWeekends, setExcludeWeekends] = useState<boolean>(false);
   const [isApplying, setIsApplying] = useState<boolean>(false);
 
-  // Folders list
-  const folders = useMemo(() => {
-    return allNodes.filter(n => n.type === 'folder');
-  }, [allNodes]);
-
   // Recursively collect all courses inside a folder (and subfolders)
-  const getCoursesInFolder = (folderId: string): FileNode[] => {
-    const directChildren = allNodes.filter(n => n.parentId === folderId);
-    let courses: FileNode[] = [];
-    for (const child of directChildren) {
-      if (child.type === 'course') {
-        courses.push(child);
-      } else if (child.type === 'folder') {
-        courses = courses.concat(getCoursesInFolder(child.id));
+  const getCoursesInFolder = useMemo(() => {
+    return (folderId: string): FileNode[] => {
+      const directChildren = allNodes.filter(n => n.parentId === folderId);
+      let courses: FileNode[] = [];
+      for (const child of directChildren) {
+        if (child.type === 'course') {
+          courses.push(child);
+        } else if (child.type === 'folder') {
+          courses = courses.concat(getCoursesInFolder(child.id));
+        }
       }
-    }
-    return courses;
-  };
+      return courses;
+    };
+  }, [allNodes]);
 
   // Selected courses grouped by folder / subject
   const selectedCoursesByFolder = useMemo(() => {
@@ -62,7 +60,7 @@ export function RetrospectivePlannerModal({
     }
 
     return map;
-  }, [selectedFolderIds, allNodes]);
+  }, [selectedFolderIds, allNodes, getCoursesInFolder]);
 
   const totalCoursesCount = useMemo(() => {
     const courseIds = new Set<string>();
@@ -104,8 +102,6 @@ export function RetrospectivePlannerModal({
     const scheduleEntries: { courseId: string; courseName: string; dateStr: string; folderName: string; passNumber: number }[] = [];
     const totalDaysAvailable = studyDays.length;
 
-    // Répartir la période globale en N "tours" ou "passages"
-    // Exemple : Tour 1 (50% du temps), Tour 2 (30% du temps), Tour 3 (20% du temps) ou uniforme
     const daysPerPass = Math.max(1, Math.floor(totalDaysAvailable / targetPasses));
 
     for (let pass = 1; pass <= targetPasses; pass++) {
@@ -151,6 +147,13 @@ export function RetrospectivePlannerModal({
     setSelectedFolderIds(prev => 
       prev.includes(folderId) ? prev.filter(id => id !== folderId) : [...prev, folderId]
     );
+  };
+
+  const toggleFolderCollapse = (folderId: string) => {
+    setCollapsedFolders(prev => ({
+      ...prev,
+      [folderId]: !(prev[folderId] ?? false) // default open so user sees hierarchy
+    }));
   };
 
   const handleApply = async () => {
@@ -305,11 +308,11 @@ export function RetrospectivePlannerModal({
             </label>
           </div>
 
-          {/* Form Step 2: Choose folder(s) / subjects */}
+          {/* Form Step 2: Choose folder(s) / subjects in HIERARCHICAL TREE VIEW */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Sélectionne le ou les dossiers sur lesquels porte l'examen :
+                Sélectionne le ou les dossiers sur lesquels porte l'examen (arborescence) :
               </label>
               <span style={{ fontSize: '0.78rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
                 {totalCoursesCount} cours sélectionnés
@@ -317,57 +320,26 @@ export function RetrospectivePlannerModal({
             </div>
 
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '0.5rem',
-              maxHeight: '180px',
+              maxHeight: '260px',
               overflowY: 'auto',
-              padding: '0.5rem',
+              padding: '0.75rem',
               background: 'var(--bg-elevated)',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)'
+              border: '1px solid var(--border-subtle)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.35rem'
             }}>
-              {folders.length === 0 ? (
-                <div style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                  Aucun dossier trouvé dans ta bibliothèque.
-                </div>
-              ) : (
-                folders.map(f => {
-                  const isSelected = selectedFolderIds.includes(f.id);
-                  const countInFolder = getCoursesInFolder(f.id).length;
-
-                  return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => toggleFolderSelection(f.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.6rem',
-                        padding: '0.6rem 0.75rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: isSelected ? 'var(--accent-light)' : 'var(--bg-secondary)',
-                        border: isSelected ? '1.5px solid var(--accent-primary)' : '1px solid var(--border-color)',
-                        color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        fontSize: '0.82rem',
-                        fontFamily: 'inherit',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <Folder size={15} style={{ flexShrink: 0 }} />
-                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
-                        {f.name}
-                      </span>
-                      <span style={{ fontSize: '0.72rem', opacity: 0.7, flexShrink: 0 }}>
-                        {countInFolder}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
+              <FolderTreeSelector
+                nodes={allNodes}
+                parentId={null}
+                depth={0}
+                selectedFolderIds={selectedFolderIds}
+                collapsedFolders={collapsedFolders}
+                onToggleFolder={toggleFolderCollapse}
+                onSelectFolder={toggleFolderSelection}
+                getCoursesInFolder={getCoursesInFolder}
+              />
             </div>
           </div>
 
@@ -472,3 +444,130 @@ export function RetrospectivePlannerModal({
   );
 }
 
+interface FolderTreeSelectorProps {
+  nodes: FileNode[];
+  parentId: string | null;
+  depth: number;
+  selectedFolderIds: string[];
+  collapsedFolders: Record<string, boolean>;
+  onToggleFolder: (id: string) => void;
+  onSelectFolder: (id: string) => void;
+  getCoursesInFolder: (id: string) => FileNode[];
+}
+
+function FolderTreeSelector({
+  nodes,
+  parentId,
+  depth,
+  selectedFolderIds,
+  collapsedFolders,
+  onToggleFolder,
+  onSelectFolder,
+  getCoursesInFolder,
+}: FolderTreeSelectorProps) {
+  // Only list folders
+  const currentFolders = nodes
+    .filter(n => n.type === 'folder' && n.parentId === parentId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (currentFolders.length === 0) return null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginLeft: depth > 0 ? '1rem' : 0 }}>
+      {currentFolders.map(folder => {
+        const isCollapsed = collapsedFolders[folder.id] ?? false; // default open
+        const isSelected = selectedFolderIds.includes(folder.id);
+        const coursesInside = getCoursesInFolder(folder.id);
+        const subFoldersCount = nodes.filter(n => n.type === 'folder' && n.parentId === folder.id).length;
+
+        return (
+          <div key={folder.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.45rem 0.65rem',
+                borderRadius: 'var(--radius-sm)',
+                background: isSelected ? 'var(--accent-light)' : depth === 0 ? 'var(--bg-secondary)' : 'var(--bg-primary)',
+                border: isSelected ? '1.5px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={() => onSelectFolder(folder.id)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', overflow: 'hidden' }}>
+                {subFoldersCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFolder(folder.id);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      color: 'inherit',
+                      transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease'
+                    }}
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                ) : (
+                  <div style={{ width: 14 }} />
+                )}
+
+                <Folder size={15} color={folder.color || 'var(--accent-primary)'} style={{ flexShrink: 0 }} />
+                
+                <span style={{ fontSize: '0.84rem', fontWeight: isSelected ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {folder.name}
+                </span>
+
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  ({coursesInside.length} cours)
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '4px',
+                  border: isSelected ? 'none' : '1.5px solid var(--border-color)',
+                  background: isSelected ? 'var(--accent-primary)' : 'transparent',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.7rem'
+                }}>
+                  {isSelected && <Check size={12} strokeWidth={3} />}
+                </span>
+              </div>
+            </div>
+
+            {/* Subfolders tree */}
+            {!isCollapsed && subFoldersCount > 0 && (
+              <FolderTreeSelector
+                nodes={nodes}
+                parentId={folder.id}
+                depth={depth + 1}
+                selectedFolderIds={selectedFolderIds}
+                collapsedFolders={collapsedFolders}
+                onToggleFolder={onToggleFolder}
+                onSelectFolder={onSelectFolder}
+                getCoursesInFolder={getCoursesInFolder}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
