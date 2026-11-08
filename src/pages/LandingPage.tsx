@@ -339,14 +339,14 @@ export default function LandingPage(props: LandingPageProps) {
   margin-top: 36px;
 }
 .sofia-landing .columns3-col {
-  border-top: 1.5px solid #f0e2ea;
+  border-top: 1px solid var(--line);
   padding-top: 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 .sofia-landing .columns3-tag {
-  color: #DF216C;
+  color: #fda4af;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -356,26 +356,37 @@ export default function LandingPage(props: LandingPageProps) {
 .sofia-landing .columns3-title {
   font-size: 24px;
   font-weight: 800;
-  color: #2b1a30;
+  color: #ffffff;
   letter-spacing: -0.02em;
   line-height: 1.2;
   margin: 0;
 }
 .sofia-landing .columns3-desc {
-  color: #6a5d6d;
+  color: #a1a1aa;
   font-size: 15px;
   line-height: 1.6;
   margin: 0;
 }
 
 .sofia-landing .prices { margin-top:24px; display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:stretch; }
-.sofia-landing .price-card { padding:28px; display:flex; flex-direction:column; min-height:100%; }
-.sofia-landing .price-card ul { margin:18px 0 22px; padding-left:18px; color:#5f5462; line-height:1.5; flex:1; }
-.sofia-landing .price-card li { padding:12px 0; border-top:1px solid #f0e6ec; }
+.sofia-landing .price-card { padding:28px; display:flex; flex-direction:column; min-height:100%; background:var(--card); border:1px solid var(--line); border-radius:20px; }
+.sofia-landing .price-card h3 { color:#ffffff; font-weight:700; font-size:22px; }
+.sofia-landing .price-value { color:#ffffff; margin-top:6px; font-size:64px; font-weight:700; line-height:.95; letter-spacing:-0.03em; }
+.sofia-landing .price-card ul { margin:18px 0 22px; padding-left:18px; color:var(--muted); line-height:1.6; flex:1; }
+.sofia-landing .price-card li { padding:12px 0; border-top:1px solid var(--line); }
 .sofia-landing .price-card li:first-child { border-top:none; padding-top:0; }
 .sofia-landing .price-value { margin-top:6px; font-size:64px; font-weight:700; line-height:.95; letter-spacing:-0.03em; }
-.sofia-landing .premium { background:#fff1f7; border:1px solid #f2bad2; }
-.sofia-landing .badge { align-self:flex-start; border-radius:999px; background:#DF216C; color:#fff; padding:6px 10px; font-size:11px; font-weight:700; margin-bottom:10px; }
+.sofia-landing .premium {
+  background: linear-gradient(180deg, #1c1518 0%, #18181b 100%);
+  border: 1px solid rgba(225, 29, 72, 0.4);
+  box-shadow: 0 12px 36px rgba(225, 29, 72, 0.15);
+  position: relative;
+}
+.sofia-landing .premium .price-value { color: #ffffff; }
+.sofia-landing .premium h3 { color: #ffffff; }
+.sofia-landing .premium ul { color: #e4e4e7; }
+.sofia-landing .premium li { border-top: 1px solid rgba(225, 29, 72, 0.15); }
+.sofia-landing .badge { align-self:flex-start; border-radius:999px; background:#fda4af; color:#fff; padding:6px 10px; font-size:11px; font-weight:700; margin-bottom:10px; }
 .sofia-landing .closing { text-align:center; background:var(--pale); border-radius:24px; padding:56px 20px; }
 .sofia-landing footer { padding:26px 0 40px; color:var(--muted); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
 .sofia-landing [data-reveal] { opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease; }
@@ -473,7 +484,7 @@ export default function LandingPage(props: LandingPageProps) {
                 <path
                     d={path}
                     fill="none"
-                    stroke="#DF216C"
+                    stroke="#fda4af"
                     strokeWidth="1.8"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -559,7 +570,7 @@ export default function LandingPage(props: LandingPageProps) {
                             <p
                                 style={{
                                     marginTop: 14,
-                                    color: "#6c5f6f",
+                                    color: "#a1a1aa",
                                     lineHeight: 1.55,
                                 }}
                             >
@@ -657,7 +668,7 @@ export default function LandingPage(props: LandingPageProps) {
                                 </h3>
                                 <p
                                     style={{
-                                        color: "#6a5d6d",
+                                        color: "#a1a1aa",
                                         lineHeight: 1.55,
                                     }}
                                 >
@@ -673,7 +684,7 @@ export default function LandingPage(props: LandingPageProps) {
                         data-reveal
                     >
                         <strong>Et pour le jour J ? Les annales aussi.</strong>
-                        <span style={{ color: "#DF216C", fontWeight: 700 }}>
+                        <span style={{ color: "#fda4af", fontWeight: 700 }}>
                             Voir
                         </span>
                     </a>
@@ -710,10 +721,10 @@ export default function LandingPage(props: LandingPageProps) {
                                     {/* Recto */}
                                     <div className="flip-face flip-front">
                                         <div>
-                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#DF216C', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#fda4af', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                                                 Question
                                             </span>
-                                            <p style={{ marginTop: 10, fontSize: 18, fontWeight: 700, color: '#302135', lineHeight: 1.4 }}>
+                                            <p style={{ marginTop: 10, fontSize: 18, fontWeight: 700, color: '#ffffff', lineHeight: 1.4 }}>
                                                 Qu’est-ce que le rappel actif ?
                                             </p>
                                         </div>
@@ -724,10 +735,10 @@ export default function LandingPage(props: LandingPageProps) {
                                     {/* Verso */}
                                     <div className="flip-face flip-back">
                                         <div>
-                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#DF216C', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#fda4af', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                                                 Réponse
                                             </span>
-                                            <p style={{ marginTop: 10, fontSize: 16, fontWeight: 600, color: '#302135', lineHeight: 1.5 }}>
+                                            <p style={{ marginTop: 10, fontSize: 16, fontWeight: 600, color: '#ffffff', lineHeight: 1.5 }}>
                                                 Retrouver une information de mémoire, sans regarder son cours.
                                             </p>
                                         </div>
@@ -748,7 +759,7 @@ export default function LandingPage(props: LandingPageProps) {
                                 Mieux vaut se tromper ici.
                             </h3>
                             <div className="qcm-card">
-                                <p style={{ fontWeight: 700, color: '#302135', fontSize: 16 }}>
+                                <p style={{ fontWeight: 700, color: '#ffffff', fontSize: 16 }}>
                                     Pour mieux retenir, tu choisis…
                                 </p>
                                 <button
@@ -785,7 +796,7 @@ export default function LandingPage(props: LandingPageProps) {
                                     </div>
                                 )}
                                 {qcmChoice === null && (
-                                    <p style={{ marginTop: 12, fontSize: 13, color: '#827581', fontWeight: 500 }}>
+                                    <p style={{ marginTop: 12, fontSize: 13, color: '#a1a1aa', fontWeight: 500 }}>
                                         Choisis une réponse pour tester ta méthode.
                                     </p>
                                 )}
@@ -813,7 +824,7 @@ export default function LandingPage(props: LandingPageProps) {
                         <p
                             style={{
                                 marginTop: 14,
-                                color: "#6a5d6d",
+                                color: "#a1a1aa",
                                 lineHeight: 1.6,
                             }}
                         >
@@ -828,7 +839,7 @@ export default function LandingPage(props: LandingPageProps) {
                                 "3. L’essentiel avant de se tester",
                             ].map((item) => (
                                 <div key={item} className="benefit">
-                                    <strong style={{ color: "#302135" }}>
+                                    <strong style={{ color: "#ffffff" }}>
                                         {item}
                                     </strong>
                                 </div>
@@ -839,7 +850,7 @@ export default function LandingPage(props: LandingPageProps) {
                         <article className="card sheet-back">
                             <p className="eyebrow">SOURCE</p>
                             <div className="dense-text">
-                                <p style={{ fontWeight: 700, color: '#4a3b4e', marginBottom: 6 }}>
+                                <p style={{ fontWeight: 700, color: '#f4f4f5', marginBottom: 6 }}>
                                     Chapitre IV — Neurophysiologie de la mémoire
                                 </p>
                                 <p style={{ marginBottom: 6 }}>
@@ -861,7 +872,7 @@ export default function LandingPage(props: LandingPageProps) {
                             <h4 style={{ marginTop: 8, fontSize: 24 }}>
                                 L’ESSENTIEL
                             </h4>
-                            <p style={{ marginTop: 8, color: "#6a5d6d" }}>
+                            <p style={{ marginTop: 8, color: "#a1a1aa" }}>
                                 Mémoriser en 3 idées.
                             </p>
                             <div className="highlight">
@@ -871,7 +882,7 @@ export default function LandingPage(props: LandingPageProps) {
                                 style={{
                                     marginTop: 12,
                                     fontSize: 14,
-                                    color: "#6a5d6d",
+                                    color: "#a1a1aa",
                                 }}
                             >
                                 Exemple : se tester sans support renforce
@@ -900,7 +911,7 @@ export default function LandingPage(props: LandingPageProps) {
                             <h3 style={{ fontSize: 28 }}>
                                 Comment se construit un souvenir ?
                             </h3>
-                            <p style={{ marginTop: 12, color: "#6a5d6d" }}>
+                            <p style={{ marginTop: 12, color: "#a1a1aa" }}>
                                 Sofia croise plusieurs cours pour créer une
                                 réponse claire et argumentée.
                             </p>
@@ -926,7 +937,7 @@ export default function LandingPage(props: LandingPageProps) {
                         <p
                             style={{
                                 marginTop: 14,
-                                color: "#6a5d6d",
+                                color: "#a1a1aa",
                                 lineHeight: 1.6,
                             }}
                         >
@@ -956,7 +967,7 @@ export default function LandingPage(props: LandingPageProps) {
                         <p
                             style={{
                                 marginTop: 14,
-                                color: "#6a5d6d",
+                                color: "#a1a1aa",
                                 lineHeight: 1.6,
                             }}
                         >
@@ -1034,7 +1045,7 @@ export default function LandingPage(props: LandingPageProps) {
                     >
                         Choisis ton rythme de révision.
                     </h2>
-                    <p style={{ marginTop: 10, color: "#6a5d6d" }}>
+                    <p style={{ marginTop: 10, color: "#a1a1aa" }}>
                         Sans engagement de durée. Annulation immédiate en un
                         clic.
                     </p>
@@ -1149,7 +1160,7 @@ export default function LandingPage(props: LandingPageProps) {
                         </div>
                     </div>
                     <footer>
-                        <strong style={{ color: "#DF216C" }}>sof.ia</strong>
+                        <strong style={{ color: "#fda4af" }}>sof.ia</strong>
                         <span>
                             L’IA prépare le terrain. Le déclic, c’est toi.
                         </span>
