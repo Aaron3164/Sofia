@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   FileText, UploadCloud, X, Check, AlertCircle, Plus, Trash2, 
-  Image as ImageIcon, ArrowRight, RefreshCw, KeyRound, Sparkles, GraduationCap 
+  Image as ImageIcon, ArrowRight, RefreshCw, KeyRound, GraduationCap 
 } from 'lucide-react';
 import { parseAnnalePDF, parseCorrectionGridText, type ExtractedQuestion, type AnnaleParseResult } from '../../lib/annale-parser';
 import { compressImage, getImageFromClipboard } from '../../lib/image-utils';
@@ -269,8 +269,12 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
               <GraduationCap size={22} />
             </div>
             <div>
-              <h2>Importer une Annale {labelingCount > 0 ? '(avec Schémas / Légendage)' : (openCount > 0 && qcmCount > 0 ? '(Mixte QCM & Rédaction)' : (openCount > 0 ? '(Rédactionnelle)' : '(QCM)'))}</h2>
-              <p>Retranscription mot pour mot • QCM, Rédaction & Légendage sur image • Correction interactive</p>
+              <h2>{step === 'upload' ? 'Importer une Annale d\'Examen' : 'Vérification de l\'Annale'}</h2>
+              <p>
+                {step === 'upload' 
+                  ? 'Glissez un sujet officiel au format PDF pour créer votre examen interactif.' 
+                  : 'Étape 2/2 : Vérifiez la structure des questions et les corrigés avant d\'enregistrer l\'examen.'}
+              </p>
             </div>
           </div>
           <button 
@@ -299,6 +303,20 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
               onDragOver={e => e.preventDefault()}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: '2px dashed var(--border-color)',
+                borderRadius: '1.25rem',
+                padding: '3rem 2rem',
+                textAlign: 'center',
+                backgroundColor: 'var(--bg-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '1rem',
+                transition: 'all 0.2s ease'
+              }}
             >
               <input 
                 type="file" 
@@ -310,28 +328,34 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                 }}
               />
               
-              <div className="annale-dropzone-icon-pulse">
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                color: 'var(--accent-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '0.25rem'
+              }}>
                 <UploadCloud size={32} />
               </div>
 
               <div className="annale-dropzone-content">
-                <h3>Glissez votre sujet d'annale PDF ici</h3>
-                <p>ou cliquez pour sélectionner un fichier sur votre ordinateur</p>
-              </div>
-
-              <div className="annale-dropzone-features">
-                <span className="annale-dropzone-chip">
-                  <Sparkles size={13} className="text-accent" />
-                  Format mot pour mot
-                </span>
-                <span className="annale-dropzone-chip">
-                  <span>🖼️</span>
-                  Extraction des schémas & radios
-                </span>
-                <span className="annale-dropzone-chip">
-                  <span>✅</span>
-                  Détection des corrigés (cases cochées)
-                </span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.35rem 0', color: 'var(--text-primary)' }}>
+                  Glissez votre sujet d'annale PDF ici
+                </h3>
+                <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  ou cliquez pour sélectionner un fichier depuis votre appareil
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ pointerEvents: 'none', padding: '0.6rem 1.4rem', fontSize: '0.9rem', fontWeight: 600 }}
+                >
+                  Choisir un fichier PDF
+                </button>
               </div>
             </div>
           )}
@@ -530,35 +554,50 @@ export const AnnaleExamImportModal: React.FC<AnnaleExamImportModalProps> = ({
                   border: '1px solid var(--border-color)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.75rem'
+                  gap: '0.85rem'
                 }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <ImageIcon size={16} className="text-accent" />
-                    <span>{unassignedImages.length} schéma(s) extrait(s) à assigner :</span>
+                    <span>{unassignedImages.length} schéma(s) extrait(s) à associer à une question :</span>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                     {unassignedImages.map(img => (
-                      <div key={img.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
+                      <div key={img.id} className="annale-unassigned-card">
                         <div 
                           onClick={() => setZoomedImage(img.url)}
                           className="annale-image-thumb"
-                          style={{ width: '90px', height: '65px' }}
+                          style={{ width: '100%', height: '75px' }}
+                          title="Cliquer pour agrandir"
                         >
                           <img src={img.url} alt="Extraite" />
                         </div>
-                        <select 
-                          style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '0.4rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                          onChange={e => {
-                            const qIdx = parseInt(e.target.value, 10);
-                            if (!isNaN(qIdx)) handleAssignUnassignedImage(img, qIdx);
-                          }}
-                          defaultValue=""
-                        >
-                          <option value="" disabled>Assigner...</option>
-                          {questions.map((q, idx) => (
-                            <option key={q.id} value={idx}>Q{q.questionNumber || idx + 1}</option>
-                          ))}
-                        </select>
+                        <div style={{ width: '100%' }}>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.2rem', textAlign: 'center' }}>
+                            Question cible :
+                          </label>
+                          <select 
+                            style={{ 
+                              width: '100%',
+                              fontSize: '0.78rem', 
+                              padding: '0.35rem 0.4rem', 
+                              borderRadius: '0.4rem', 
+                              backgroundColor: 'var(--bg-elevated)', 
+                              color: 'var(--text-primary)', 
+                              border: '1px solid var(--border-color)',
+                              cursor: 'pointer'
+                            }}
+                            onChange={e => {
+                              const qIdx = parseInt(e.target.value, 10);
+                              if (!isNaN(qIdx)) handleAssignUnassignedImage(img, qIdx);
+                            }}
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Choisir Q...</option>
+                            {questions.map((q, idx) => (
+                              <option key={q.id} value={idx}>Question {q.questionNumber || idx + 1}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     ))}
                   </div>
