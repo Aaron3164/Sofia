@@ -27,7 +27,7 @@ const DEFAULT_COURSE_COLOR = '#64748b'; // Gris par défaut quand importé / pas
 export default function PlanningCenter() {
   const [mode, setMode] = useState<PlanMode>('spaced');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const { alert, prompt, confirm } = useDialog();
+  const { alert, confirm } = useDialog();
   const { items, markCompleted, updateItemDate, addCourseToDate, addCoursesBatchToDate, deleteScheduleItem, deleteScheduleItemsBatch } = useSpacedRepetition();
   const { nodes, updateNodeColor } = useFileSystem();
   const navigate = useNavigate();
@@ -107,8 +107,8 @@ export default function PlanningCenter() {
   };
 
   const modes = [
-    { id: 'spaced', label: '🗓️ Répétition espacée' },
-    { id: 'pomodoro', label: '🍅 Pomodoro' },
+    { id: 'spaced', label: 'Répétition espacée', icon: <CalendarIcon size={15} /> },
+    { id: 'pomodoro', label: 'Pomodoro', icon: <Circle size={15} /> },
   ];
 
   const monthStart = startOfMonth(currentDate);
@@ -121,16 +121,12 @@ export default function PlanningCenter() {
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
-  const handleReschedule = async (e: React.MouseEvent, item: any) => {
+  // Reschedule state modal
+  const [rescheduleTarget, setRescheduleTarget] = useState<{ item: any; targetDate: string } | null>(null);
+
+  const handleReschedule = (e: React.MouseEvent, item: any) => {
     e.stopPropagation();
-    const newDate = await prompt(`À quelle date voulez-vous reporter "${item.courseName}" ? (Format: AAAA-MM-JJ)`, item.date);
-    if (newDate && newDate !== item.date) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-        updateItemDate(item.id, newDate);
-      } else {
-        await alert("Format de date invalide. Utilisez AAAA-MM-JJ.");
-      }
-    }
+    setRescheduleTarget({ item, targetDate: item.date });
   };
 
   const handleDeleteItem = async (e: React.MouseEvent, item: any) => {
@@ -233,15 +229,16 @@ export default function PlanningCenter() {
         <p className="subtitle">Plannings d'études, répétitions personnalisées et maîtrise des cours</p>
       </header>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', flexShrink: 0 }}>
         {modes.map((m) => (
           <button
             key={m.id}
             onClick={() => setMode(m.id as PlanMode)}
-            className={`btn ${mode === m.id ? 'btn-primary' : 'btn-outline glass-panel'}`}
+            className={`btn ${mode === m.id ? 'btn-primary' : 'btn-outline'}`}
             style={{ whiteSpace: 'nowrap' }}
           >
-            {m.label}
+            {m.icon}
+            <span>{m.label}</span>
           </button>
         ))}
       </div>
@@ -719,6 +716,89 @@ export default function PlanningCenter() {
                   />
                 )
               )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal: Reschedule Date Picker */}
+      {rescheduleTarget && createPortal(
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem'
+          }}
+          onClick={() => setRescheduleTarget(null)}
+        >
+          <div 
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '380px',
+              backgroundColor: 'var(--bg-elevated)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              boxShadow: 'var(--shadow-lg)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>Reporter le cours</h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {rescheduleTarget.item.courseName}
+                </p>
+              </div>
+              <button 
+                className="icon-button"
+                onClick={() => setRescheduleTarget(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                Nouvelle date de révision
+              </label>
+              <input
+                type="date"
+                value={rescheduleTarget.targetDate}
+                onChange={(e) => setRescheduleTarget({ ...rescheduleTarget, targetDate: e.target.value })}
+                className="input"
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn btn-outline"
+                onClick={() => setRescheduleTarget(null)}
+              >
+                Annuler
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={() => {
+                  if (rescheduleTarget.targetDate) {
+                    updateItemDate(rescheduleTarget.item.id, rescheduleTarget.targetDate);
+                  }
+                  setRescheduleTarget(null);
+                }}
+              >
+                Confirmer le report
+              </button>
             </div>
           </div>
         </div>,

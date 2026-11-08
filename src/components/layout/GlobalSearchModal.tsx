@@ -576,11 +576,11 @@ export const GlobalSearchModal: React.FC = () => {
                 backgroundColor: showCustomInstructions ? 'var(--bg-elevated)' : 'transparent',
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
-                fontWeight: 600
+                fontWeight: 500
               }}
               title="Ajouter des consignes spécifiques pour orienter la synthèse transversale"
             >
-              <span>💡 Consignes IA</span>
+              <span>Consignes IA</span>
               {customInstructions.trim() && (
                 <span 
                   onClick={(e) => {

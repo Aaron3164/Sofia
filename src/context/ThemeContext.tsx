@@ -20,7 +20,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return saved;
       }
     } catch {}
-    return 'glass';
+    return 'dark';
   });
   const [subjectColors, setSubjectColors] = useState<Record<string, string>>({
     'math': '#3b82f6', // blue

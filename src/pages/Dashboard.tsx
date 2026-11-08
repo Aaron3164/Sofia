@@ -159,16 +159,20 @@ export default function Dashboard() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <div>
-                  <p style={{ fontWeight: '500', marginBottom: '1rem' }}>Thème de l'interface</p>
-                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    {(['light', 'dark', 'glass'] as const).map((t) => (
+                  <p style={{ fontWeight: '500', marginBottom: '0.75rem', fontSize: '0.875rem' }}>Thème de l'interface</p>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {[
+                      { id: 'dark', label: 'Sombre' },
+                      { id: 'light', label: 'Clair' },
+                      { id: 'glass', label: 'Aurore' }
+                    ].map((t) => (
                       <button
-                        key={t}
-                        onClick={() => handleUpdatePreference({ theme: t })}
-                        className={`btn ${theme === t ? 'btn-primary' : 'btn-outline'}`}
-                        style={{ flex: '1 1 100px', textTransform: 'capitalize' }}
+                        key={t.id}
+                        onClick={() => handleUpdatePreference({ theme: t.id })}
+                        className={`btn ${theme === t.id ? 'btn-primary' : 'btn-outline'}`}
+                        style={{ flex: '1 1 90px' }}
                       >
-                        {t === 'glass' ? '✨ Aurore' : t === 'light' ? '☀️ Clair' : '🌙 Sombre'}
+                        {t.label}
                       </button>
                     ))}
                   </div>

@@ -142,14 +142,12 @@
 
 @media (min-width: 769px) {
   .folder-actions {
-    opacity: 0;
-    transform: translateX(8px);
-    transition: all var(--transition-fast);
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
   }
 
   .folder-card:hover .folder-actions {
     opacity: 1;
-    transform: translateX(0);
   }
 }
 
