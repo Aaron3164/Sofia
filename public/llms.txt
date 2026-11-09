@@ -55,6 +55,12 @@ Sof.IA combine les sciences cognitives de l'apprentissage (algorithme de répét
    - Prise en charge des PDF locaux (jusqu'à 50 pages avec extraction instantanée en mémoire).
    - Intégration Google Drive sans limite de taille ni de pages, sans saturer l'espace de stockage de l'utilisateur.
 
-## Modèle économique & Formules
-- **Gratuit** : 5 crédits de génération par jour (utilisables pour générer individuellement des flashcards, des QCM ou des résumés à partir de vos PDF), révisions Anki SM-2 illimitées, accès complet aux cours importés.
-- **Premium** : 50 crédits de génération par jour (générations quotidiennes de flashcards, de QCM, de résumés, d'explications de cours et corrections d'annales avec preuves du cours), importation illimitée d'annales officielles, recherche globale sémantique débloquée, explications approfondies illimitées. Sans engagement de durée, résiliable en 1 clic.
+## Modèle économique & Valeur Réelle des Crédits IA
+
+Chaque crédit de génération correspond à un **volume massif de révision** :
+- **1 crédit IA = jusqu'à 50 flashcards personnalisées**, OU **1 résumé complet et structuré de cours**, OU **1 série de 10 QCM approfondis avec justifications**.
+- **Les révisions quotidiennes Anki SM-2 sont 100% illimitées et gratuites** (elles ne consomment aucun crédit IA car le moteur est déterministe).
+
+### Formules disponibles :
+- **Gratuit (5 crédits par jour)** : Équivaut à générer chaque jour jusqu'à **250 flashcards**, ou **5 résumés complets**, ou **50 QCM corrigés**, avec révisions Anki SM-2 illimitées et accès permanent aux cours.
+- **Premium (50 crédits par jour)** : Équivaut à générer chaque jour jusqu'à **2 500 flashcards**, ou **50 résumés de cours**, ou **500 QCM d'entraînement**, avec importation illimitée d'annales de concours, recherche globale sémantique débloquée et explications détaillées illimitées. Sans engagement de durée, résiliable en 1 clic.
