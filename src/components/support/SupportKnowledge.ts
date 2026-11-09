@@ -48,7 +48,7 @@ export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
     category: 'premium',
     title: 'Comment résilier ou gérer mon abonnement ?',
     keywords: ['resilier', 'annuler', 'stop', 'arret', 'desabonner', 'gerer', 'remboursement'],
-    answer: `Vous pouvez résilier votre abonnement à tout moment, en 1 clic et sans engagement :\n\n• Rendez-vous dans le lien de gestion présent dans votre email de confirmation reçu lors du paiement Payhip.\n• Ou contactez directement le support via la page de contact.\n• Votre statut Premium restera actif jusqu'à la fin de la période déjà réglée.`
+    answer: `Vous pouvez résilier votre abonnement à tout moment, en 1 clic et sans engagement :\n\n• Rendez-vous dans le lien de gestion présent dans votre email de confirmation reçu lors du paiement Payhip.\n• Ou contactez directement le support à **sofia.study.app@gmail.com**.\n• Votre statut Premium restera actif jusqu'à la fin de la période déjà réglée.`
   },
 
   // --- COURS & DOCUMENTS ---

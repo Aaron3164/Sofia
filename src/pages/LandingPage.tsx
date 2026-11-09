@@ -1164,6 +1164,10 @@ export default function LandingPage(props: LandingPageProps) {
                         <span>
                             L’IA prépare le terrain. Le déclic, c’est toi.
                         </span>
+                        <div style={{ marginTop: "0.75rem", display: "flex", gap: "1.25rem", justifyContent: "center", fontSize: "0.8rem", color: "#71717a" }}>
+                            <a href="/legal" style={{ textDecoration: "underline" }}>Mentions Légales & CGU</a>
+                            <a href="mailto:sofia.study.app@gmail.com" style={{ textDecoration: "underline" }}>Contact : sofia.study.app@gmail.com</a>
+                        </div>
                     </footer>
                 </div>
             </section>

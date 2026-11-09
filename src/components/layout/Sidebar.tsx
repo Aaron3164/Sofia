@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search, BookX } from 'lucide-react';
+import { Moon, Sparkles, User as UserIcon, Crown, X, Library, Calendar, Zap, BarChart3, LayoutDashboard, Search, BookX, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getDailyUsage } from '../../lib/gemini';
 import { ErrorBookService } from '../../lib/ErrorBookService';
@@ -145,6 +145,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         >
           <span className="nav-item-icon"><Sparkles size={17} /></span>
           Chat SofIA
+        </NavLink>
+
+        <NavLink
+          to="/legal"
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          onClick={() => {
+            if (window.innerWidth <= 768 && onClose) onClose();
+          }}
+        >
+          <span className="nav-item-icon"><FileText size={17} /></span>
+          Mentions Légales & CGU
         </NavLink>
       </nav>
 

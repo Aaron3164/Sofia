@@ -12,7 +12,8 @@ import {
   BarChart3,
   Search,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Mail
 } from 'lucide-react';
 import { 
   SUPPORT_CATEGORIES, 
@@ -656,8 +657,21 @@ export const SupportWidget: React.FC = () => {
               color: 'var(--text-secondary)'
             }}
           >
-            <span>Besoin d'une assistance personnalisée ?</span>
-            <span style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>Service Client</span>
+            <span>Besoin d'une assistance ?</span>
+            <a
+              href="mailto:sofia.study.app@gmail.com"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontWeight: 600,
+                color: 'var(--accent-primary)',
+                textDecoration: 'none'
+              }}
+            >
+              <Mail size={13} />
+              <span>sofia.study.app@gmail.com</span>
+            </a>
           </div>
         </div>
       )}

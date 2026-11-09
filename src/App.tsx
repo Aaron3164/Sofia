@@ -15,6 +15,7 @@ const AnnaleDetail = lazy(() => import('./pages/AnnaleDetail'));
 const Statistics = lazy(() => import('./pages/StatsPage'));
 const FlashcardsExplorer = lazy(() => import('./pages/FlashcardsExplorer'));
 const ErrorBookPage = lazy(() => import('./pages/ErrorBookPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
 
 import { DialogProvider } from './context/DialogContext';
 import { useTheme } from './context/ThemeContext';
@@ -71,6 +72,7 @@ function AppContent() {
             <Route path="/flashcards" element={<FlashcardsExplorer />} />
             <Route path="/errors" element={<ErrorBookPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/legal" element={<LegalPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
