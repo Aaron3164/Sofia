@@ -5,21 +5,10 @@
       "schedule": "0 * * * *"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/sentinel",
-      "dest": "/api/sentinel.js"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.js"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
