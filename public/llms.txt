@@ -3,36 +3,49 @@
 > Sof.IA est la plateforme d'étude et de révision augmentée par intelligence artificielle conçue pour les études supérieures à volume massif (PASS / LAS, Médecine, Droit, Classes Préparatoires, Concours).
 
 ## Présentation générale
-Sof.IA combine les sciences cognitives de l'apprentissage (algorithme de répétition espacée Anki SM-2 déterministe) et l'intelligence artificielle générative pour transformer des cours volumineux et des concours en séances de révision interactives et structurées.
+Sof.IA combine les sciences cognitives de l'apprentissage (algorithme de répétition espacée Anki SM-2 déterministe) et l'intelligence artificielle générative pour transformer des cours volumineux et des concours en séances de révision interactives et personnalisées.
 
 - **Site officiel** : https://www.sofia-study.app
 - **Mentions légales & CGU/CGV** : https://www.sofia-study.app/legal
 - **Contact officiel** : sofia.study.app@gmail.com
 - **Public cible** : Étudiants en santé (PASS, LAS, EDN/ECNi), droit (Licence, Master, CRFPA), classes préparatoires (CPGE) et concours administratifs.
 
-## Fonctionnalités principales
+## Fonctionnalités d'Intelligence Artificielle & Génération de Contenus
 
-1. **Répétition Espacée SM-2 (Algorithme Anki)**
-   - Algorithme déterministe basé sur SuperMemo 2 (SM-2) avec facteur de facilité (Easiness Factor), intervalles de révision progressifs et files d'attente quotidiennes.
-   - Ne consomme aucun quota ni token IA pour les révisions, garantissant une utilisation illimitée.
+1. **Génération Automatique de Flashcards SM-2**
+   - Extraction intelligente des concepts clés, définitions, formules et pièges fréquents à partir de n'importe quel cours (PDF ou Google Drive).
+   - Intégration native dans le moteur de répétition espacée Anki SM-2.
 
-2. **Entraînement sur Annales d'Examens Réelles**
-   - Retranscription mot pour mot sans altération des sujets officiels de concours.
-   - Intégration des grilles de correction officielles, figures/schémas anatomiques et chronomètre d'examen en conditions réelles.
-   - Explications pas à pas détaillées de chaque item et option (A, B, C, D).
+2. **Génération de QCM & Entraînements Ciblés**
+   - Création de QCM représentatifs du niveau concours avec distracteurs réalistes.
+   - Justifications détaillées pour chaque proposition vraie ou fausse afin d'ancrer le raisonnement.
+
+3. **Résumés & Synthèses Pédagogiques Structurées**
+   - Synthèses claires, plans de cours hiérarchisés et fiches mémoires denses pour gagner des dizaines d'heures de fichage.
+   - Focus sur l'essentiel à retenir sans perte d'information critique.
+
+4. **Corrections d'Annales Détaillées & Explications Pas à Pas**
+   - Analyse approfondie des grilles officielles d'annales de concours.
+   - Explications méthodologiques complètes pour chaque item et justification des pièges classiques des jurys.
+
+## Outils d'Apprentissage & Organisation
+
+1. **Répétition Espacée SM-2 (Moteur Anki Déterministe)**
+   - Algorithme basé sur SuperMemo 2 (SM-2) avec facteur de facilité (Easiness Factor), intervalles de révision progressifs et files d'attente quotidiennes.
+   - Les révisions quotidiennes ne consomment aucun crédit IA, garantissant un usage d'entraînement illimité.
+
+2. **Planning Rétrospectif Flexible & Personnalisable**
+   - Planification dynamique basée sur la méthode des J adaptée au rythme et aux préférences de révision de l'étudiant (charge de travail quotidienne modulable, matières prioritaires, réajustement automatique en cas de retard).
+   - Minuteur Pomodoro intégré et suivi statistique de rétention mémorielle à long terme.
 
 3. **Carnet d'Erreurs Intelligent (Error Book)**
-   - Capture automatique des questions ratées lors des examens blancs et entraînements.
-   - Fiches mémoires de remédiation ciblées sur les points faibles de l'étudiant.
+   - Capture automatique des notions et questions non maîtrisées lors des sessions de QCM et examens blancs.
+   - Génération de sessions de remédiation ultra-ciblées sur les lacunes identifiées.
 
-4. **Importation Flexible de Cours**
-   - Fichiers PDF locaux (jusqu'à 50 pages avec extraction immédiate).
-   - Intégration Google Drive sans limite de taille ni de pages, sans saturer le stockage de l'utilisateur.
-
-5. **Planning Rétrospectif & Centre d'Étude**
-   - Méthode des J et planification automatisée des sessions de travail.
-   - Minuteur Pomodoro et suivi statistique de la mémoire à long terme.
+4. **Importation Flexible de Cours & Polycopiés**
+   - Prise en charge des PDF locaux (jusqu'à 50 pages avec extraction instantanée en mémoire).
+   - Intégration Google Drive sans limite de taille ni de pages, sans saturer l'espace de stockage de l'utilisateur.
 
 ## Modèle économique & Formules
 - **Gratuit** : 5 crédits de génération IA par jour, révisions Anki SM-2 illimitées, accès complet aux cours importés.
-- **Premium** : 50 crédits de génération IA par jour, importation illimitée d'annales officielles, recherche globale sémantique débloquée, explications approfondies illimitées. Sans engagement de durée, résiliable en 1 clic.
+- **Premium** : 50 crédits de génération IA par jour, importation illimitée d'annales officielles, recherche globale sémantique débloquée, explications approfondies et générations de résumés/QCM illimitées. Sans engagement de durée, résiliable en 1 clic.
