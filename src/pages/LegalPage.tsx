@@ -82,7 +82,7 @@ export default function LegalPage() {
               Article 1. Mentions Légales
             </h2>
             <p style={{ marginBottom: '0.75rem' }}>
-              <strong>1.1. Éditeur de la plateforme :</strong> La plateforme web et applicative accessible depuis <code>sofia-study.vercel.app</code> (ci-après désignée « Sof.IA ») est éditée par Aaron Karsenti, agissant à titre individuel et indépendant en qualité de créateur du service.
+              <strong>1.1. Éditeur de la plateforme :</strong> La plateforme web et applicative accessible depuis <code>sofia-study.app</code> (ci-après désignée « Sof.IA ») est éditée par Aaron Karsenti, agissant à titre individuel et indépendant en qualité de créateur du service.
             </p>
             <p style={{ marginBottom: '0.75rem' }}>
               <strong>1.2. Contact officiel & Support :</strong> Pour toute demande technique, commerciale, juridique ou réclamation, le contact s'effectue exclusivement par voie électronique à l'adresse suivante :{' '}
