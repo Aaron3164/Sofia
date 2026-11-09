@@ -34,6 +34,17 @@ function AppContent() {
     }
   }, [profile?.preferences?.theme, setTheme]);
 
+  // Special public route accessible with or without authentication
+  if (window.location.pathname === '/legal') {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Chargement...</div>}>
+          <LegalPage />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   // If auth is still checking and user hasn't been established
   if (loading) {
     if (user) {

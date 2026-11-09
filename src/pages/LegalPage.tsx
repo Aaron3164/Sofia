@@ -17,7 +17,13 @@ export default function LegalPage() {
       <div style={{ maxWidth: '840px', margin: '0 auto' }}>
         {/* Navigation retour */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              window.location.href = '/';
+            }
+          }}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -42,7 +48,7 @@ export default function LegalPage() {
           }}
         >
           <ArrowLeft size={16} />
-          Retour
+          Retour à l'accueil
         </button>
 
         {/* En-tête */}
