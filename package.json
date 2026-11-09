@@ -17,6 +17,7 @@
     "@types/katex": "^0.16.8",
     "date-fns": "^4.1.0",
     "dompurify": "^3.4.16",
+    "googleapis": "^189.0.0",
     "katex": "^0.16.45",
     "lucide-react": "^1.6.0",
     "pdf-lib": "^1.17.1",
