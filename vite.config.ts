@@ -89,18 +89,15 @@ export default defineConfig(({ mode }) => {
                 const { model = 'models/gemini-3.5-flash-lite', contents, config } = body;
 
                 const ai = new GoogleGenAI({ apiKey });
-                const candidateModels = isPremiumUser
-                  ? Array.from(new Set([
-                      model,
-                      'models/gemini-3.1-flash-lite',
-                      'models/gemini-2.0-flash',
-                      'models/gemini-2.5-flash'
-                    ]))
-                  : Array.from(new Set([
-                      'models/gemini-3.1-flash-lite',
-                      'models/gemini-2.0-flash',
-                      'models/gemini-2.5-flash'
-                    ]));
+                // Unified resilient cascade for all users:
+                // 1. models/gemini-3.5-flash-lite (500 RPD free)
+                // 2. models/gemini-3.1-flash-lite (500 RPD free)
+                // 3. models/gemini-2.5-flash (fallback)
+                const candidateModels = Array.from(new Set([
+                  'models/gemini-3.5-flash-lite',
+                  'models/gemini-3.1-flash-lite',
+                  'models/gemini-2.5-flash'
+                ]));
 
                 let lastError: any = null;
 
