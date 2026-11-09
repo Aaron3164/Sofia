@@ -30,6 +30,7 @@ interface InteractiveQAProps {
   documentContext: string;
   preferences?: AIPreferences;
   plan?: string;
+  courseId?: string;
 }
 
 const QAAiMessageItem: React.FC<{
@@ -73,7 +74,7 @@ const QAAiMessageItem: React.FC<{
   );
 };
 
-export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, documentContext, preferences, plan }) => {
+export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, documentContext, preferences, plan, courseId }) => {
   const [inputValue, setInputValue] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [conversations, setConversations] = useState<QAConversation[]>([]);
@@ -270,7 +271,7 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
 
     try {
       const annaleText = activeAnnale?.extractedText;
-      const options = { preferences, annaleContext: annaleText };
+      const options = { preferences, annaleContext: annaleText, courseId };
 
       if (isNewChat) {
         // Run both API calls concurrently

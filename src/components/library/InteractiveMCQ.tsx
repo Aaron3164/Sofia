@@ -497,7 +497,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
         };
       });
 
-      const corrections = await explainMCQErrors(ctx, errorItems, profile?.preferences);
+      const corrections = await explainMCQErrors(ctx, errorItems, profile?.preferences, courseId);
       setDetailedCorrections(corrections);
       setShowDetailedPanel(true);
     } catch (err: any) {

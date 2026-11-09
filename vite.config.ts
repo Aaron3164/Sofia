@@ -42,30 +42,11 @@ export default defineConfig(({ mode }) => {
             const token = authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
             const sbUrl = env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
             const sbKey = env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-            let isPremiumUser = false;
 
             if (token && sbUrl && sbKey) {
               const supabase = createClient(sbUrl, sbKey, {
                 global: { headers: { Authorization: `Bearer ${token}` } }
               });
-              try {
-                const { data: { user } } = await supabase.auth.getUser(token);
-                if (user) {
-                  const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('plan, premium_until')
-                    .eq('id', user.id)
-                    .maybeSingle();
-                  if (profileData && profileData.plan === 'premium') {
-                    const isExpired = profileData.premium_until
-                      ? new Date(profileData.premium_until) < new Date()
-                      : false;
-                    isPremiumUser = !isExpired;
-                  }
-                }
-              } catch (e) {
-                console.warn('[Vite Dev Gemini Proxy] Profile check error:', e);
-              }
               const { data: quotaAllowed, error: quotaError } = await supabase.rpc('check_and_increment_ai_usage');
               if (quotaError) {
                 console.warn('[Vite Dev Gemini Proxy] Quota RPC error:', quotaError.message);
@@ -92,12 +73,14 @@ export default defineConfig(({ mode }) => {
                 // Unified resilient cascade for all users:
                 // 1. models/gemini-3.5-flash-lite (500 RPD free)
                 // 2. models/gemini-3.1-flash-lite (500 RPD free)
-                // 3. models/gemini-2.5-flash (fallback)
-                const candidateModels = Array.from(new Set([
-                  'models/gemini-3.5-flash-lite',
-                  'models/gemini-3.1-flash-lite',
-                  'models/gemini-2.5-flash'
-                ]));
+                // 3. models/gemini-2.5-flash (fallback / web search grounding)
+                const candidateModels = model === 'models/gemini-2.5-flash'
+                  ? ['models/gemini-2.5-flash', 'models/gemini-3.5-flash-lite', 'models/gemini-3.1-flash-lite']
+                  : [
+                      'models/gemini-3.5-flash-lite',
+                      'models/gemini-3.1-flash-lite',
+                      'models/gemini-2.5-flash'
+                    ];
 
                 let lastError: any = null;
 
@@ -110,7 +93,8 @@ export default defineConfig(({ mode }) => {
                       res.setHeader('Content-Type', 'application/json');
                       return res.end(JSON.stringify({ 
                         text: response.text || '',
-                        groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
+                        groundingMetadata: response.candidates?.[0]?.groundingMetadata || null,
+                        usageMetadata: response.usageMetadata || null
                       }));
                     } catch (err: any) {
                       lastError = err;

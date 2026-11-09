@@ -421,7 +421,8 @@ export default function ChatSofia() {
         useWebSearch,
         attachmentContext: currentAttachment?.content,
         coursesContext: relevantCoursesContext,
-        preferences: profile?.preferences
+        preferences: profile?.preferences,
+        targetScopeId: selectedTargetNode?.id || 'chat_sofia_auto_rag'
       });
 
       const assistantMessage: SofiaChatMessage = {

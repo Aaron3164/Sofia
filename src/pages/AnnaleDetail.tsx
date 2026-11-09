@@ -8,6 +8,7 @@ import { useFileSystem } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { supabase } from '../lib/supabase';
+import { getCachedAllCourseData } from '../lib/courseDataCache';
 import { InteractiveMCQ, type MCQ } from '../components/library/InteractiveMCQ';
 import { InteractiveQA } from '../components/library/InteractiveQA';
 import './SubjectDetail.css';
@@ -103,7 +104,7 @@ export default function AnnaleDetail() {
         setQuestions(loadedQuestions);
         setQaData(loadedQa);
 
-        // B. Fetch all courses from the parent folder to build context
+        // B. Fetch all courses from the parent folder to build strictly separated 2-zone context
         const parentId = annaleNode?.parentId || null;
         const siblingCourses = nodes.filter(n => 
           n.type === 'course' && 
@@ -112,7 +113,9 @@ export default function AnnaleDetail() {
           !n.name.startsWith('🎓')
         );
 
-        let combinedContext = `--- SUJET DE L'ANNALE : ${displayTitle} ---\n${ownContent}\n\n`;
+        let combinedContext = `=== [ZONE_1_SUJET_OFFICIEL_DE_L_ANNALE : ${displayTitle}] ===\n`;
+        combinedContext += `(CIBLE EXCLUSIVE DES CORRECTIONS : Lorsque l'étudiant demande de corriger l'annale ou d'expliquer une question N, ce sont EXCLUSIVEMENT les questions de cette ZONE 1 qui doivent être corrigées.)\n\n`;
+        combinedContext += `--- TEXTE BRUT OFFICIEL DE L'ÉPREUVE ---\n${ownContent}\n\n`;
 
         // If parsed questions and official answers exist, format and append the official grid
         if (loadedQuestions && loadedQuestions.length > 0) {
@@ -121,8 +124,9 @@ export default function AnnaleDetail() {
           loadedQuestions.forEach((q, qIdx) => {
             const raw = (q as any).correctAnswers ?? (q as any).correct_answers ?? (q as any).correctAnswer ?? (q as any).correct_answer ?? [];
             const rawArr = Array.isArray(raw) ? raw : [raw];
+            const qNum = (q as any).questionNumber || (qIdx + 1);
             
-            combinedContext += `Question ${qIdx + 1} : "${q.question}"\n`;
+            combinedContext += `[ANNALE_OFFICIELLE_QUESTION_${qNum}] Question ${qNum} : "${q.question}"\n`;
             if (q.options && q.options.length > 0) {
               const correctLetters: string[] = [];
               q.options.forEach((opt, oIdx) => {
@@ -145,25 +149,38 @@ export default function AnnaleDetail() {
             }
             combinedContext += `\n`;
           });
-          combinedContext += `--- FIN DE LA GRILLE OFFICIELLE DU CONCOURS ---\n\n`;
+          combinedContext += `--- FIN DE LA GRILLE OFFICIELLE DU CONCOURS ---\n`;
         }
+        combinedContext += `=== [FIN_ZONE_1_SUJET_OFFICIEL_DE_L_ANNALE] ===\n\n`;
 
-        if (siblingCourses.length > 0 && user) {
-          const courseIds = siblingCourses.map(c => c.id);
-          const { data: siblingsData, error: sibError } = await supabase
-            .from('course_data')
-            .select('course_id, extracted_content, file_name')
-            .in('course_id', courseIds);
+        // ZONE 2: All theoretical courses in the same folder (from memory cache, cloud, or local storage even if never opened/revised yet)
+        if (siblingCourses.length > 0) {
+          combinedContext += `=== [ZONE_2_COURS_THEORIQUES_DU_DOSSIER] ===\n`;
+          combinedContext += `(BASE DE CONNAISSANCES THÉORIQUES DU DOSSIER : Utilise l'ensemble de ces cours pour chercher les preuves, mécanismes, définitions et pages justifiant les réponses de l'annale ou pour répondre aux questions de l'étudiant. N'utilise JAMAIS un exercice interne à ces cours à la place des questions de la ZONE 1.)\n\n`;
 
-          if (!sibError && siblingsData) {
-            siblingsData.forEach(s => {
-              const matchingNode = siblingCourses.find(c => c.id === s.course_id);
-              const courseTitle = s.file_name || matchingNode?.name || 'Cours du dossier';
-              if (s.extracted_content && s.extracted_content.trim()) {
-                combinedContext += `--- COURS DU DOSSIER : ${courseTitle} ---\n${s.extracted_content.substring(0, 80000)}\n\n`;
+          const allCachedCourses = user ? await getCachedAllCourseData(user.id) : [];
+
+          for (const sibNode of siblingCourses) {
+            const cloudEntry = allCachedCourses.find(c => c.course_id === sibNode.id);
+            let courseText = cloudEntry?.extracted_content || '';
+            let courseTitle = cloudEntry?.file_name || sibNode.name || 'Cours du dossier';
+
+            if (!courseText) {
+              const localRaw = localStorage.getItem(`aura_subject_${sibNode.id}`);
+              if (localRaw) {
+                try {
+                  const localParsed = JSON.parse(localRaw);
+                  courseText = localParsed.extractedContent || localParsed.generations?.resume || '';
+                  if (localParsed.fileName) courseTitle = localParsed.fileName;
+                } catch {}
               }
-            });
+            }
+
+            if (courseText && courseText.trim()) {
+              combinedContext += `--- DOCUMENT DE COURS THÉORIQUE DU DOSSIER : ${courseTitle} (ID: ${sibNode.id}) ---\n${courseText.substring(0, 80000)}\n\n`;
+            }
           }
+          combinedContext += `=== [FIN_ZONE_2_COURS_THEORIQUES_DU_DOSSIER] ===\n\n`;
         }
 
         setFolderCoursesContext(combinedContext);
@@ -175,7 +192,7 @@ export default function AnnaleDetail() {
     }
 
     loadAnnaleData();
-  }, [id, user?.id, annaleNode?.parentId, displayTitle]);
+  }, [id, user?.id, annaleNode?.parentId, displayTitle, nodes.length]);
 
   // Handle QA updates
   const handleQAUpdate = async (newData: string) => {
@@ -416,7 +433,9 @@ export default function AnnaleDetail() {
                 data={qaData}
                 onUpdate={handleQAUpdate}
                 documentContext={folderCoursesContext}
+                preferences={profile?.preferences}
                 plan={profile?.plan}
+                courseId={id}
               />
             </div>
           </>

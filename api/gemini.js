@@ -111,13 +111,15 @@ export default async function handler(req, res) {
     // Unified resilient cascade for all users:
     // 1. models/gemini-3.5-flash-lite (500 RPD free tier)
     // 2. models/gemini-3.1-flash-lite (500 RPD free tier)
-    // 3. models/gemini-2.5-flash (20 RPD fallback)
+    // 3. models/gemini-2.5-flash (20 RPD fallback / web search grounding)
     // Total free capacity: 1,000+ generations/day, 0€ cost.
-    const candidateModels = Array.from(new Set([
-      'models/gemini-3.5-flash-lite',
-      'models/gemini-3.1-flash-lite',
-      'models/gemini-2.5-flash'
-    ]));
+    const candidateModels = model === 'models/gemini-2.5-flash'
+      ? ['models/gemini-2.5-flash', 'models/gemini-3.5-flash-lite', 'models/gemini-3.1-flash-lite']
+      : [
+          'models/gemini-3.5-flash-lite',
+          'models/gemini-3.1-flash-lite',
+          'models/gemini-2.5-flash'
+        ];
 
     let lastError = null;
 
@@ -134,7 +136,8 @@ export default async function handler(req, res) {
 
           return res.status(200).json({ 
             text: response.text || '',
-            groundingMetadata: response.candidates?.[0]?.groundingMetadata || null
+            groundingMetadata: response.candidates?.[0]?.groundingMetadata || null,
+            usageMetadata: response.usageMetadata || null
           });
         } catch (err) {
           lastError = err;

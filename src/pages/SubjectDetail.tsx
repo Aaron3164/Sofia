@@ -511,7 +511,8 @@ export default function SubjectDetail() {
           activeTab,
           profile?.preferences,
           activeTab === 'flashcards' ? flashcardCount : undefined,
-          customInstructions
+          customInstructions,
+          id
         );
         const newGenerations = { 
           ...generations, 
@@ -1050,6 +1051,7 @@ export default function SubjectDetail() {
                   documentContext={extractedContent}
                   preferences={profile?.preferences}
                   plan={profile?.plan}
+                  courseId={id}
                 />
               </div>
 

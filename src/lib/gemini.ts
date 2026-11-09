@@ -147,13 +147,29 @@ function getSystemInstruction(prefs?: AIPreferences) {
   return `${personalities[personality]} ${modes[studyMode]}\n${boldInstruction}\n\n`;
 }
 
-// Helper to generate a cache key from arguments
-function getCacheKey(prefix: string, content: string): string {
-  let hash = 5381;
-  for (let i = 0; i < content.length; i++) {
-    hash = (hash * 33) ^ content.charCodeAt(i);
+// Helper to generate a collision-proof cache key from a unique course/annale ID and arguments
+function getCacheKey(prefix: string, scopeId: string, content: string): string {
+  let h1 = 0xdeadbeef ^ scopeId.length;
+  let h2 = 0x41c6ce57 ^ content.length;
+  const full = `${scopeId}:::${content}`;
+  for (let i = 0; i < full.length; i++) {
+    const ch = full.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
   }
-  return `${prefix}_${(hash >>> 0).toString(36)}`;
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return `${prefix}_${scopeId}_${(h2 >>> 0).toString(36)}_${(h1 >>> 0).toString(36)}_${content.length}`;
+}
+
+/**
+ * Formats the static document prefix so Google Gemini Context Caching
+ * matches 100% of the document tokens across Flashcards, MCQ, Resume, and QA
+ * for the SAME courseId, while strictly isolating different courses/annales.
+ */
+function buildCourseCachePrefix(courseId: string | undefined, cleanDocumentText: string): string {
+  const safeId = courseId || 'isolated_doc';
+  return `=== [GOOGLE_CONTEXT_CACHE_SCOPE_ID: ${safeId}] ===\n=== [DOCUMENT_DE_REFERENCE_STABLE_POUR_MISE_EN_CACHE] ===\n${cleanDocumentText}\n=== [FIN_DU_DOCUMENT_EN_CACHE_SCOPE: ${safeId}] ===`;
 }
 
 /**
@@ -185,7 +201,8 @@ export async function generateStudyMaterials(
   mode: 'flashcards' | 'mcq' | 'resume',
   prefs?: AIPreferences,
   cardCount?: number,
-  customInstructions?: string
+  customInstructions?: string,
+  courseId?: string
 ): Promise<string> {
   const systemInstruction = getSystemInstruction(prefs);
 
@@ -231,7 +248,8 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
 
   const isJSON = mode === 'flashcards' || mode === 'mcq';
   const cleanContext = compactCourseText(promptContext);
-  const requestContents = [`${fullPromptHeader}\n\nDOCUMENT DE COURS :\n${cleanContext}`];
+  const cachedPrefixBlock = buildCourseCachePrefix(courseId, cleanContext);
+  const requestContents = [`${cachedPrefixBlock}\n\n=== TÂCHE DEMANDÉE SUR CE COURS ===\n${fullPromptHeader}`];
 
   try {
     const response = await callGeminiProxy(
@@ -304,23 +322,26 @@ export async function askQuestion(
   context: string,
   question: string,
   history: { role: 'user' | 'ai'; text: string }[] = [],
-  prefsOrOptions?: AIPreferences | { preferences?: AIPreferences; annaleContext?: string },
+  prefsOrOptions?: AIPreferences | { preferences?: AIPreferences; annaleContext?: string; courseId?: string },
   annaleContextArg?: string
 ): Promise<string> {
   let prefs: AIPreferences | undefined;
   let annaleContext: string | undefined = annaleContextArg;
+  let courseId: string | undefined;
 
   if (prefsOrOptions) {
-    if ('preferences' in prefsOrOptions || 'annaleContext' in prefsOrOptions) {
-      const opts = prefsOrOptions as { preferences?: AIPreferences; annaleContext?: string };
+    if ('preferences' in prefsOrOptions || 'annaleContext' in prefsOrOptions || 'courseId' in prefsOrOptions) {
+      const opts = prefsOrOptions as { preferences?: AIPreferences; annaleContext?: string; courseId?: string };
       prefs = opts.preferences;
       if (opts.annaleContext) annaleContext = opts.annaleContext;
+      if (opts.courseId) courseId = opts.courseId;
     } else {
       prefs = prefsOrOptions as AIPreferences;
     }
   }
 
-  const cacheKey = getCacheKey('qa', context + '|||' + question + '|||' + (annaleContext || '') + '|||' + JSON.stringify(history) + '|||' + JSON.stringify(prefs));
+  const scopeId = courseId || 'qa_isolated';
+  const cacheKey = getCacheKey('qa', scopeId, context + '|||' + question + '|||' + (annaleContext || '') + '|||' + JSON.stringify(history) + '|||' + JSON.stringify(prefs));
   const cached = sessionStorage.getItem(cacheKey);
   if (cached) {
     console.log('[CACHE HIT] QA answer loaded from session cache.');
@@ -332,13 +353,19 @@ export async function askQuestion(
   const isAnnaleOrQcmQuery = Boolean(
     (annaleContext && annaleContext.trim()) ||
     context.includes('GRILLE DE CORRECTION OFFICIELLE') ||
+    context.includes('[ZONE_1_SUJET_OFFICIEL_DE_L_ANNALE]') ||
     /annale|qcm|item|items|corrige|correction|grille|concours|question\s*\d/i.test(question)
   );
 
   const annaleCorrectionProtocol = isAnnaleOrQcmQuery ? `
 
 === PROTOCOLE STRICT DE CORRECTION DES ANNALES & QCM (RÈGLE ABSOLUE) ===
-Si l'étudiant demande de corriger des questions, des QCM ou toute l'annale (ex: "corrige l'annale", "corrige les qcm", "corrige qcm par qcm", "explications des items", "corrige tout", "fais la correction", etc.) :
+Si l'étudiant demande de corriger des questions, des QCM ou toute l'annale (ex: "corrige l'annale", "corrige les qcm", "corrige qcm par qcm", "explications des items", "corrige tout", "fais la correction", "explique la question X", etc.) :
+
+0. SÉPARATION STRICTE ENTRE LE SUJET D'ANNALE (ZONE 1) ET LES COURS DU DOSSIER (ZONE 2) :
+- Lorsque tu corriges l'annale ou qu'on te demande d'expliquer une question numéro N (ex: Question 5, QCM 11), tu DOIS EXCLUSIVEMENT cibler les questions listées dans le bloc [ZONE_1_SUJET_OFFICIEL_DE_L_ANNALE] (ou le sujet d'annale attaché).
+- INTERDICTION FORMELLE de corriger à la place un QCM d'entraînement, un exercice ou un chapitre qui se trouverait à l'intérieur des cours théoriques du dossier ([ZONE_2_COURS_THEORIQUES_DU_DOSSIER]).
+- En revanche, tu DOIS CHERCHER ACTIVEMENT dans TOUS les cours du dossier ([ZONE_2_COURS_THEORIQUES_DU_DOSSIER]) pour extraire les preuves théoriques, définitions, mécanismes et pages permettant d'expliquer pourquoi chaque proposition de l'annale est vraie ou fausse, ou pour répondre à toute question de compréhension posée par l'étudiant.
 
 1. ALIGNEMENT TOTAL SUR LA CORRECTION OFFICIELLE (ZÉRO CONTRADICTION) :
 - La grille de correction officielle présente dans le contexte est la VÉRITÉ ABSOLUE du concours.
@@ -346,7 +373,7 @@ Si l'étudiant demande de corriger des questions, des QCM ou toute l'annale (ex:
 - Ne contredis JAMAIS la grille officielle : justifie fidèlement la position officielle retenue par le concours / les professeurs.
 
 2. EXHAUSTIVITÉ ET ORDRE DES QUESTIONS (AUCUN SAUT ACCEPTÉ) :
-- Traite l'ENSEMBLE des questions dans l'ordre chronologique exact (Question 1, Question 2, Question 3, ..., jusqu'à la dernière question).
+- Traite l'ENSEMBLE des questions demandées dans l'ordre chronologique exact (Question 1, Question 2, Question 3, ..., jusqu'à la dernière question de l'annale).
 - NE SAUTE AUCUNE QUESTION sous aucun prétexte.
 
 3. STRUCTURE ET MISE EN FORME VISUELLE DE CHAQUE QUESTION (STRICTEMENT CONFORME À CE MODÈLE) :
@@ -398,10 +425,12 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 
   let annalePrompt = "";
   if (annaleContext && annaleContext.trim()) {
-    annalePrompt = `\n\nSUJET D'EXAMEN / ANNALES / EXERCICE ATTACHÉ PAR L'ÉTUDIANT :\n${compactCourseText(annaleContext).substring(0, 150000)}\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal ci-dessus, ses méthodes, sa structure et ses notions. Respecte impérativement la grille de correction officielle sans jamais la contredire.`;
+    annalePrompt = `\n\n=== [ZONE_1_SUJET_D_ANNALE_ATTACHE_PAR_L_ETUDIANT] ===\n${compactCourseText(annaleContext).substring(0, 150000)}\n=== [FIN_ZONE_1_SUJET_ATTACHE] ===\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal mis en cache tout en haut, ses méthodes, sa structure et ses notions. Respecte impérativement la grille de correction officielle sans jamais la contredire.`;
   }
 
-  const fullPrompt = `${systemInstruction}${baseInstruction}\n\nContexte tiré du document du cours :\n${compactCourseText(context)}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
+  const cleanContext = compactCourseText(context);
+  const cachedPrefixBlock = buildCourseCachePrefix(courseId, cleanContext);
+  const fullPrompt = `${cachedPrefixBlock}\n\n=== INSTRUCTIONS PÉDAGOGIQUES & QUESTION ===\n${systemInstruction}${baseInstruction}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
   
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt]);
@@ -433,7 +462,7 @@ export async function generateChatTitle(question: string): Promise<string> {
 }
 
 export async function globalSearch(query: string, allCoursesContext: string, prefs?: AIPreferences, customInstructions?: string): Promise<string> {
-  const cacheKey = getCacheKey('search', query + '|||' + allCoursesContext + '|||' + (customInstructions || '') + '|||' + JSON.stringify(prefs));
+  const cacheKey = getCacheKey('search', 'global_search_scope', query + '|||' + allCoursesContext + '|||' + (customInstructions || '') + '|||' + JSON.stringify(prefs));
   const cached = sessionStorage.getItem(cacheKey);
   if (cached) {
     console.log('[CACHE HIT] Global search result loaded from session cache.');
@@ -445,8 +474,11 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
     ? `\nCONSIGNE PARTICULIÈRE DE L'ÉTUDIANT POUR CETTE SYNTHÈSE (À RESPECTER EN PRIORITÉ) :\n"${customInstructions.trim()}"\n` 
     : '';
 
-  const fullPrompt = `${systemInstruction}Tu es Sofia, une assistante universitaire experte et polyvalente.
-On te fournit ci-dessous le contenu textuel extrait de plusieurs de mes cours.
+  const cleanAllContext = compactCourseText(allCoursesContext);
+  const cachedPrefixBlock = buildCourseCachePrefix('global_search_library', cleanAllContext);
+
+  const fullPrompt = `${cachedPrefixBlock}\n\n=== MISSION DE SYNTHÈSE GLOBALE ===\n${systemInstruction}Tu es Sofia, une assistante universitaire experte et polyvalente.
+On t'a fourni ci-dessus en cache le contenu textuel extrait de plusieurs de mes cours.
 
 L'étudiant (que tu tutoies) recherche l'information suivante ou pose cette question : "${query}".
 ${customBlock}
@@ -454,9 +486,7 @@ Ta mission :
 1. ANALYSE CRITIQUE : Analyse tous les cours fournis pour trouver les éléments pertinents.
 2. RÉPONSE SYNTHÉTIQUE : Réponds directement à la question de manière structurée et pédagogique.
 3. CITATION SOURCE : C'est CRITIQUE. Pour chaque bloc d'information, cite explicitement le cours d'où il provient en utilisant le format [Source: Nom du Cours] (le nom du cours est indiqué par les balises --- COURS: ... ---).
-4. FORMATAGE : Utilise du **gras**, des listes à puces, et SURTOUT du surlignage '==' pour les notions clés.
-
-Contexte des cours :\n${allCoursesContext}`;
+4. FORMATAGE : Utilise du **gras**, des listes à puces, et SURTOUT du surlignage '==' pour les notions clés.`;
   
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt]);
@@ -483,11 +513,13 @@ export interface MCQErrorItem {
 export async function explainMCQErrors(
   documentContext: string,
   errors: MCQErrorItem[],
-  prefs?: AIPreferences
+  prefs?: AIPreferences,
+  courseId?: string
 ): Promise<Record<number, string>> {
   if (!errors || errors.length === 0) return {};
 
-  const cacheKey = getCacheKey('mcq_errors_v3', documentContext.substring(0, 30000) + '|||' + JSON.stringify(errors));
+  const scopeId = courseId || 'mcq_isolated';
+  const cacheKey = getCacheKey('mcq_errors_v3', scopeId, documentContext.substring(0, 30000) + '|||' + JSON.stringify(errors));
   const cached = sessionStorage.getItem(cacheKey);
   if (cached) {
     try {
@@ -506,13 +538,16 @@ Bonne(s) réponse(s) : ${err.correctAnswers.join(' | ')}
 Réponse(s) choisie(s) par l'étudiant : ${err.userSelected.length > 0 ? err.userSelected.join(' | ') : 'Aucune sélection'}`;
   }).join('\n\n');
 
-  const fullPrompt = `${systemInstruction}Tu t'appelles Sofia. Tu es une assistante universitaire d'apprentissage experte.
-L'étudiant vient de terminer une session d'examen blanc (QCM) sur son cours et a fait des erreurs sur les questions suivantes :
+  const cleanDoc = compactCourseText(documentContext).substring(0, 250000);
+  const cachedPrefixBlock = buildCourseCachePrefix(courseId, cleanDoc);
+
+  const fullPrompt = `${cachedPrefixBlock}\n\n=== TÂCHE : EXPLICATION DES ERREURS DE QCM ===\n${systemInstruction}Tu t'appelles Sofia. Tu es une assistante universitaire d'apprentissage experte.
+L'étudiant vient de terminer une session d'examen blanc (QCM) sur son cours ci-dessus et a fait des erreurs sur les questions suivantes :
 
 ${errorsListText}
 
 CONSIGNES STRICTES :
-Pour CHAQUE question ratée ci-dessus, formule une explication pédagogique, fluide et naturelle en STRICTEMENT 1 SEULE PHRASE, basée sur le contenu du cours ci-dessous.
+Pour CHAQUE question ratée ci-dessus, formule une explication pédagogique, fluide et naturelle en STRICTEMENT 1 SEULE PHRASE, basée sur le contenu du cours mis en cache ci-dessus.
 Cette phrase doit expliquer simplement et clairement pourquoi la bonne réponse indiquée est exacte ou en quoi le choix de l'étudiant était faux.
 
 RÈGLES CAPITALES :
@@ -527,10 +562,7 @@ Un objet JSON où chaque clé est l'index numérique de la question (${errors.ma
 Exemple :
 {
   "${errors[0]?.questionIndex ?? 0}": "Les médicaments atropiniques et l'acide valproïque aggravent les fonctions cognitives et peuvent entraîner une pseudodémence réversible."
-}
-
-Texte source du cours :
-${compactCourseText(documentContext).substring(0, 250000)}`;
+}`;
 
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt], {
@@ -917,28 +949,30 @@ export async function askChatSofia(
     attachmentContext?: string;
     coursesContext?: string;
     preferences?: AIPreferences;
+    targetScopeId?: string;
   }
 ): Promise<{ text: string; sources?: { title: string; url: string }[] }> {
   const systemInstruction = getUniversalSofiaSystemPrompt(options?.preferences);
   // Gemini 2.5 Flash has first-class Google Search tool grounding
   const model = options?.useWebSearch ? 'models/gemini-2.5-flash' : 'models/gemini-3.5-flash-lite';
 
-  let basePrompt = `${systemInstruction}\n\n`;
+  let basePrompt = '';
 
-  // 1. PRIORITÉ ABSOLUE : Les polycopiés et cours de l'étudiant
+  // 1. PRIORITÉ ABSOLUE EN DÉBUT DE PROMPT (Pour Google Context Caching optimal) : Les polycopiés et cours de l'étudiant
   if (options?.coursesContext && options.coursesContext.trim()) {
+    const cleanCourses = compactCourseText(options.coursesContext).slice(0, 150000);
+    const scopeId = options.targetScopeId || 'chat_sofia_courses';
+    basePrompt += `${buildCourseCachePrefix(scopeId, cleanCourses)}\n\n`;
     basePrompt += `====================================================================
-BIBLIOTHÈQUE DE COURS DE L'ÉTUDIANT (SOURCE DE VÉRITÉ PRIORITAIRE) :
-Ci-dessous se trouvent des extraits pertinents issus des cours et documents PDF importés par l'étudiant.
-
+BIBLIOTHÈQUE DE COURS DE L'ÉTUDIANT (SOURCE DE VÉRITÉ PRIORITAIRE CI-DESSUS) :
 RÈGLE D'OR DE PRIORITÉ :
 1. Si la question de l'étudiant est traitée dans ces cours, BASE-TOI EN PRIORITÉ ABSOLUE SUR CES DONNÉES. Utilise leurs définitions, classifications et méthodes exactes, et cite explicitement le cours concerné (ex: "[D'après votre cours : Nom Du Cours]").
 2. Si ces cours n'en parlent que partiellement, commence par donner les éléments de son cours puis complète avec tes connaissances externes ou la recherche web.
 3. Si la question n'est PAS traitée dans ces cours ou si ces extraits ne sont pas pertinents pour sa question, utilise alors librement tes connaissances académiques générales et la recherche web pour lui répondre de manière exhaustive et complète.
-====================================================================
-${compactCourseText(options.coursesContext).slice(0, 150000)}
 ====================================================================\n\n`;
   }
+
+  basePrompt += `${systemInstruction}\n\n`;
 
   // 2. Fichier temporaire joint par l'étudiant dans le chat
   if (options?.attachmentContext && options.attachmentContext.trim()) {
