@@ -1,0 +1,38 @@
+# Sof.IA (sofia-study.app)
+
+> Sof.IA est la plateforme d'étude et de révision augmentée par intelligence artificielle conçue pour les études supérieures à volume massif (PASS / LAS, Médecine, Droit, Classes Préparatoires, Concours).
+
+## Présentation générale
+Sof.IA combine les sciences cognitives de l'apprentissage (algorithme de répétition espacée Anki SM-2 déterministe) et l'intelligence artificielle générative pour transformer des cours volumineux et des concours en séances de révision interactives et structurées.
+
+- **Site officiel** : https://www.sofia-study.app
+- **Mentions légales & CGU/CGV** : https://www.sofia-study.app/legal
+- **Contact officiel** : sofia.study.app@gmail.com
+- **Public cible** : Étudiants en santé (PASS, LAS, EDN/ECNi), droit (Licence, Master, CRFPA), classes préparatoires (CPGE) et concours administratifs.
+
+## Fonctionnalités principales
+
+1. **Répétition Espacée SM-2 (Algorithme Anki)**
+   - Algorithme déterministe basé sur SuperMemo 2 (SM-2) avec facteur de facilité (Easiness Factor), intervalles de révision progressifs et files d'attente quotidiennes.
+   - Ne consomme aucun quota ni token IA pour les révisions, garantissant une utilisation illimitée.
+
+2. **Entraînement sur Annales d'Examens Réelles**
+   - Retranscription mot pour mot sans altération des sujets officiels de concours.
+   - Intégration des grilles de correction officielles, figures/schémas anatomiques et chronomètre d'examen en conditions réelles.
+   - Explications pas à pas détaillées de chaque item et option (A, B, C, D).
+
+3. **Carnet d'Erreurs Intelligent (Error Book)**
+   - Capture automatique des questions ratées lors des examens blancs et entraînements.
+   - Fiches mémoires de remédiation ciblées sur les points faibles de l'étudiant.
+
+4. **Importation Flexible de Cours**
+   - Fichiers PDF locaux (jusqu'à 50 pages avec extraction immédiate).
+   - Intégration Google Drive sans limite de taille ni de pages, sans saturer le stockage de l'utilisateur.
+
+5. **Planning Rétrospectif & Centre d'Étude**
+   - Méthode des J et planification automatisée des sessions de travail.
+   - Minuteur Pomodoro et suivi statistique de la mémoire à long terme.
+
+## Modèle économique & Formules
+- **Gratuit** : 5 crédits de génération IA par jour, révisions Anki SM-2 illimitées, accès complet aux cours importés.
+- **Premium** : 50 crédits de génération IA par jour, importation illimitée d'annales officielles, recherche globale sémantique débloquée, explications approfondies illimitées. Sans engagement de durée, résiliable en 1 clic.

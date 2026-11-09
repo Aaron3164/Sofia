@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Allow: /legal
+Allow: /llms.txt
 Disallow: /chat
 Disallow: /planning
 Disallow: /statistics
@@ -9,5 +10,36 @@ Disallow: /errors
 Disallow: /dashboard
 Disallow: /subject/
 Disallow: /annale/
+
+# Autorisation explicite des moteurs IA (ChatGPT, Perplexity, Claude, Gemini)
+User-agent: GPTBot
+Allow: /
+Allow: /legal
+Allow: /llms.txt
+
+User-agent: ChatGPT-User
+Allow: /
+Allow: /legal
+Allow: /llms.txt
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /legal
+Allow: /llms.txt
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /legal
+Allow: /llms.txt
+
+User-agent: Google-Extended
+Allow: /
+Allow: /legal
+Allow: /llms.txt
+
+User-agent: Applebot-Extended
+Allow: /
+Allow: /legal
+Allow: /llms.txt
 
 Sitemap: https://www.sofia-study.app/sitemap.xml
