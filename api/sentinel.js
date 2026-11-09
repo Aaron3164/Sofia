@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://exsmiwmcuqabczguyaen.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4c21pd21jdXFhYmN6Z3V5YWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyOTE4OTgsImV4cCI6MjA4OTg2Nzg5OH0.MzsYbHAIZytFoU5gMYjcqc9CAl21BQXRRw6i9QiAdVE';
 const BLAND_API_KEY = process.env.BLAND_API_KEY || 'org_s_d910c3aea3213cc1f9bd70ba24cb4f9369106507fb3e61573c2a45aa3400ffb9';
 const AARON_PHONE = process.env.AARON_PHONE || '+33767210597';
 
