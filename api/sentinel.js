@@ -96,7 +96,8 @@ export async function triggerDailyBriefingCall(metrics) {
 
 5. VOLUME DE GÉNÉRATIONS IA & COÛTS EN TOKENS :
 - Total des générations IA réalisées sur l'app : exactement ${metrics.totalAiGenerations} générations au compteur.
-- Coût total réel en tokens (API Gemini) : exactement 0,00 € dépensé car l'application tourne sur le palier gratuit généreux de Google AI Studio (aucune facture prélevée).
+- Coût total réel en tokens (API Gemini) : exactement 0,00 € dépensé car l'application tourne à 100% sur le palier gratuit généreux de Google AI Studio (plus de 1 000 requêtes gratuites par jour avec la cascade multi-modèles Flash-Lite).
+- Architecture de Context Caching & Pay-as-you-go : L'application utilise le Google Context Caching implicite (-90% de réduction sur les tokens d'entrée dès la 2ème génération d'un cours ou dossier). Si Aaron te demande des précisions sur les coûts futurs ou le Pay-as-you-go, rassure-le : le caching implicite est 100% sans frais de stockage, et même avec un étudiant très intensif faisant 1 500 générations par mois, le coût d'API réel ne dépasserait pas ~1,30 € par mois pour un abonnement vendu 9,99 €.
 
 6. SANTÉ TECHNIQUE DES SERVEURS & BUGS :
 - État Vercel et Supabase : 100% au vert, aucune panne de serveur, aucun crash 500, et 0 bug bloquant sur les générations.
@@ -105,7 +106,7 @@ CONSIGNE STRICTE :
 - Présente ce topo de manière concise, vivante et fluide en français.
 - NE RACCROCHE JAMAIS D'ELLE-MÊME. Reste en ligne tant qu'Aaron te parle pour répondre à toutes ses questions.`;
 
-    const firstSentence = `Bonjour Aaron, c'est Sof.IA ! Je t'appelle pour ton topo complet : utilisateurs, tes 510 générations IA, solde PayPal, emails et santé de l'app. Tu as deux minutes ?`;
+    const firstSentence = `Bonjour Aaron, c'est Sof.IA ! Je t'appelle pour ton topo complet : utilisateurs, tes ${metrics.totalAiGenerations} générations IA, solde PayPal, emails et santé de l'app. Tu as deux minutes ?`;
 
     const payload = {
       phone_number: AARON_PHONE,
