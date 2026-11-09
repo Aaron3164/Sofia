@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /legal
+Disallow: /chat
+Disallow: /planning
+Disallow: /statistics
+Disallow: /flashcards
+Disallow: /errors
+Disallow: /dashboard
+Disallow: /subject/
+Disallow: /annale/
+
+Sitemap: https://www.sofia-study.app/sitemap.xml
