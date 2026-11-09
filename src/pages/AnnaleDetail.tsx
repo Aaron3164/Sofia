@@ -8,7 +8,7 @@ import { useFileSystem } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { supabase } from '../lib/supabase';
-import { getCachedAllCourseData } from '../lib/courseDataCache';
+import { getCachedAllCourseData, updateCachedCourseData } from '../lib/courseDataCache';
 import { InteractiveMCQ, type MCQ } from '../components/library/InteractiveMCQ';
 import { InteractiveQA } from '../components/library/InteractiveQA';
 import './SubjectDetail.css';
@@ -164,6 +164,7 @@ export default function AnnaleDetail() {
             const cloudEntry = allCachedCourses.find(c => c.course_id === sibNode.id);
             let courseText = cloudEntry?.extracted_content || '';
             let courseTitle = cloudEntry?.file_name || sibNode.name || 'Cours du dossier';
+            let generationsObj = cloudEntry?.generations || {};
 
             if (!courseText) {
               const localRaw = localStorage.getItem(`aura_subject_${sibNode.id}`);
@@ -172,11 +173,30 @@ export default function AnnaleDetail() {
                   const localParsed = JSON.parse(localRaw);
                   courseText = localParsed.extractedContent || localParsed.generations?.resume || '';
                   if (localParsed.fileName) courseTitle = localParsed.fileName;
+                  if (localParsed.generations) generationsObj = localParsed.generations;
                 } catch {}
               }
             }
 
             if (courseText && courseText.trim()) {
+              // Automatically populate/warm both in-memory cache and localStorage cache for this sibling course
+              // so that opening the course later or using it in ChatSofIA is already 100% cached!
+              updateCachedCourseData(sibNode.id, {
+                file_name: courseTitle,
+                extracted_content: courseText,
+                generations: generationsObj
+              });
+              try {
+                const existingLocal = localStorage.getItem(`aura_subject_${sibNode.id}`);
+                if (!existingLocal) {
+                  localStorage.setItem(`aura_subject_${sibNode.id}`, JSON.stringify({
+                    extractedContent: courseText,
+                    fileName: courseTitle,
+                    generations: generationsObj
+                  }));
+                }
+              } catch {}
+
               combinedContext += `--- DOCUMENT DE COURS THÉORIQUE DU DOSSIER : ${courseTitle} (ID: ${sibNode.id}) ---\n${courseText.substring(0, 80000)}\n\n`;
             }
           }

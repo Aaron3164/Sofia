@@ -53,9 +53,13 @@ export async function getCachedAllCourseData(userId?: string, forceRefresh = fal
 
 /**
  * Met à jour ou insère un cours dans le cache mémoire sans avoir à re-télécharger toute la table.
+ * Si le cache n'était pas encore initialisé, l'initialise pour que ce cours soit immédiatement en cache
+ * pour ChatSofIA, la Recherche Globale et l'ouverture directe du cours.
  */
 export function updateCachedCourseData(courseId: string, partial: Partial<CourseDataEntry>) {
-  if (!cachedCourses) return;
+  if (!cachedCourses) {
+    cachedCourses = [];
+  }
   const idx = cachedCourses.findIndex(c => c.course_id === courseId);
   if (idx >= 0) {
     cachedCourses[idx] = { ...cachedCourses[idx], ...partial };

@@ -313,6 +313,7 @@ export default function ChatSofia() {
 
       // Retrieve relevant course excerpts from the student's imported PDFs & courses
       let relevantCoursesContext = '';
+      let resolvedTargetScopeId = selectedTargetNode?.id || 'chat_sofia_auto_rag';
       try {
         const cloudData = await getCachedAllCourseData(profile?.id);
         const getCourseText = (node: FileNode) => {
@@ -339,27 +340,32 @@ export default function ChatSofia() {
             const targetCourse = nodes.find(n => n.id === selectedTargetNode.id);
             if (targetCourse) {
               const { content, resume } = getCourseText(targetCourse);
-              relevantCoursesContext = `--- COURS CIBLÉ PAR L'ÉTUDIANT : ${targetCourse.name} ---\n${content || resume || 'Aucun texte extrait pour ce cours.'}`;
+              // Pass the exact raw course content with its exact courseId so Google Context Cache
+              // matches 100% with the cache created when studying this course in SubjectDetail!
+              relevantCoursesContext = (content || resume || 'Aucun texte extrait pour ce cours.').substring(0, 300000);
+              resolvedTargetScopeId = targetCourse.id;
             }
           } else {
             const folderCourses = getDescendantCourses(selectedTargetNode.id);
             const blocks: string[] = [];
             let totalChars = 0;
-            const maxFolderBudget = 160000;
+            const maxFolderBudget = 120000; // Coherent ~30k token cap for folder context
 
             for (const cNode of folderCourses) {
               if (totalChars >= maxFolderBudget) break;
               const { content, resume } = getCourseText(cNode);
+              // Prioritize already-synthesized resume if studied, plus raw course excerpts for precision
               const textToUse = content || resume;
               if (textToUse) {
                 const slice = textToUse.slice(0, Math.max(15000, Math.floor(maxFolderBudget / Math.max(1, folderCourses.length))));
-                blocks.push(`--- COURS DU DOSSIER "${selectedTargetNode.name}" : ${cNode.name} ---\n${slice}`);
+                blocks.push(`--- COURS DU DOSSIER "${selectedTargetNode.name}" : ${cNode.name} (ID: ${cNode.id}) ---\n${slice}`);
                 totalChars += slice.length;
               }
             }
             if (blocks.length > 0) {
               relevantCoursesContext = blocks.join('\n\n');
             }
+            resolvedTargetScopeId = `folder_${selectedTargetNode.id}`;
           }
         } else {
           // Automatic keyword scan across all courses
@@ -369,7 +375,7 @@ export default function ChatSofia() {
             const tokens = cleanQ.split(/[\s,.'";:!?()\-+/]+/).filter(t => t.length >= 3);
 
             if (tokens.length > 0) {
-              const matchedBlocks: { name: string; text: string; score: number }[] = [];
+              const matchedBlocks: { id: string; name: string; text: string; fullText: string; score: number }[] = [];
 
               for (const node of courseNodes) {
                 const { content, resume } = getCourseText(node);
@@ -394,8 +400,10 @@ export default function ChatSofia() {
                   }
 
                   matchedBlocks.push({
+                    id: node.id,
                     name: node.name,
                     text: snippetParts.join('\n...\n').slice(0, 4000),
+                    fullText: (content || resume).substring(0, 300000),
                     score
                   });
                 }
@@ -404,10 +412,16 @@ export default function ChatSofia() {
               matchedBlocks.sort((a, b) => b.score - a.score);
               const topBlocks = matchedBlocks.slice(0, 5);
 
-              if (topBlocks.length > 0) {
+              // If a single course clearly dominates the student's question (or only 1 course matches),
+              // reuse its exact courseId and full text to hit the existing 90%-discounted Google Context Cache!
+              if (topBlocks.length === 1 || (topBlocks.length > 1 && topBlocks[0].score >= topBlocks[1].score * 2)) {
+                relevantCoursesContext = topBlocks[0].fullText;
+                resolvedTargetScopeId = topBlocks[0].id;
+              } else if (topBlocks.length > 0) {
                 relevantCoursesContext = topBlocks.map(b => 
-                  `--- COURS : ${b.name} ---\n${b.text}`
+                  `--- COURS : ${b.name} (ID: ${b.id}) ---\n${b.text}`
                 ).join('\n\n');
+                resolvedTargetScopeId = `rag_${topBlocks.map(b => b.id).join('_')}`;
               }
             }
           }
@@ -422,7 +436,7 @@ export default function ChatSofia() {
         attachmentContext: currentAttachment?.content,
         coursesContext: relevantCoursesContext,
         preferences: profile?.preferences,
-        targetScopeId: selectedTargetNode?.id || 'chat_sofia_auto_rag'
+        targetScopeId: resolvedTargetScopeId
       });
 
       const assistantMessage: SofiaChatMessage = {

@@ -960,7 +960,7 @@ export async function askChatSofia(
 
   // 1. PRIORITÉ ABSOLUE EN DÉBUT DE PROMPT (Pour Google Context Caching optimal) : Les polycopiés et cours de l'étudiant
   if (options?.coursesContext && options.coursesContext.trim()) {
-    const cleanCourses = compactCourseText(options.coursesContext).slice(0, 150000);
+    const cleanCourses = compactCourseText(options.coursesContext).slice(0, 300000);
     const scopeId = options.targetScopeId || 'chat_sofia_courses';
     basePrompt += `${buildCourseCachePrefix(scopeId, cleanCourses)}\n\n`;
     basePrompt += `====================================================================
