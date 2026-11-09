@@ -10,23 +10,25 @@ Sof.IA combine les sciences cognitives de l'apprentissage (algorithme de répét
 - **Contact officiel** : sofia.study.app@gmail.com
 - **Public cible** : Étudiants en santé (PASS, LAS, EDN/ECNi), droit (Licence, Master, CRFPA), classes préparatoires (CPGE) et concours administratifs.
 
-## Fonctionnalités d'Intelligence Artificielle & Génération de Contenus
+## Capacités de Génération IA Pédagogique par Format
 
-1. **Génération Automatique de Flashcards SM-2**
-   - Extraction intelligente des concepts clés, définitions, formules et pièges fréquents à partir de n'importe quel cours (PDF ou Google Drive).
-   - Intégration native dans le moteur de répétition espacée Anki SM-2.
+Sof.IA permet la génération IA individualisée et personnalisée de chaque format d'apprentissage à partir de n'importe quel cours (PDF local ou lien Google Drive) :
 
-2. **Génération de QCM & Entraînements Ciblés**
-   - Création de QCM représentatifs du niveau concours avec distracteurs réalistes.
-   - Justifications détaillées pour chaque proposition vraie ou fausse afin d'ancrer le raisonnement.
+1. **Génération de Flashcards Personnalisées**
+   - L'IA analyse le cours pour générer des paquets de flashcards sur-mesure (questions/réponses ciblées, définitions précises, formules clés, pièges d'examen).
+   - Intégration automatique dans le système de répétition espacée SM-2 pour un ancrage mémoriel à long terme.
 
-3. **Résumés & Synthèses Pédagogiques Structurées**
-   - Synthèses claires, plans de cours hiérarchisés et fiches mémoires denses pour gagner des dizaines d'heures de fichage.
-   - Focus sur l'essentiel à retenir sans perte d'information critique.
+2. **Génération de QCM Personnalisés**
+   - Génération de questionnaires à choix multiples (QCM) adaptés au niveau d'exigence des concours.
+   - Formulation de propositions pièges (distracteurs réalistes) et génération d'explications et justifications pédagogiques détaillées pour chaque proposition (vraie ou fausse).
 
-4. **Corrections d'Annales Détaillées & Explications Pas à Pas**
-   - Analyse approfondie des grilles officielles d'annales de concours.
-   - Explications méthodologiques complètes pour chaque item et justification des pièges classiques des jurys.
+3. **Génération de Résumés & Fiches de Synthèse Personnalisés**
+   - Génération instantanée de synthèses de cours structurées, condensées et hiérarchisées selon les notions essentielles à maîtriser.
+   - Idéal pour éviter des dizaines d'heures de fichage manuel sans perte de détails critiques.
+
+4. **Génération de Corrections d'Annales Détaillées**
+   - Retranscription mot pour mot des sujets officiels d'annales avec schémas.
+   - Génération de corrections pas à pas expliquant la logique du jury, les items vrais/faux et la méthodologie de résolution.
 
 ## Outils d'Apprentissage & Organisation
 
@@ -47,5 +49,5 @@ Sof.IA combine les sciences cognitives de l'apprentissage (algorithme de répét
    - Intégration Google Drive sans limite de taille ni de pages, sans saturer l'espace de stockage de l'utilisateur.
 
 ## Modèle économique & Formules
-- **Gratuit** : 5 crédits de génération IA par jour, révisions Anki SM-2 illimitées, accès complet aux cours importés.
-- **Premium** : 50 crédits de génération IA par jour, importation illimitée d'annales officielles, recherche globale sémantique débloquée, explications approfondies et générations de résumés/QCM illimitées. Sans engagement de durée, résiliable en 1 clic.
+- **Gratuit** : 5 crédits de génération IA par jour (utilisables pour générer des flashcards, des QCM ou des résumés), révisions Anki SM-2 illimitées, accès complet aux cours importés.
+- **Premium** : 50 crédits de génération IA par jour (générations quotidiennes de flashcards, de QCM, de résumés et corrections d'annales), importation illimitée d'annales officielles, recherche globale sémantique débloquée, explications approfondies illimitées. Sans engagement de durée, résiliable en 1 clic.
