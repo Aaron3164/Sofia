@@ -92,12 +92,12 @@ export default defineConfig(({ mode }) => {
                 const candidateModels = isPremiumUser
                   ? Array.from(new Set([
                       model,
-                      'models/gemini-2.5-flash-lite',
-                      'models/gemini-2.5-flash',
-                      'models/gemini-2.0-flash'
+                      'models/gemini-3.1-flash-lite',
+                      'models/gemini-2.0-flash',
+                      'models/gemini-2.5-flash'
                     ]))
                   : Array.from(new Set([
-                      'models/gemini-2.5-flash-lite',
+                      'models/gemini-3.1-flash-lite',
                       'models/gemini-2.0-flash',
                       'models/gemini-2.5-flash'
                     ]));
