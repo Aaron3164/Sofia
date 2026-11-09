@@ -83,7 +83,6 @@ function AppContent() {
             <Route path="/flashcards" element={<FlashcardsExplorer />} />
             <Route path="/errors" element={<ErrorBookPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/legal" element={<LegalPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
