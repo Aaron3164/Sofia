@@ -110,18 +110,18 @@ export default async function handler(req, res) {
 
     // Models cascade fallback on 503 / high demand with Tier Segmentation:
     // - Premium users start at the top-tier model (models/gemini-3.5-flash-lite or requested model)
-    // - Free users start directly at Repli 1 (models/gemini-2.5-flash) and keep the full fallback cascade
+    // - Free users start directly on ultra-fast, zero-thinking models/gemini-2.5-flash-lite (< 2s)
     const candidateModels = isPremiumUser
       ? Array.from(new Set([
           model,
-          'models/gemini-2.5-flash',
           'models/gemini-2.5-flash-lite',
+          'models/gemini-2.5-flash',
           'models/gemini-2.0-flash'
         ]))
       : Array.from(new Set([
-          'models/gemini-2.5-flash',
           'models/gemini-2.5-flash-lite',
-          'models/gemini-2.0-flash'
+          'models/gemini-2.0-flash',
+          'models/gemini-2.5-flash'
         ]));
 
     let lastError = null;
