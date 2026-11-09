@@ -86,11 +86,12 @@ export async function triggerDailyBriefingCall(metrics) {
 
 3. FINANCES & SOLDE PAYPAL :
 - Solde PayPal disponible : ${metrics.paypalBalance} € sur le compte Professionnel Sofia.
-- Chiffre d'Affaires estimé (abonnements récurrents) : ${metrics.estimatedRevenue} € par mois (3 abonnements à 9,99 €/mois).
+- Chiffre d'Affaires réel (abonnements payés par des clients tiers) : ${metrics.estimatedRevenue} € par mois (${metrics.realPayingUsers} abonnés payants réels hors tes 3 comptes de test : Aaron Karsenti, AKA test, Daniel).
+- Remarque : Tes 3 comptes de test (Aaron, AKA test, Daniel) sont exclus du calcul pour refléter uniquement tes vraies ventes.
 
 4. UTILISATEURS SUR SUPABASE :
 - Total étudiants inscrits : ${metrics.totalUsers} étudiants.
-- Abonnés Premium actifs : ${metrics.premiumUsers} (Aaron Karsenti, AKA test, Daniel).
+- Abonnés Premium : ${metrics.premiumUsers} (dont ${metrics.realPayingUsers} vrais clients et 3 comptes de test à toi).
 - Comptes gratuits : ${metrics.freeUsers} étudiants.
 
 5. VOLUME DE GÉNÉRATIONS IA & COÛTS EN TOKENS :
@@ -153,6 +154,9 @@ export default async function handler(req, res) {
     const total = totalUsers || 8;
     const premium = premiumUsers || 3;
     const free = total - premium;
+    // Exclure les 3 comptes tests d'Aaron (Aaron Karsenti, AKA test, Daniel) pour le CA réel
+    const realPayingUsers = Math.max(0, premium - 3);
+    const realRevenueEur = (realPayingUsers * 9.99).toFixed(2);
 
     // 2. Volume de générations IA réelles
     const { data: aiUsageData } = await supabase
@@ -180,9 +184,10 @@ export default async function handler(req, res) {
     const metrics = {
       totalUsers: total,
       premiumUsers: premium,
+      realPayingUsers,
       freeUsers: free,
       paypalBalance: '1,26',
-      estimatedRevenue: (premium * 9.99).toFixed(2),
+      estimatedRevenue: realRevenueEur,
       totalAiGenerations,
       tokenCostEur: '0,00',
       systemHealth: '100% opérationnel, 0 bug détecté',

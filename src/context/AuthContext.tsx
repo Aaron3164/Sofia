@@ -192,6 +192,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
+    // Clear all user-specific local caches so next login/signup on this machine starts fresh
+    try {
+      const keysToRemove = [
+        'aura_file_system',
+        'aura_spaced_repetition',
+        'sofia_error_book',
+        'sofia_game_tour_active',
+        'sofia_game_tour_completed'
+      ];
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      
+      // Also clear demo seeded & course id keys
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sofia_demo_') || key.startsWith('sofia_onboarding_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to clear local storage on signOut:', e);
+    }
+
     await supabase.auth.signOut();
   }
 

@@ -96,33 +96,23 @@ function useFileSystemInternal(): FileSystemContextType {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(mappedNodes));
       } catch {}
     } else {
-      // 2. Migration Bridge: Check for local data to upload
+      // 2. Migration Bridge: Check for local guest data to upload (only if guest had genuinely created nodes)
       const localNodes = getInitialCachedNodes();
-      if (localNodes.length > 0) {
-        console.log('Migrating local nodes to Supabase...');
-        const toInsert = localNodes.map((n: any) => ({
-          id: n.id,
-          user_id: user.id,
-          name: n.name,
-          type: n.type,
-          parent_id: n.parentId,
-          color: n.color,
-          "order": n.order,
-          created_at: new Date(n.createdAt).toISOString()
-        }));
+      // If local nodes contain only stale/foreign data or user has no cloud nodes, seed the fresh demo course
+      const hasStaleNonDemo = localNodes.some((n: any) => n.name !== 'Dossier Démo' && n.name !== 'Guide SofIA Démo');
 
-        const { error: insertError } = await supabase.from('nodes').insert(toInsert);
-        if (!insertError) {
-          setNodes(localNodes);
-        }
+      // For a brand-new user, seed fresh demo course and launch onboarding tour
+      const seeded = await seedDemoCourseIfEmpty(user.id);
+      if (seeded) {
+        setNodes([seeded.folderNode, seeded.courseNode]);
+        // Trigger onboarding interactive tour automatically for first-time account
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('open-onboarding-tour'));
+        }, 600);
+      } else if (localNodes.length > 0 && !hasStaleNonDemo) {
+        setNodes(localNodes);
       } else {
-        // Brand new user: Seed demo course!
-        const seeded = await seedDemoCourseIfEmpty(user.id);
-        if (seeded) {
-          setNodes([seeded.folderNode, seeded.courseNode]);
-        } else {
-          setNodes([]);
-        }
+        setNodes([]);
       }
     }
     setIsInitialLoad(false);
