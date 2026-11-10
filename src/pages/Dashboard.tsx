@@ -455,18 +455,17 @@ export default function Dashboard() {
                 </div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>0€ <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
                 
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>5 générations IA / jour</strong> (soit ~150 flashcards ou ~50 QCM)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Modèle IA Standard (Gemini Flash)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Flashcards, QCM & Résumés essentiels</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Répétition espacée SM-2 (Algorithme Anki)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Recherche transversale globale (Ctrl+K)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Planning des cours & méthode des J</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Carnet d'erreurs automatique</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Documents limités à 15 pages par cours</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Jusqu'à 10 cours enregistrés au total</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Export PDF avec mention SofIA</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Pas d'accès au Planning Rétrospectif d'Examen</div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>5 générations IA par jour</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Modèle IA Standard</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Flashcards, QCM & Résumés essentiels</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Répétition espacée SM-2</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Recherche transversale globale</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Carnet d'erreurs automatique</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}><X size={16} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} /> <span>Documents limités à 15 pages</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}><X size={16} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} /> <span>Jusqu'à 10 cours enregistrés</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}><X size={16} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} /> <span>Export PDF avec mention SofIA</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}><X size={16} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} /> <span>Planning Rétrospectif verrouillé</span></div>
                 </div>
 
                 <button 
@@ -504,18 +503,17 @@ export default function Dashboard() {
                 </div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>9,99€ <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
                 
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Tous les outils d'apprentissage inclus</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>50 générations IA / jour</strong> (soit ~1 500 flashcards ou ~500 QCM / jour)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Modèle IA Premium Ultra-Raisonnement</strong> (Gemini Pro/Flash 3.5 prioritaire)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Documents jusqu'à 50 pages</strong> par cours (gros polycopiés & traités)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Cours & dossiers illimités</strong> (sans aucun plafond)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Simulateur d'Annales officiel</strong> (découpage A-E avec preuves du cours)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Planning Rétrospectif d'Examen</strong> jusqu'au Jour J (1 à 5 tours)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>ChatSofIA tuteur illimité</strong> avec recherche web en direct</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Export PDF marque blanche</strong> épuré (sans mention d'IA)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> File de traitement IA prioritaire à haute vitesse</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Support prioritaire 7j/7</div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span><strong>50 générations IA par jour</strong> (soit ~1 500 flashcards ou ~500 QCM)</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span><strong>Modèle IA Premium Ultra-Raisonnement</strong></span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span><strong>Documents jusqu'à 50 pages</strong> par cours</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span><strong>Cours & dossiers illimités</strong></span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Simulateur d'Annales officiel avec preuves du cours</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Planning Rétrospectif d'Examen jusqu'au Jour J</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>ChatSofIA tuteur intensif avec recherche web</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Export PDF marque blanche sans mention d'IA</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Traitement prioritaire haute vitesse</span></div>
+                  <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span>Support prioritaire 7j/7</span></div>
                 </div>
 
                 <button 

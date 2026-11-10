@@ -7,6 +7,7 @@ import React, {
 } from "react"
 import type { CSSProperties } from "react"
 import CookieBanner from "../components/CookieBanner"
+import { Check, X as XIcon } from "lucide-react"
 
 interface LandingPageProps {
     onGetStarted?: () => void
@@ -373,9 +374,11 @@ export default function LandingPage(props: LandingPageProps) {
 .sofia-landing .price-card { padding:28px; display:flex; flex-direction:column; min-height:100%; background:var(--card); border:1px solid var(--line); border-radius:20px; }
 .sofia-landing .price-card h3 { color:#ffffff; font-weight:700; font-size:22px; }
 .sofia-landing .price-value { color:#ffffff; margin-top:6px; font-size:64px; font-weight:700; line-height:.95; letter-spacing:-0.03em; }
-.sofia-landing .price-card ul { margin:18px 0 22px; padding-left:18px; color:var(--muted); line-height:1.6; flex:1; }
-.sofia-landing .price-card li { padding:12px 0; border-top:1px solid var(--line); }
+.sofia-landing .price-card ul { margin:18px 0 22px; padding:0; list-style:none; color:var(--muted); line-height:1.5; flex:1; }
+.sofia-landing .price-card li { padding:10px 0; border-top:1px solid var(--line); display:flex; align-items:flex-start; gap:10px; font-size:14px; }
 .sofia-landing .price-card li:first-child { border-top:none; padding-top:0; }
+.sofia-landing .price-check { color:#10b981; flex-shrink:0; margin-top:2px; }
+.sofia-landing .price-cross { color:#ef4444; flex-shrink:0; margin-top:2px; }
 .sofia-landing .price-value { margin-top:6px; font-size:64px; font-weight:700; line-height:.95; letter-spacing:-0.03em; }
 .sofia-landing .premium {
   background: linear-gradient(180deg, #1c1518 0%, #18181b 100%);
@@ -1060,15 +1063,16 @@ export default function LandingPage(props: LandingPageProps) {
                                 </span>
                             </p>
                             <ul>
-                                <li><strong>5 générations IA / jour</strong> (soit ~150 flashcards ou ~50 QCM)</li>
-                                <li>Modèle IA Standard (Gemini Flash)</li>
-                                <li>Flashcards, QCM & Résumés clés</li>
-                                <li>Répétition espacée SM-2 (Algorithme Anki)</li>
-                                <li>Recherche transversale globale (Ctrl+K)</li>
-                                <li>Planning des cours & méthode des J</li>
-                                <li>Carnet d'erreurs automatique</li>
-                                <li style={{ opacity: 0.65 }}>Documents limités à 15 pages par cours</li>
-                                <li style={{ opacity: 0.65 }}>Jusqu'à 10 cours enregistrés</li>
+                                <li><Check size={16} className="price-check" /> <span>5 générations IA par jour</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Modèle IA Standard</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Flashcards, QCM & Résumés clés</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Répétition espacée SM-2</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Recherche transversale globale</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Carnet d'erreurs automatique</span></li>
+                                <li><XIcon size={16} className="price-cross" /> <span style={{ color: "#71717a" }}>Documents limités à 15 pages</span></li>
+                                <li><XIcon size={16} className="price-cross" /> <span style={{ color: "#71717a" }}>Jusqu'à 10 cours enregistrés</span></li>
+                                <li><XIcon size={16} className="price-cross" /> <span style={{ color: "#71717a" }}>Export PDF avec mention SofIA</span></li>
+                                <li><XIcon size={16} className="price-cross" /> <span style={{ color: "#71717a" }}>Planning Rétrospectif verrouillé</span></li>
                             </ul>
                             {onGetStarted ? (
                                 <button
@@ -1097,16 +1101,16 @@ export default function LandingPage(props: LandingPageProps) {
                                 </span>
                             </p>
                             <ul>
-                                <li>Tous les avantages du plan Découverte</li>
-                                <li><strong>50 générations IA / jour</strong> (soit ~1 500 flashcards ou ~500 QCM / jour)</li>
-                                <li><strong>Modèle IA Premium Ultra-Raisonnement</strong> (Gemini Pro/Flash 3.5 prioritaire)</li>
-                                <li><strong>Documents jusqu'à 50 pages</strong> par cours (gros polycopiés)</li>
-                                <li><strong>Cours & dossiers illimités</strong> (sans plafond)</li>
-                                <li><strong>Simulateur d'Annales officiel</strong> (découpage A-E avec preuves du cours)</li>
-                                <li><strong>Planning Rétrospectif d'Examen</strong> jusqu'au Jour J</li>
-                                <li><strong>ChatSofIA tuteur illimité</strong> avec recherche web en direct</li>
-                                <li><strong>Export PDF marque blanche</strong> épuré (sans mention d'IA)</li>
-                                <li>Support prioritaire 7j/7</li>
+                                <li><Check size={16} className="price-check" /> <span><strong>50 générations IA par jour</strong> (soit ~1 500 flashcards ou ~500 QCM)</span></li>
+                                <li><Check size={16} className="price-check" /> <span><strong>Modèle IA Premium Ultra-Raisonnement</strong></span></li>
+                                <li><Check size={16} className="price-check" /> <span><strong>Documents jusqu'à 50 pages</strong> par cours</span></li>
+                                <li><Check size={16} className="price-check" /> <span><strong>Cours & dossiers illimités</strong></span></li>
+                                <li><Check size={16} className="price-check" /> <span>Simulateur d'Annales officiel avec preuves du cours</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Planning Rétrospectif d'Examen jusqu'au Jour J</span></li>
+                                <li><Check size={16} className="price-check" /> <span>ChatSofIA tuteur intensif avec recherche web</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Export PDF marque blanche sans mention d'IA</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Traitement prioritaire haute vitesse</span></li>
+                                <li><Check size={16} className="price-check" /> <span>Support prioritaire 7j/7</span></li>
                             </ul>
                             {onGetStarted ? (
                                 <button
