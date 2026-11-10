@@ -105,7 +105,7 @@ export default function LegalPage() {
               Article 2. Conditions Générales d'Utilisation (CGU)
             </h2>
             <p style={{ marginBottom: '0.75rem' }}>
-              <strong>2.1. Objet du service :</strong> Sof.IA fournit aux étudiants et apprenants des outils d'assistance aux révisions académiques, comprenant l'organisation de bibliothèques de cours, la génération de fiches mémoires selon l'algorithme de répétition espacée (SM-2), l'entraînement sur des annales d'examens et un module de synthèse par intelligence artificielle.
+              <strong>2.1. Objet du service & Âge minimum d'accès :</strong> Sof.IA fournit aux étudiants et apprenants des outils d'assistance aux révisions académiques, comprenant l'organisation de bibliothèques de cours, la génération de fiches mémoires selon l'algorithme de répétition espacée (SM-2), l'entraînement sur des annales d'examens et un module de synthèse par intelligence artificielle. Conformément à la législation française et européenne relative à la protection des mineurs (loi n° 2018-493 du 20 juin 2018 et article 8 du RGPD fixant la majorité numérique à 15 ans en France), <strong>l'inscription et l'utilisation autonome de la plateforme Sof.IA sont réservées aux personnes âgées d'au moins 15 ans</strong>. Lors de l'inscription, l'utilisateur certifie sur l'honneur avoir atteint cet âge.
             </p>
             <p style={{ marginBottom: '0.75rem' }}>
               <strong>2.2. Responsabilité pédagogique de l'utilisateur :</strong> Les synthèses, réponses générées, indices et corrections d'entraînements proposés par le système d'intelligence artificielle constituent une assistance pédagogique méthodologique. Malgré la rigueur appliquée, l'éditeur ne saurait être tenu responsable d'inexactitudes ou d'omissions. L'utilisateur demeure seul responsable de la vérification de ses connaissances au regard des supports officiels émis par ses enseignants ou jurys d'examens.
@@ -155,13 +155,13 @@ export default function LegalPage() {
               <strong>4.2. Finalité du traitement et absence de revente :</strong> Ces données sont traitées pour la gestion de votre compte, la personnalisation de vos révisions et l'exécution du contrat. <strong>Vos données personnelles ne font l'objet d'aucune vente, location ou transmission commerciale à des tiers</strong>.
             </p>
             <p style={{ marginBottom: '0.75rem' }}>
-              <strong>4.3. Cookies et traceurs :</strong> Sof.IA n'emploie aucun traceur publicitaire intrusif. Seuls sont utilisés les jetons de session d'authentification techniques indispensables au maintien de la connexion de l'utilisateur.
+              <strong>4.3. Cookies, traceurs & Polices locales (Self-Hosting) :</strong> Sof.IA n'emploie aucun traceur publicitaire ou commercial intrusif. Seuls sont utilisés les jetons de session d'authentification techniques indispensables au maintien de la connexion sécurisée de l'utilisateur. Afin de garantir une étanchéité totale de la vie privée et la conformité stricte aux exigences de la CNIL et de la jurisprudence européenne, <strong>l'ensemble des polices typographiques (Inter, Plus Jakarta Sans, Instrument Serif) sont auto-hébergées (self-hosted) directement sur les serveurs de Sof.IA</strong>. Aucune requête réseau ni adresse IP de l'utilisateur n'est transmise à des tiers (tels que Google Fonts).
             </p>
             <p style={{ marginBottom: '0.75rem' }}>
-              <strong>4.4. Droits des utilisateurs (accès, rectification, suppression) :</strong> Vous disposez à tout moment d'un droit d'accès, de rectification, de portabilité et de suppression intégrale de l'ensemble de vos données. Pour exercer ce droit ou solliciter l'effacement immédiat et définitif de votre compte et de toutes vos révisions, il vous suffit d'adresser votre demande par courriel à :{' '}
+              <strong>4.4. Droits des utilisateurs & Suppression autonome du compte en 1 clic :</strong> Vous disposez à tout moment d'un droit d'accès, de rectification, de portabilité et de suppression intégrale de l'ensemble de vos données (droit à l'oubli). Vous pouvez à tout moment <strong>supprimer définitivement et instantanément votre compte en un clic directement depuis vos Paramètres (« Supprimer mon compte »)</strong>. La suppression entraîne l'effacement immédiat et irréversible de l'ensemble de vos fiches, flashcards, annales et données de profil de nos bases de données. Vous pouvez également solliciter cette suppression par courriel à :{' '}
               <a href="mailto:sofia.study.app@gmail.com" style={{ color: '#ffffff', textDecoration: 'underline' }}>
                 sofia.study.app@gmail.com
-              </a>. Le traitement est effectué sous 48 heures ouvrées.
+              </a>.
             </p>
           </section>
 

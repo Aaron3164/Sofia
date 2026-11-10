@@ -18,6 +18,8 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tokens, setTokens] = useState<{ accessToken?: string; refreshToken?: string } | null>(null);
@@ -131,6 +133,16 @@ export default function AuthPage() {
         await resetPassword(email.trim());
         setResetSent(true);
       } else if (isSignUp) {
+        if (!isAgeConfirmed) {
+          setError('Vous devez confirmer avoir au moins 15 ans pour créer un compte.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (!isTermsAccepted) {
+          setError('Vous devez accepter les Conditions Générales et la Politique de Confidentialité.');
+          setIsSubmitting(false);
+          return;
+        }
         await signUp(email, password);
         await alert('Compte créé ! Veuillez vérifier votre e-mail (si activé) ou vous connecter.');
       } else {
@@ -404,12 +416,60 @@ export default function AuthPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Consentements obligatoires (inscription uniquement) */}
+                {isSignUp && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.35rem', padding: '0.85rem', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: '0.75rem', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', cursor: 'pointer', fontSize: '0.8rem', color: '#d4d4d8', userSelect: 'none', lineHeight: 1.4 }}>
+                      <input
+                        type="checkbox"
+                        checked={isAgeConfirmed}
+                        onChange={e => setIsAgeConfirmed(e.target.checked)}
+                        style={{ marginTop: '0.15rem', accentColor: '#e11d48', cursor: 'pointer', width: '15px', height: '15px' }}
+                      />
+                      <span>
+                        Je certifie avoir <strong style={{ color: '#ffffff' }}>15 ans ou plus</strong> (âge de la majorité numérique en France).
+                      </span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', cursor: 'pointer', fontSize: '0.8rem', color: '#d4d4d8', userSelect: 'none', lineHeight: 1.4 }}>
+                      <input
+                        type="checkbox"
+                        checked={isTermsAccepted}
+                        onChange={e => setIsTermsAccepted(e.target.checked)}
+                        style={{ marginTop: '0.15rem', accentColor: '#e11d48', cursor: 'pointer', width: '15px', height: '15px' }}
+                      />
+                      <span>
+                        J'accepte les{' '}
+                        <a
+                          href="/legal"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#fda4af', textDecoration: 'underline', fontWeight: 600 }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          Conditions d'Utilisation
+                        </a>{' '}
+                        et la{' '}
+                        <a
+                          href="/legal"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#fda4af', textDecoration: 'underline', fontWeight: 600 }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          Politique de Confidentialité
+                        </a>.
+                      </span>
+                    </label>
+                  </div>
+                )}
               </>
             )}
 
             <button
               type="submit"
-              disabled={isSubmitting || loading}
+              disabled={isSubmitting || loading || (isSignUp && (!isAgeConfirmed || !isTermsAccepted))}
               style={{
                 padding: '0.9rem',
                 borderRadius: '0.75rem',
@@ -418,15 +478,15 @@ export default function AuthPage() {
                 color: 'white',
                 fontSize: '0.95rem',
                 fontWeight: 700,
-                cursor: (isSubmitting || loading) ? 'not-allowed' : 'pointer',
+                cursor: (isSubmitting || loading || (isSignUp && (!isAgeConfirmed || !isTermsAccepted))) ? 'not-allowed' : 'pointer',
                 fontFamily: "'Inter', sans-serif",
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
                 boxShadow: '0 4px 16px rgba(225, 29, 72, 0.3)',
                 transition: 'all 0.2s ease',
                 marginTop: '0.25rem',
-                opacity: (isSubmitting || loading) ? 0.7 : 1,
+                opacity: (isSubmitting || loading || (isSignUp && (!isAgeConfirmed || !isTermsAccepted))) ? 0.5 : 1,
               }}
-              onMouseEnter={e => { if (!isSubmitting && !loading) e.currentTarget.style.background = '#be123c'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(225, 29, 72, 0.4)'; }}
+              onMouseEnter={e => { if (!isSubmitting && !loading && !(isSignUp && (!isAgeConfirmed || !isTermsAccepted))) { e.currentTarget.style.background = '#be123c'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(225, 29, 72, 0.4)'; } }}
               onMouseLeave={e => { e.currentTarget.style.background = '#e11d48'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(225, 29, 72, 0.3)'; }}
             >
               {(isSubmitting || loading)

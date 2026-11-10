@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogOut, Mail, Palette, UserCircle, Check, Crown, RefreshCw, X } from 'lucide-react';
+import { User, LogOut, Mail, Palette, UserCircle, Check, Crown, RefreshCw, X, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDialog } from '../context/DialogContext';
+import { supabase } from '../lib/supabase';
 
 export default function Dashboard() {
   const { user, profile, signOut, updateProfile, updatePreferences, refreshProfile } = useAuth();
@@ -12,6 +13,8 @@ export default function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'billing'>('profile');
   const [name, setName] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const prefs = profile?.preferences || {};
 
@@ -71,6 +74,38 @@ export default function Dashboard() {
   };
 
   if (!user) return null;
+
+  const handleDeleteAccount = async () => {
+    try {
+      setIsDeletingAccount(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Session introuvable');
+
+      const res = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await res.json();
+      if (!res.ok || result.error) {
+        throw new Error(result.error || 'Erreur lors de la suppression');
+      }
+
+      await alert('Votre compte et l\'ensemble de vos données ont été définitivement supprimés.');
+      await signOut();
+      window.location.href = '/';
+    } catch (err: any) {
+      console.error('[Dashboard] Delete account error:', err);
+      await alert(err.message || 'Impossible de supprimer votre compte.');
+    } finally {
+      setIsDeletingAccount(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -145,9 +180,113 @@ export default function Dashboard() {
 
               <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)' }} />
 
-              <button onClick={signOut} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', borderColor: 'var(--danger)', alignSelf: 'flex-start' }}>
-                <LogOut size={16} /> Déconnexion
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                <button onClick={signOut} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>
+                  <LogOut size={16} /> Déconnexion
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.4rem 0.6rem',
+                    borderRadius: '0.5rem',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <Trash2 size={15} /> Supprimer mon compte
+                </button>
+              </div>
+
+              {/* Modal de confirmation de suppression de compte */}
+              {showDeleteConfirm && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                  backdropFilter: 'blur(8px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 9999,
+                  padding: '1rem',
+                }}>
+                  <div style={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '1rem',
+                    maxWidth: '480px',
+                    width: '100%',
+                    padding: '1.75rem',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                    color: '#ffffff',
+                    fontFamily: "'Inter', sans-serif",
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: '#ef4444' }}>
+                      <AlertTriangle size={26} />
+                      <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#ffffff' }}>
+                        Suppression définitive du compte
+                      </h4>
+                    </div>
+
+                    <p style={{ fontSize: '0.9rem', color: '#a1a1aa', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+                      Cette action est <strong style={{ color: '#ef4444' }}>irréversible</strong> conformément à la réglementation RGPD. Toutes vos données personnelles, fiches de révision, flashcards, annales et statistiques d'apprentissage seront immédiatement et définitivement effacées de nos serveurs.
+                    </p>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeletingAccount}
+                        style={{
+                          padding: '0.65rem 1.1rem',
+                          borderRadius: '0.5rem',
+                          border: '1px solid #3f3f46',
+                          backgroundColor: '#27272a',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.88rem',
+                        }}
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteAccount}
+                        disabled={isDeletingAccount}
+                        style={{
+                          padding: '0.65rem 1.1rem',
+                          borderRadius: '0.5rem',
+                          border: 'none',
+                          backgroundColor: '#dc2626',
+                          color: '#ffffff',
+                          cursor: isDeletingAccount ? 'not-allowed' : 'pointer',
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                        }}
+                      >
+                        <Trash2 size={15} />
+                        {isDeletingAccount ? 'Suppression...' : 'Confirmer la suppression'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Preferences Card */}
