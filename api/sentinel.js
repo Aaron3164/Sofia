@@ -86,7 +86,7 @@ async function fetchLivePayPalBalance() {
     const tokenData = await tokenRes.json();
     if (!tokenData.access_token) return '1,26';
 
-    const balRes = await fetch('https://api-m.paypal.com/v1/reporting/balances?currency_code=EUR', {
+    const balRes = await fetch('https://api-m.paypal.com/v1/reporting/balances', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
         'Content-Type': 'application/json'
@@ -97,11 +97,11 @@ async function fetchLivePayPalBalance() {
       return '1,26';
     }
     const balData = await balRes.json();
-    const primaryBal = balData.balances?.find(b => b.currency === 'EUR') || balData.balances?.[0];
-    if (primaryBal?.available_balance?.value) {
-      return Number(primaryBal.available_balance.value).toFixed(2).replace('.', ',');
-    }
-    return '1,26';
+    const eurVal = parseFloat(balData.balances?.find(b => b.currency === 'EUR')?.available_balance?.value || '0');
+    const usdVal = parseFloat(balData.balances?.find(b => b.currency === 'USD')?.available_balance?.value || '0');
+    // Total converti en Euros (taux de change PayPal standard ~0.86)
+    const totalEur = (eurVal + usdVal * 0.8614).toFixed(2).replace('.', ',');
+    return totalEur;
   } catch (err) {
     console.warn('[Sentinel] Erreur solde PayPal Live :', err.message);
     return '1,26';
