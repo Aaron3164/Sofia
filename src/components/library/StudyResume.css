@@ -42,10 +42,30 @@
   padding-bottom: 0.5rem;
 }
 
-.resume-content-rendered h3 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin: 2rem 0 0.75rem;
+@media (max-width: 768px) {
+  .study-resume-container {
+    padding: 0.25rem;
+  }
+  .resume-glass-wrapper {
+    padding: 1.25rem 1rem !important;
+    border-radius: 1rem;
+  }
+  .resume-content-rendered {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .resume-content-rendered h1 {
+    font-size: 1.6rem;
+    margin: 1.5rem 0 1rem;
+  }
+  .resume-content-rendered h2 {
+    font-size: 1.3rem;
+    margin: 1.25rem 0 0.75rem;
+  }
+  .resume-content-rendered h3 {
+    font-size: 1.1rem;
+    margin: 1rem 0 0.5rem;
+  }
 }
 
 .resume-content-rendered p {

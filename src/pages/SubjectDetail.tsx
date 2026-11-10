@@ -700,8 +700,8 @@ export default function SubjectDetail() {
 
       <div className="subject-content-grid">
         
-        {/* Left Column: Source Material */}
-        <div className="glass-panel source-column">
+        {/* Left Column: Source Material (on mobile: compact collapsible panel below or accessible via tab) */}
+        <div className="glass-panel source-column mobile-compact">
           <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <FileText size={20} className="text-accent" />
             Document Source
