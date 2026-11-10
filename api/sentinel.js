@@ -306,7 +306,12 @@ export default async function handler(req, res) {
       googleImpressions
     };
 
-    if (req.query?.trigger_call === 'true' || req.query?.trigger_test === 'true') {
+    // Vercel Cron envoie toujours les headers 'x-vercel-cron': '1' ou 'user-agent': 'vercel-cron/1.0'
+    const isVercelCron = req.headers['x-vercel-cron'] === '1' || req.headers['user-agent']?.includes('vercel-cron');
+    const isManualTrigger = req.query?.trigger_call === 'true' || req.query?.trigger_test === 'true';
+
+    if (isVercelCron || isManualTrigger) {
+      console.log('[Sentinel] Déclenchement de l\'envoi du briefing (Cron ou manuel)...');
       await sendDailyBriefingEmail(metrics);
       await triggerDailyBriefingCall(metrics);
     }
