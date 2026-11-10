@@ -203,7 +203,7 @@
 /* ── Content area ────────────────────────── */
 
 .tab-content-area {
-  padding: 1.25rem;
+  padding: 1.25rem 0.85rem;
   flex: 1;
   display: flex;
   flex-direction: column;

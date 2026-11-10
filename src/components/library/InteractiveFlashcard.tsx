@@ -314,8 +314,8 @@ export const InteractiveFlashcard: React.FC<{
   );
 
   const hasImage = showFrontImage || showBackImage;
-  const cardMaxWidth = hasImage ? '860px' : '560px';
-  const cardMinHeight = hasImage ? '540px' : '320px';
+  const cardMaxWidth = hasImage ? '1040px' : '780px';
+  const cardMinHeight = hasImage ? '540px' : '340px';
   const previews = getSchedulePreviews(currentCard);
 
   return (
