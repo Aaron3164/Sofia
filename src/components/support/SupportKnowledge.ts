@@ -63,8 +63,8 @@ export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
     id: 'pdf-limit',
     category: 'courses',
     title: 'Quelle est la limite de taille pour les documents PDF ?',
-    keywords: ['pdf', 'limite', 'pages', '50', 'taille', 'fichier', 'trop lourd', 'erreur page', 'drive'],
-    answer: `Pour garantir une vitesse d'analyse optimale, une génération IA fluide et préserver la mémoire, les documents PDF (qu'ils soient importés depuis votre ordinateur ou via Google Drive) sont limités à **50 pages maximum** par cours.`
+    keywords: ['pdf', 'limite', 'pages', '15', '50', 'taille', 'fichier', 'trop lourd', 'erreur page', 'drive'],
+    answer: `Pour garantir une vitesse d'analyse optimale et préserver les performances de l'application :\n\n• **Plan Gratuit** : Vos cours (importés depuis votre ordinateur ou via Google Drive) sont limités à **15 pages maximum**.\n• **Plan Premium** : Vos polycopiés et documents sont acceptés jusqu'à **50 pages maximum** par cours.`
   },
   {
     id: 'google-drive',

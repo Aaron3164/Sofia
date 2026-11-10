@@ -35,12 +35,15 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
   onSuccess
 }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { addNode } = useFileSystem();
 
   // Link State
   const [driveUrl, setDriveUrl] = useState('');
   const [courseTitle, setCourseTitle] = useState('');
+  
+  // Page limits: 15 pages for free, 50 for premium
+  const maxAllowedPages = profile?.plan === 'premium' ? 50 : 15;
   
   // Processing & Loading State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -134,9 +137,9 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
       // 1. Récupération du buffer en mémoire (aucun upload sur R2 !)
       const buffer = await fetchGoogleDrivePDFBuffer(fileId);
       
-      // 2. Vérification de la limite de 50 pages
+      // 2. Vérification de la limite de pages (15 pages en gratuit, 50 en premium)
       setStatusMessage('Vérification du document...');
-      await checkPDFPageCount(buffer, 50);
+      await checkPDFPageCount(buffer, maxAllowedPages);
 
       // 3. Extraction du texte pour Sofia IA (100% textuel, ultra rapide et 0 surcoût)
       setStatusMessage('Lecture du PDF et extraction du texte du cours...');
@@ -235,7 +238,7 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
           ) : (
             <form onSubmit={handleImportByLink} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="gdrive-field">
-                <label>Lien de partage du fichier PDF Google Drive * (50 pages max)</label>
+                <label>Lien de partage du fichier PDF Google Drive * ({maxAllowedPages} pages max)</label>
                 <input 
                   type="text"
                   className="gdrive-input"

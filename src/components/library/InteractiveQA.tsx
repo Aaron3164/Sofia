@@ -173,10 +173,11 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
       return;
     }
 
+    const maxAllowedPages = plan === 'premium' ? 50 : 15;
     try {
-      await checkPDFPageCount(file, 50);
+      await checkPDFPageCount(file, maxAllowedPages);
     } catch (pageErr: any) {
-      alert(pageErr.message || 'Le fichier PDF dépasse la limite autorisée de 50 pages.');
+      alert(pageErr.message || `Le fichier PDF dépasse la limite autorisée de ${maxAllowedPages} pages.`);
       return;
     }
 

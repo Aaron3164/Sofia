@@ -462,6 +462,7 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Répétition espacée (Méthode Leitner)</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Statistiques de progression</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Synchronisation cloud</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Documents limités à 15 pages</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Jusqu'à 10 cours au total</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> 5 générations IA par jour</div>
                 </div>
@@ -503,6 +504,7 @@ export default function Dashboard() {
                 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Mêmes avantages que le plan gratuit</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Documents jusqu'à 50 pages par cours</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Cours & Dossiers illimités</div>
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Sofia IA Prioritaire & Illimitée</div>
                 </div>

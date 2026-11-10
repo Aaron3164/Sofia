@@ -349,11 +349,12 @@ export default function SubjectDetail() {
     // Reset input value so selecting the same file again triggers onChange
     e.target.value = '';
 
-    // Check 50-page limit for local files
+    // Check page limit based on plan (15 pages for free, 50 for premium)
+    const maxAllowedPages = profile?.plan === 'premium' ? 50 : 15;
     try {
-      await checkPDFPageCount(selected, 50);
+      await checkPDFPageCount(selected, maxAllowedPages);
     } catch (pageErr: any) {
-      alert(pageErr.message || 'Le fichier PDF dépasse la limite de 50 pages.');
+      alert(pageErr.message || `Le fichier PDF dépasse la limite de ${maxAllowedPages} pages.`);
       return;
     }
 
