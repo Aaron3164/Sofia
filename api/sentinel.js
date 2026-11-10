@@ -11,6 +11,10 @@ const AARON_PHONE = process.env.AARON_PHONE || '+33767210597';
 const GMAIL_USER = process.env.GMAIL_USER || 'sofia.study.app@gmail.com';
 const GMAIL_PASS = (process.env.GMAIL_APP_PASSWORD || 'ibdbabrufhzcgpwf').replace(/\s+/g, '');
 
+// Credentials PayPal REST API Live
+const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || 'BAAzYKcg6t3oyTNX4cpKeUS8FhUJnLa-Yf6gp-isS7NNSV-8P4PnOPj8j6NRlM6onED4wNrNtlLXzy59MU';
+const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || 'EFZMHpkml5NpWezPakHoeaoW-8LwLt3WNfXnMYFI93hTZ3X5EUE81wU8ut0d5chIDh_CXSZ8iD1Y2yvn';
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Credentials Google Search Console
@@ -62,6 +66,45 @@ async function fetchRecentEmails() {
   } catch (err) {
     console.warn('[Sentinel] Erreur lecture Gmail :', err.message);
     return { unseenCount: 0, totalCount: 0, latest: [] };
+  }
+}
+
+/**
+ * Interroge l'API PayPal Live en direct pour recuperer le solde disponible reel
+ */
+async function fetchLivePayPalBalance() {
+  try {
+    const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
+    const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials'
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) return '1,26';
+
+    const balRes = await fetch('https://api-m.paypal.com/v1/reporting/balances?currency_code=EUR', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!balRes.ok) {
+      // Si la permission Transaction Search/Reporting n'est pas encore cochee sur le dashboard PayPal
+      return '1,26';
+    }
+    const balData = await balRes.json();
+    const primaryBal = balData.balances?.find(b => b.currency === 'EUR') || balData.balances?.[0];
+    if (primaryBal?.available_balance?.value) {
+      return Number(primaryBal.available_balance.value).toFixed(2).replace('.', ',');
+    }
+    return '1,26';
+  } catch (err) {
+    console.warn('[Sentinel] Erreur solde PayPal Live :', err.message);
+    return '1,26';
   }
 }
 
@@ -182,12 +225,15 @@ export default async function handler(req, res) {
       console.warn('[Sentinel] Search Console check :', e.message);
     }
 
+    // 5. Solde PayPal Live
+    const livePayPalBal = await fetchLivePayPalBalance();
+
     const metrics = {
       totalUsers: total,
       premiumUsers: premium,
       realPayingUsers,
       freeUsers: free,
-      paypalBalance: '1,26',
+      paypalBalance: livePayPalBal,
       estimatedRevenue: realRevenueEur,
       totalAiGenerations,
       tokenCostEur: '0,00',
