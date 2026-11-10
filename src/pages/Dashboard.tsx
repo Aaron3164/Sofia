@@ -455,16 +455,18 @@ export default function Dashboard() {
                 </div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>0€ <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
                 
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Dossiers illimités</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Flashcards & QCM inclus</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Recherche globale dans tous les cours</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Répétition espacée (Méthode Leitner)</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Statistiques de progression</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Synchronisation cloud</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Documents limités à 15 pages</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Jusqu'à 10 cours au total</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> 5 générations IA par jour</div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>5 générations IA / jour</strong> (soit ~150 flashcards ou ~50 QCM)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Modèle IA Standard (Gemini Flash)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Flashcards, QCM & Résumés essentiels</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Répétition espacée SM-2 (Algorithme Anki)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Recherche transversale globale (Ctrl+K)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Planning des cours & méthode des J</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Carnet d'erreurs automatique</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Documents limités à 15 pages par cours</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Jusqu'à 10 cours enregistrés au total</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Export PDF avec mention SofIA</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}><X size={18} style={{ color: '#ef4444', flexShrink: 0 }} /> Pas d'accès au Planning Rétrospectif d'Examen</div>
                 </div>
 
                 <button 
@@ -502,11 +504,18 @@ export default function Dashboard() {
                 </div>
                 <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>9,99€ <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
                 
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Mêmes avantages que le plan gratuit</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Documents jusqu'à 50 pages par cours</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Cours & Dossiers illimités</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Sofia IA Prioritaire & Illimitée</div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Tous les outils d'apprentissage inclus</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>50 générations IA / jour</strong> (soit ~1 500 flashcards ou ~500 QCM / jour)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Modèle IA Premium Ultra-Raisonnement</strong> (Gemini Pro/Flash 3.5 prioritaire)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Documents jusqu'à 50 pages</strong> par cours (gros polycopiés & traités)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Cours & dossiers illimités</strong> (sans aucun plafond)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Simulateur d'Annales officiel</strong> (découpage A-E avec preuves du cours)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Planning Rétrospectif d'Examen</strong> jusqu'au Jour J (1 à 5 tours)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>ChatSofIA tuteur illimité</strong> avec recherche web en direct</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> <strong>Export PDF marque blanche</strong> épuré (sans mention d'IA)</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> File de traitement IA prioritaire à haute vitesse</div>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.9rem' }}><Check size={18} className="text-success" /> Support prioritaire 7j/7</div>
                 </div>
 
                 <button 

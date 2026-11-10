@@ -1060,12 +1060,15 @@ export default function LandingPage(props: LandingPageProps) {
                                 </span>
                             </p>
                             <ul>
-                                <li>Dossiers & cours organisés</li>
-                                <li>Flashcards & QCM d’entraînement</li>
-                                <li>Répétition espacée (Leitner)</li>
-                                <li>Recherche transversale</li>
-                                <li>Jusqu’à 10 cours enregistrés</li>
-                                <li>5 générations IA quotidiennes</li>
+                                <li><strong>5 générations IA / jour</strong> (soit ~150 flashcards ou ~50 QCM)</li>
+                                <li>Modèle IA Standard (Gemini Flash)</li>
+                                <li>Flashcards, QCM & Résumés clés</li>
+                                <li>Répétition espacée SM-2 (Algorithme Anki)</li>
+                                <li>Recherche transversale globale (Ctrl+K)</li>
+                                <li>Planning des cours & méthode des J</li>
+                                <li>Carnet d'erreurs automatique</li>
+                                <li style={{ opacity: 0.65 }}>Documents limités à 15 pages par cours</li>
+                                <li style={{ opacity: 0.65 }}>Jusqu'à 10 cours enregistrés</li>
                             </ul>
                             {onGetStarted ? (
                                 <button
@@ -1095,15 +1098,14 @@ export default function LandingPage(props: LandingPageProps) {
                             </p>
                             <ul>
                                 <li>Tous les avantages du plan Découverte</li>
-                                <li>Cours & polycopiés illimités</li>
-                                <li>
-                                    Générations IA Sofia prioritaires &
-                                    illimitées
-                                </li>
-                                <li>
-                                    Importation illimitée d’annales officielles
-                                </li>
-                                <li>Explications pédagogiques approfondies</li>
+                                <li><strong>50 générations IA / jour</strong> (soit ~1 500 flashcards ou ~500 QCM / jour)</li>
+                                <li><strong>Modèle IA Premium Ultra-Raisonnement</strong> (Gemini Pro/Flash 3.5 prioritaire)</li>
+                                <li><strong>Documents jusqu'à 50 pages</strong> par cours (gros polycopiés)</li>
+                                <li><strong>Cours & dossiers illimités</strong> (sans plafond)</li>
+                                <li><strong>Simulateur d'Annales officiel</strong> (découpage A-E avec preuves du cours)</li>
+                                <li><strong>Planning Rétrospectif d'Examen</strong> jusqu'au Jour J</li>
+                                <li><strong>ChatSofIA tuteur illimité</strong> avec recherche web en direct</li>
+                                <li><strong>Export PDF marque blanche</strong> épuré (sans mention d'IA)</li>
                                 <li>Support prioritaire 7j/7</li>
                             </ul>
                             {onGetStarted ? (
