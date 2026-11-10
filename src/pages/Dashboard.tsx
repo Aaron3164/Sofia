@@ -96,6 +96,10 @@ export default function Dashboard() {
       }
 
       await alert('Votre compte et l\'ensemble de vos données ont été définitivement supprimés.');
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {}
       await signOut();
       window.location.href = '/';
     } catch (err: any) {
