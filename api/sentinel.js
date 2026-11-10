@@ -138,9 +138,9 @@ export async function triggerDailyBriefingCall(metrics) {
 - Abonnés Premium : ${metrics.premiumUsers} (dont ${metrics.realPayingUsers} vrais clients et 3 comptes de test à toi).
 - Comptes gratuits : ${metrics.freeUsers} étudiants.
 
-5. VOLUME DE GÉNÉRATIONS IA & COÛTS EN TOKENS :
-- Total des générations IA réalisées sur l'app : exactement ${metrics.totalAiGenerations} générations au compteur.
-- Coût total réel en tokens (API Gemini) : exactement 0,00 € dépensé car l'application tourne à 100% sur le palier gratuit généreux de Google AI Studio (plus de 1 000 requêtes gratuites par jour avec la cascade multi-modèles Flash-Lite).
+5. VOLUME DE GÉNÉRATIONS IA DE LA VEILLE & COÛTS EN TOKENS :
+- Générations IA réalisées hier sur l'app : exactement ${metrics.yesterdayAiGenerations} générations effectuées par les étudiants sur la journée d'hier.
+- Coût réel en tokens (API Gemini) : exactement 0,00 € dépensé car l'application tourne à 100% sur le palier gratuit généreux de Google AI Studio (plus de 1 000 requêtes gratuites par jour avec la cascade multi-modèles Flash-Lite).
 - Architecture de Context Caching & Pay-as-you-go : L'application utilise le Google Context Caching implicite (-90% de réduction sur les tokens d'entrée dès la 2ème génération d'un cours ou dossier). Si Aaron te demande des précisions sur les coûts futurs ou le Pay-as-you-go, rassure-le : le caching implicite est 100% sans frais de stockage, et même avec un étudiant très intensif faisant 1 500 générations par mois, le coût d'API réel ne dépasserait pas ~1,30 € par mois pour un abonnement vendu 9,99 €.
 
 6. SANTÉ TECHNIQUE DES SERVEURS & BUGS :
@@ -150,8 +150,8 @@ CONSIGNE STRICTE :
 - Présente ce topo de manière concise, vivante et fluide en français.
 - NE RACCROCHE JAMAIS D'ELLE-MÊME. Reste en ligne tant qu'Aaron te parle pour répondre à toutes ses questions.`;
 
-    const firstSentence = `Bonjour Aaron, c'est Sof.IA ! Je t'appelle pour ton topo complet : utilisateurs, tes ${metrics.totalAiGenerations} générations IA, solde PayPal, emails et santé de l'app. Tu as deux minutes ?`;
-    const voicemailText = `Bonjour Aaron, c'est Sof.IA ! Comme tu dormais ou n'étais pas disponible, voici ton topo express : tes ${metrics.totalAiGenerations} générations IA tournent à 100%, 0 bug sur les serveurs, ${metrics.totalUsers} étudiants inscrits, ${metrics.paypalBalance} € sur ton compte PayPal, et ${metrics.emails.unseenCount} emails non lus sur ta boîte mail. Tout est au vert, passe une excellente journée !`;
+    const firstSentence = `Bonjour Aaron, c'est Sof.IA ! Je t'appelle pour ton topo complet : utilisateurs, tes ${metrics.yesterdayAiGenerations} générations hier, solde PayPal, emails et santé de l'app. Tu as deux minutes ?`;
+    const voicemailText = `Bonjour Aaron, c'est Sof.IA ! Comme tu dormais ou n'étais pas disponible, voici ton topo express : ${metrics.yesterdayAiGenerations} générations IA effectuées hier, 0 bug sur les serveurs, ${metrics.totalUsers} étudiants inscrits, ${metrics.paypalBalance} € sur ton compte PayPal, et ${metrics.emails.unseenCount} emails non lus sur ta boîte mail. Tout est au vert, passe une excellente journée !`;
 
     const payload = {
       phone_number: AARON_PHONE,
@@ -219,9 +219,9 @@ Voici ton topo journalier complet pour Sofia (https://www.sofia-study.app/) :
 - Abonnés Premium : ${metrics.premiumUsers} (dont ${metrics.realPayingUsers} vrais clients et 3 comptes de test à toi)
 - Comptes gratuits : ${metrics.freeUsers} étudiants
 
-4. GÉNÉRATIONS IA & COÛTS EN TOKENS :
-- Générations totales au compteur : ${metrics.totalAiGenerations}
-- Coût total réel en tokens (API Gemini) : ${metrics.tokenCostEur} € (100% couvert par le Free Tier Google de 1 000+ req/jour)
+4. GÉNÉRATIONS IA DE LA VEILLE & COÛTS :
+- Générations IA effectuées hier : ${metrics.yesterdayAiGenerations} générations
+- Coût réel en tokens (API Gemini) : ${metrics.tokenCostEur} € (100% couvert par le Free Tier Google de 1 000+ req/jour)
 
 5. EMAILS RÉCENTS (sofia.study.app@gmail.com) :
 - Total emails : ${metrics.emails.totalCount} (dont ${metrics.emails.unseenCount} non lus)
@@ -235,7 +235,7 @@ Passe une excellente journée !
     await transporter.sendMail({
       from: `"SofIA Sentinelle" <${GMAIL_USER}>`,
       to: GMAIL_USER,
-      subject: `📊 [Topo Journalier Sof.IA] ${metrics.totalAiGenerations} gén. | ${metrics.paypalBalance} € PayPal | 100% Vert`,
+      subject: `📊 [Topo Journalier Sof.IA] ${metrics.yesterdayAiGenerations} gén. hier | ${metrics.paypalBalance} € PayPal | 100% Vert`,
       text: emailBody
     });
     console.log('[Sentinel] Email récapitulatif journalier envoyé avec succès.');
@@ -265,11 +265,25 @@ export default async function handler(req, res) {
     const realPayingUsers = Math.max(0, premium - 3);
     const realRevenueEur = (realPayingUsers * 9.99).toFixed(2);
 
-    // 2. Volume de générations IA réelles
-    const { data: aiUsageData } = await supabase
+    // 2. Volume de générations IA réelles de la veille
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    // Récupérer les générations de la veille (usage_date = yesterdayStr)
+    const { data: yesterdayAiData } = await supabase
+      .from('ai_usage')
+      .select('generation_count')
+      .eq('usage_date', yesterdayStr);
+
+    const yesterdayAiGenerations = (yesterdayAiData || []).reduce((acc, row) => acc + (row.generation_count || 0), 0);
+
+    // Récupérer le total historique en cas de besoin
+    const { data: allAiData } = await supabase
       .from('ai_usage')
       .select('generation_count');
-    const totalAiGenerations = (aiUsageData || []).reduce((acc, row) => acc + (row.generation_count || 0), 0) || 510;
+    const totalAiGenerations = (allAiData || []).reduce((acc, row) => acc + (row.generation_count || 0), 0);
 
     // 3. Emails
     const emailData = await fetchRecentEmails();
@@ -298,6 +312,7 @@ export default async function handler(req, res) {
       freeUsers: free,
       paypalBalance: livePayPalBal,
       estimatedRevenue: realRevenueEur,
+      yesterdayAiGenerations,
       totalAiGenerations,
       tokenCostEur: '0,00',
       systemHealth: '100% opérationnel, 0 bug détecté',
