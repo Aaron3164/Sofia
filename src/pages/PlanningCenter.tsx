@@ -276,16 +276,16 @@ export default function PlanningCenter() {
                     alignItems: 'center',
                     gap: '0.45rem',
                     fontSize: '0.82rem',
-                    borderColor: 'var(--accent-glow)',
-                    color: 'var(--accent-primary)',
-                    background: 'var(--accent-light)',
+                    borderColor: 'rgba(255, 255, 255, 0.14)',
+                    color: 'var(--text-primary)',
+                    background: 'var(--bg-elevated)',
                     borderRadius: 'var(--radius-md)',
                     padding: '0.45rem 0.85rem',
-                    fontWeight: 600
+                    fontWeight: 500
                   }}
                   title="Planification rétrospective automatique vers une date d'examen"
                 >
-                  <Sparkles size={15} /> Planning Rétrospectif d'Examen
+                  <Sparkles size={15} style={{ color: 'var(--text-secondary)' }} /> Planning Rétrospectif d'Examen
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -556,9 +556,9 @@ export default function PlanningCenter() {
                                         fontSize: '0.68rem',
                                         fontWeight: 600,
                                         borderRadius: '0.25rem',
-                                        border: '1px dashed var(--border-color)',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
                                         backgroundColor: 'var(--bg-elevated)',
-                                        color: 'var(--accent-primary)',
+                                        color: 'var(--text-secondary)',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -566,8 +566,8 @@ export default function PlanningCenter() {
                                         gap: '0.25rem',
                                         transition: 'all 0.15s ease'
                                       }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; e.currentTarget.style.color = '#ffffff'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
                                     >
                                       {isExpanded ? (
                                         <>

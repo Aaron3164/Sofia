@@ -122,16 +122,28 @@ export default function Dashboard() {
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
         <button 
           onClick={() => setActiveTab('profile')}
-          className={`btn ${activeTab === 'profile' ? 'btn-primary' : 'btn-outline'}`}
+          className="btn"
+          style={{
+            backgroundColor: activeTab === 'profile' ? 'var(--bg-elevated)' : 'transparent',
+            borderColor: activeTab === 'profile' ? 'rgba(255, 255, 255, 0.18)' : 'var(--border-color)',
+            color: activeTab === 'profile' ? '#ffffff' : 'var(--text-secondary)',
+            boxShadow: activeTab === 'profile' ? 'inset 0 1px 0 rgba(255, 255, 255, 0.08)' : 'none'
+          }}
         >
-          <User size={15} />
+          <User size={15} style={{ color: activeTab === 'profile' ? 'var(--accent-primary)' : 'inherit' }} />
           <span>Mon Profil</span>
         </button>
         <button 
           onClick={() => setActiveTab('billing')}
-          className={`btn ${activeTab === 'billing' ? 'btn-primary' : 'btn-outline'}`}
+          className="btn"
+          style={{
+            backgroundColor: activeTab === 'billing' ? 'var(--bg-elevated)' : 'transparent',
+            borderColor: activeTab === 'billing' ? 'rgba(255, 255, 255, 0.18)' : 'var(--border-color)',
+            color: activeTab === 'billing' ? '#ffffff' : 'var(--text-secondary)',
+            boxShadow: activeTab === 'billing' ? 'inset 0 1px 0 rgba(255, 255, 255, 0.08)' : 'none'
+          }}
         >
-          <Crown size={15} />
+          <Crown size={15} style={{ color: activeTab === 'billing' ? 'var(--accent-primary)' : 'inherit' }} />
           <span>Abonnement & Forfaits</span>
         </button>
       </div>
@@ -148,12 +160,12 @@ export default function Dashboard() {
               </h3>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'var(--bg-primary)', border: '1px solid rgba(255, 255, 255, 0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                   {user.user_metadata?.avatar_url ? (
                     <img src={user.user_metadata.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <User size={28} color="white" />
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                      <User size={28} />
                     </div>
                   )}
                 </div>
@@ -307,16 +319,27 @@ export default function Dashboard() {
                     {[
                       { id: 'dark', label: 'Sombre' },
                       { id: 'glass', label: 'Aurore' }
-                    ].map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => handleUpdatePreference({ theme: t.id })}
-                        className={`btn ${theme === t.id ? 'btn-primary' : 'btn-outline'}`}
-                        style={{ flex: '1 1 90px' }}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
+                    ].map((t) => {
+                      const isSelected = theme === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => handleUpdatePreference({ theme: t.id })}
+                          className="btn"
+                          style={{
+                            flex: '1 1 90px',
+                            backgroundColor: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
+                            borderColor: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.1)',
+                            color: isSelected ? '#09090b' : 'var(--text-secondary)',
+                            fontWeight: isSelected ? 600 : 500,
+                            boxShadow: isSelected ? '0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.2)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -332,16 +355,29 @@ export default function Dashboard() {
                         { id: 'benevolent', label: 'Bienveillante' },
                         { id: 'concise', label: 'Concise' },
                         { id: 'academic', label: 'Académique' }
-                      ].map(p => (
-                        <button 
-                          key={p.id}
-                          onClick={() => handleUpdatePreference({ ai_personality: p.id })}
-                          className={`btn ${prefs.ai_personality === p.id ? 'btn-primary' : 'btn-outline'}`}
-                          style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', flex: 1 }}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
+                      ].map(p => {
+                        const isSelected = prefs.ai_personality === p.id;
+                        return (
+                          <button 
+                            key={p.id}
+                            onClick={() => handleUpdatePreference({ ai_personality: p.id })}
+                            className="btn"
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '0.45rem 0.8rem',
+                              flex: 1,
+                              backgroundColor: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
+                              borderColor: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.1)',
+                              color: isSelected ? '#09090b' : 'var(--text-secondary)',
+                              fontWeight: isSelected ? 600 : 500,
+                              boxShadow: isSelected ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -352,16 +388,29 @@ export default function Dashboard() {
                         { id: 'understanding', label: 'Compréhension' },
                         { id: 'memorization', label: 'Mémorisation' },
                         { id: 'critical', label: 'Esprit Critique' }
-                      ].map(m => (
-                        <button 
-                          key={m.id}
-                          onClick={() => handleUpdatePreference({ ai_study_mode: m.id })}
-                          className={`btn ${prefs.ai_study_mode === m.id ? 'btn-primary' : 'btn-outline'}`}
-                          style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', flex: 1 }}
-                        >
-                          {m.label}
-                        </button>
-                      ))}
+                      ].map(m => {
+                        const isSelected = prefs.ai_study_mode === m.id;
+                        return (
+                          <button 
+                            key={m.id}
+                            onClick={() => handleUpdatePreference({ ai_study_mode: m.id })}
+                            className="btn"
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '0.45rem 0.8rem',
+                              flex: 1,
+                              backgroundColor: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
+                              borderColor: isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.1)',
+                              color: isSelected ? '#09090b' : 'var(--text-secondary)',
+                              fontWeight: isSelected ? 600 : 500,
+                              boxShadow: isSelected ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {m.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 

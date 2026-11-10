@@ -233,7 +233,7 @@ export default function Library() {
             onClick={() => setRevisionFolder({ id: currentFolderId, name: currentFolder ? currentFolder.name : 'Toute la bibliothèque' })}
             title="Lancer une révision globale des cartes de ce dossier"
           >
-            <Zap size={16} style={{ color: 'var(--accent-primary)' }} />
+            <Zap size={16} color="#fbbf24" fill="#fbbf2420" />
             <span className="desktop-only">{currentFolder ? 'Réviser le dossier' : 'Révision Globale'}</span>
             <span className="mobile-only">Réviser</span>
           </button>
@@ -251,18 +251,36 @@ export default function Library() {
             title={isQuotaReached ? `Limite d'IA atteinte (${dailyUsage}/${maxGenerations})` : "Importer une annale officielle au format PDF pour ce dossier"}
             style={{ 
               opacity: isQuotaReached ? 0.45 : 1,
-              cursor: isQuotaReached ? 'not-allowed' : 'pointer'
+              cursor: isQuotaReached ? 'not-allowed' : 'pointer',
+              borderColor: 'rgba(76, 195, 138, 0.35)'
             }}
           >
-            <GraduationCap size={16} style={{ color: 'var(--text-secondary)' }} />
+            <GraduationCap size={16} color="#4cc38a" fill="#4cc38a20" />
             <span className="desktop-only">Importer une annale</span>
             <span className="mobile-only">Annale</span>
           </button>
           <button className="btn btn-outline" onClick={handleCreateFolder}>
             <Plus size={16} /> <span className="desktop-only">Dossier</span>
           </button>
-          <button className="btn btn-primary" onClick={handleCreateCourse}>
-            <Plus size={16} /> <span className="desktop-only">Nouveau cours</span>
+          <button 
+            className="btn btn-outline" 
+            onClick={handleCreateCourse}
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              borderColor: 'rgba(255, 255, 255, 0.16)',
+              color: 'var(--text-primary)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.28)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.16)';
+              e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+            }}
+          >
+            <Plus size={16} style={{ color: 'var(--accent-primary)' }} /> <span className="desktop-only">Nouveau cours</span>
             <span className="mobile-only">Cours</span>
           </button>
         </div>

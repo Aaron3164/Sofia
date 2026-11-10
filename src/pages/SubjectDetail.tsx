@@ -607,13 +607,13 @@ export default function SubjectDetail() {
             className="btn btn-outline hover-lift"
             onClick={() => setIsRevisionModalOpen(true)}
             style={{
-              borderColor: 'var(--accent-glow)',
-              color: 'var(--accent-primary)',
-              background: 'var(--accent-light)'
+              borderColor: 'rgba(251, 191, 36, 0.35)',
+              color: 'var(--text-primary)',
+              background: 'var(--bg-elevated)'
             }}
             title="Lancer la révision globale / espacée de ce cours"
           >
-            <Zap size={18} /> <span>Réviser</span>
+            <Zap size={18} color="#fbbf24" fill="#fbbf2420" /> <span>Réviser</span>
           </button>
           {isSpacedLoading ? (
             <button className="btn btn-outline" disabled>
@@ -628,10 +628,25 @@ export default function SubjectDetail() {
             </button>
           ) : (
             <button 
-              className="btn btn-primary shadow-sm"
+              className="btn btn-outline"
               onClick={handleSchedule}
+              style={{
+                backgroundColor: 'rgba(225, 29, 72, 0.06)',
+                borderColor: 'rgba(225, 29, 72, 0.35)',
+                color: '#f43f5e',
+                fontWeight: 600,
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(225, 29, 72, 0.12)';
+                e.currentTarget.style.borderColor = 'rgba(225, 29, 72, 0.5)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(225, 29, 72, 0.06)';
+                e.currentTarget.style.borderColor = 'rgba(225, 29, 72, 0.35)';
+              }}
             >
-              <Calendar size={18} /> <span>Programmer</span>
+              <Calendar size={18} style={{ color: '#f43f5e' }} /> <span>Programmer</span>
             </button>
           )}
           <button 
@@ -791,8 +806,31 @@ export default function SubjectDetail() {
           <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
             <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               Documents Complémentaires
-              <label htmlFor="naive-upload" style={{ cursor: 'pointer', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <Plus size={14} /> Ajouter
+              <label 
+                htmlFor="naive-upload" 
+                style={{ 
+                  cursor: 'pointer', 
+                  color: 'var(--text-secondary)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.3rem',
+                  fontSize: '0.8rem',
+                  padding: '0.25rem 0.55rem',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-color)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                  e.currentTarget.style.borderColor = 'var(--border-color)';
+                }}
+              >
+                <Plus size={13} /> Ajouter
                 <input type="file" id="naive-upload" multiple accept=".pdf" onChange={handleNaiveUpload} style={{ display: 'none' }} />
               </label>
             </h4>
