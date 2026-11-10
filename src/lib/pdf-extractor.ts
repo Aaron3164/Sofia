@@ -107,7 +107,7 @@ export async function getPDFPageCount(file: File | Blob | ArrayBuffer): Promise<
 export async function checkPDFPageCount(file: File | Blob | ArrayBuffer, maxAllowed = 50): Promise<number> {
   const pageCount = await getPDFPageCount(file);
   if (pageCount > maxAllowed) {
-    throw new Error(`Le fichier PDF dépasse la limite autorisée de ${maxAllowed} pages (${pageCount} pages détectées). Veuillez importer un document de ${maxAllowed} pages maximum depuis vos fichiers locaux, ou passez par l'importation Google Drive.`);
+    throw new Error(`Le fichier PDF dépasse la limite autorisée de ${maxAllowed} pages (${pageCount} pages détectées). Veuillez importer un document de ${maxAllowed} pages maximum.`);
   }
   return pageCount;
 }
@@ -347,7 +347,7 @@ export async function extractCourseContentFromPDF(
     const numPages = pdf.numPages;
 
     if (options?.maxPages && numPages > options.maxPages) {
-      throw new Error(`Le fichier PDF dépasse la limite de ${options.maxPages} pages (${numPages} pages détectées). Veuillez sélectionner un document plus court ou l'importer via Google Drive.`);
+      throw new Error(`Le fichier PDF dépasse la limite de ${options.maxPages} pages (${numPages} pages détectées). Veuillez sélectionner un document de ${options.maxPages} pages maximum.`);
     }
 
     const allPageTexts: string[] = new Array(numPages);

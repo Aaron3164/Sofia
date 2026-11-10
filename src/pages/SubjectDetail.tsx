@@ -349,7 +349,7 @@ export default function SubjectDetail() {
     // Reset input value so selecting the same file again triggers onChange
     e.target.value = '';
 
-    // Check 50-page limit for local files (Google Drive files bypass this)
+    // Check 50-page limit for local files
     try {
       await checkPDFPageCount(selected, 50);
     } catch (pageErr: any) {

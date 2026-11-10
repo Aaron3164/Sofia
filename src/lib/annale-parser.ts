@@ -588,7 +588,7 @@ export async function parseAnnalePDF(
 
   const maxAllowed = options?.maxPages ?? 50;
   if (numPages > maxAllowed) {
-    throw new Error(`Le fichier PDF dépasse la limite autorisée de ${maxAllowed} pages (${numPages} pages détectées). Veuillez importer un document de ${maxAllowed} pages maximum depuis vos fichiers locaux, ou passez par l'importation Google Drive.`);
+    throw new Error(`Le fichier PDF dépasse la limite autorisée de ${maxAllowed} pages (${numPages} pages détectées). Veuillez importer un document de ${maxAllowed} pages maximum.`);
   }
 
   const pageTexts: string[] = [];

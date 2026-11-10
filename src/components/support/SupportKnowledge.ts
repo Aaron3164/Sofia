@@ -62,9 +62,9 @@ export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
   {
     id: 'pdf-limit',
     category: 'courses',
-    title: 'Quelle est la limite de taille pour les PDF locaux ?',
-    keywords: ['pdf', 'limite', 'pages', '50', 'taille', 'fichier', 'trop lourd', 'erreur page'],
-    answer: `Pour garantir une vitesse d'analyse optimale et préserver la mémoire de votre navigateur, les PDF importés directement depuis votre ordinateur sont limités à **50 pages maximum**.\n\n💡 **Astuce pour les gros polycopiés (> 50 pages)** :\nUtilisez l'option **"Importer via Google Drive"** ! Elle n'a aucune restriction de nombre de pages et extrait le contenu directement en mémoire vive sans saturer votre espace.`
+    title: 'Quelle est la limite de taille pour les documents PDF ?',
+    keywords: ['pdf', 'limite', 'pages', '50', 'taille', 'fichier', 'trop lourd', 'erreur page', 'drive'],
+    answer: `Pour garantir une vitesse d'analyse optimale, une génération IA fluide et préserver la mémoire, les documents PDF (qu'ils soient importés depuis votre ordinateur ou via Google Drive) sont limités à **50 pages maximum** par cours.`
   },
   {
     id: 'google-drive',
@@ -144,7 +144,7 @@ export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
     category: 'general',
     title: 'Comment bien démarrer sur SofIA (Guide Découverte) ?',
     keywords: ['demarrer', 'debuter', 'guide', 'decouverte', 'tutoriel', 'visite', 'bienvenue', 'onboarding'],
-    answer: `Bienvenue sur SofIA ! Voici le parcours idéal pour maîtriser la plateforme en 3 étapes :\n\n1. **Consultez le cours de bienvenue** : Votre bibliothèque contient un dossier *"👋 Bienvenue & Découverte"* avec un cours interactif complet déjà configuré.\n2. **Testez les 3 modes d'apprentissage actif** :\n   • Le **Résumé** : Vos notions clés prêtes à être surlignées et téléchargées en PDF.\n   • Les **Flashcards Anki SM-2** : Appuyez sur Espace pour tester votre mémoire à long terme.\n   • Les **QCM** : Des questions d'examen avec explications pédagogiques détaillées.\n3. **Déposez votre premier cours** : Cliquez sur *"+ Nouveau cours"* pour importer un PDF local (max 50 pages) ou un lien Google Drive sans limite !`,
+    answer: `Bienvenue sur SofIA ! Voici le parcours idéal pour maîtriser la plateforme en 3 étapes :\n\n1. **Consultez le cours de bienvenue** : Votre bibliothèque contient un dossier *"👋 Bienvenue & Découverte"* avec un cours interactif complet déjà configuré.\n2. **Testez les 3 modes d'apprentissage actif** :\n   • Le **Résumé** : Vos notions clés prêtes à être surlignées et téléchargées en PDF.\n   • Les **Flashcards Anki SM-2** : Appuyez sur Espace pour tester votre mémoire à long terme.\n   • Les **QCM** : Des questions d'examen avec explications pédagogiques détaillées.\n3. **Déposez votre premier cours** : Cliquez sur *"+ Nouveau cours"* pour importer un PDF local ou un lien Google Drive (jusqu'à 50 pages) !`,
     actionHint: 'Vous pouvez relancer le tutoriel interactif à tout moment en cliquant sur le bouton ci-dessous.'
   },
   // --- OUTILS : RECHERCHE GLOBALE & CHAT SOFIA ---
@@ -190,7 +190,7 @@ export const SUPPORT_KNOWLEDGE_BASE: SupportFAQItem[] = [
     category: 'general',
     title: 'Comment bien démarrer sur SofIA (Guide Découverte) ?',
     keywords: ['demarrer', 'debuter', 'guide', 'decouverte', 'tutoriel', 'visite', 'bienvenue', 'onboarding'],
-    answer: `Bienvenue sur SofIA ! Voici le parcours idéal pour maîtriser la plateforme en 3 étapes :\n\n1. **Consultez le cours de bienvenue** : Votre bibliothèque contient un dossier *"👋 Bienvenue & Découverte"* avec un cours interactif complet déjà configuré.\n2. **Testez les 3 modes d'apprentissage actif** :\n   • Le **Résumé** : Vos notions clés prêtes à être surlignées et téléchargées en PDF.\n   • Les **Flashcards Anki SM-2** : Appuyez sur Espace pour tester votre mémoire à long terme.\n   • Les **QCM** : Des questions d'examen avec explications pédagogiques détaillées.\n3. **Déposez votre premier cours** : Cliquez sur *"+ Nouveau cours"* pour importer un PDF local (max 50 pages) ou un lien Google Drive sans limite !`,
+    answer: `Bienvenue sur SofIA ! Voici le parcours idéal pour maîtriser la plateforme en 3 étapes :\n\n1. **Consultez le cours de bienvenue** : Votre bibliothèque contient un dossier *"👋 Bienvenue & Découverte"* avec un cours interactif complet déjà configuré.\n2. **Testez les 3 modes d'apprentissage actif** :\n   • Le **Résumé** : Vos notions clés prêtes à être surlignées et téléchargées en PDF.\n   • Les **Flashcards Anki SM-2** : Appuyez sur Espace pour tester votre mémoire à long terme.\n   • Les **QCM** : Des questions d'examen avec explications pédagogiques détaillées.\n3. **Déposez votre premier cours** : Cliquez sur *"+ Nouveau cours"* pour importer un PDF local ou un lien Google Drive (jusqu'à 50 pages) !`,
     actionHint: 'Vous pouvez relancer le tutoriel interactif à tout moment en cliquant sur le bouton ci-dessous.'
   }
 ];
