@@ -6,6 +6,7 @@ import React, {
     useState,
 } from "react"
 import type { CSSProperties } from "react"
+import CookieBanner from "../components/CookieBanner"
 
 interface LandingPageProps {
     onGetStarted?: () => void
@@ -1171,6 +1172,7 @@ export default function LandingPage(props: LandingPageProps) {
                     </footer>
                 </div>
             </section>
+            <CookieBanner />
         </main>
     )
 }
