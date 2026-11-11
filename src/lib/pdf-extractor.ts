@@ -484,8 +484,9 @@ export function cleanExtractedPDFTextLossless(rawPageTexts: string[]): string {
   if (!rawPageTexts || rawPageTexts.length === 0) return '';
 
   const numPages = rawPageTexts.length;
-  // Ne dédupliquer statistiquement les en-têtes que sur les documents de 3 pages et plus
-  const minPagesForHeaderDedup = 3;
+  // La déduplication d'en-tête n'a de sens que sur les vrais polycopiés (>= 5 pages).
+  // Sur un document court de 1 à 4 pages, il n'y a quasiment aucun gain et aucun risque à prendre.
+  const minPagesForHeaderDedup = 5;
 
   const pageLines = rawPageTexts.map(text => {
     return text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -500,12 +501,12 @@ export function cleanExtractedPDFTextLossless(rawPageTexts: string[]): string {
       if (lines.length === 0) return;
       const candidates = new Set<string>();
       
-      // Analyser jusqu'aux 3 premières lignes non-vides
-      for (let i = 0; i < Math.min(3, lines.length); i++) {
+      // Analyser strictement la 1ère ou 2ème ligne du haut (en-tête)
+      for (let i = 0; i < Math.min(2, lines.length); i++) {
         candidates.add(lines[i]);
       }
-      // Analyser jusqu'aux 3 dernières lignes non-vides
-      for (let i = Math.max(0, lines.length - 3); i < lines.length; i++) {
+      // Analyser strictement la toute dernière ligne du bas (pied de page)
+      for (let i = Math.max(0, lines.length - 2); i < lines.length; i++) {
         candidates.add(lines[i]);
       }
 
@@ -516,10 +517,11 @@ export function cleanExtractedPDFTextLossless(rawPageTexts: string[]): string {
       });
     });
 
-    // Seuil : présent en bordure sur plus de 25% des pages
-    const threshold = Math.max(2, Math.floor(numPages * 0.25));
+    // Seuil strict : la ligne doit être présente sur au moins 50% des pages ET au minimum 4 pages distinctes
+    const threshold = Math.max(4, Math.ceil(numPages * 0.50));
     lineFrequencies.forEach((count, normLine) => {
-      if (count >= threshold) {
+      // Ignorer les lignes trop longues (> 120 caractères) qui pourraient être des phrases de contenu
+      if (count >= threshold && normLine.length <= 120) {
         repeatedBoundaryLines.add(normLine);
       }
     });
@@ -529,7 +531,7 @@ export function cleanExtractedPDFTextLossless(rawPageTexts: string[]): string {
     const pageNum = idx + 1;
     const filtered = lines.filter((line, lineIdx) => {
       // 1. Filtrer les en-têtes et pieds de page répétés en bordure
-      const isBoundary = lineIdx < 3 || lineIdx >= lines.length - 3;
+      const isBoundary = lineIdx < 2 || lineIdx >= lines.length - 2;
       if (isBoundary && repeatedBoundaryLines.size > 0) {
         const norm = line.replace(/\b\d+\b/g, '#').toLowerCase();
         if (repeatedBoundaryLines.has(norm)) {
