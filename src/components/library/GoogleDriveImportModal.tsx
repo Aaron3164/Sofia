@@ -13,7 +13,7 @@ import {
   getGoogleDrivePreviewUrl, 
   fetchGoogleDrivePDFBuffer
 } from '../../lib/google-drive';
-import { extractCourseContentFromPDF, checkPDFPageCount, checkContentTokenLimit } from '../../lib/pdf-extractor';
+import { extractCourseContentFromPDF, checkContentTokenLimit } from '../../lib/pdf-extractor';
 import { useFileSystem } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -137,20 +137,22 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
       // 1. Récupération du buffer en mémoire (aucun upload sur R2 !)
       const buffer = await fetchGoogleDrivePDFBuffer(fileId);
       
-      // 2. Vérification de la limite de pages (15 pages en gratuit, 50 en premium)
-      setStatusMessage('Vérification du document...');
-      await checkPDFPageCount(buffer, maxAllowedPages);
-
-      // 3. Extraction du texte pour Sofia IA (100% textuel, ultra rapide et 0 surcoût)
+      // 2. Extraction du texte pour Sofia IA avec vérification intégrée du nombre de pages
+      // (Effectué en un seul appel direct pour éviter que le Web Worker ne détache le buffer mémoire)
       setStatusMessage('Lecture du PDF et extraction du texte du cours...');
-      const extracted = await extractCourseContentFromPDF(buffer, (current, total) => {
-        setProgress({ current, total });
-      }, { maxSchemas: 0 }).catch(err => {
-        console.warn('Extraction partielle ou erreur OCR:', err);
-        return { text: 'Document importé depuis Google Drive.', schemas: [] };
-      });
+      const extracted = await extractCourseContentFromPDF(
+        buffer, 
+        (current, total) => {
+          setProgress({ current, total });
+        }, 
+        { maxPages: maxAllowedPages, maxSchemas: 0 }
+      );
 
       const text = typeof extracted === 'string' ? extracted : extracted.text;
+
+      if (!text || text.trim().length < 50) {
+        throw new Error('Impossible d\'extraire le texte du document PDF. Le document semble vide ou composé exclusivement d\'images non numérisées.');
+      }
 
       // 4. Vérification de la limite de volume en TOKENS selon le plan (9 500 gratuit, 32 000 premium)
       const maxAllowedTokens = profile?.plan === 'premium' ? 32000 : 9500;
