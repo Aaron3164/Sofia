@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { google } from 'googleapis';
 import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
+import { simpleParser } from 'mailparser';
+import { GoogleGenAI } from '@google/genai';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://exsmiwmcuqabczguyaen.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4c21pd21jdXFhYmN6Z3V5YWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyOTE4OTgsImV4cCI6MjA4OTg2Nzg5OH0.MzsYbHAIZytFoU5gMYjcqc9CAl21BQXRRw6i9QiAdVE';
@@ -11,6 +13,7 @@ const AARON_PHONE = process.env.AARON_PHONE || '+33767210597';
 // Credentials Gmail IMAP
 const GMAIL_USER = process.env.GMAIL_USER || 'sofia.study.app@gmail.com';
 const GMAIL_PASS = (process.env.GMAIL_APP_PASSWORD || 'ibdbabrufhzcgpwf').replace(/\s+/g, '');
+const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').replace(/^["']|["']$/g, '');
 
 // Credentials PayPal REST API Live
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || 'BAAzYKcg6t3oyTNX4cpKeUS8FhUJnLa-Yf6gp-isS7NNSV-8P4PnOPj8j6NRlM6onED4wNrNtlLXzy59MU';
@@ -30,7 +33,7 @@ const googleAuth = new google.auth.JWT({
 const searchConsole = google.searchconsole({ version: 'v1', auth: googleAuth });
 
 /**
- * Recupere les derniers emails recus
+ * Récupère les derniers emails reçus et synthétise/vulgarise les plus importants avec l'IA
  */
 async function fetchRecentEmails() {
   const client = new ImapFlow({
@@ -44,29 +47,87 @@ async function fetchRecentEmails() {
   try {
     await client.connect();
     const lock = await client.getMailboxLock('INBOX');
-    const recentSubjects = [];
+    const recentEmails = [];
     let unseenCount = 0;
     try {
       const status = await client.status('INBOX', { messages: true, unseen: true });
       unseenCount = status.unseen || 0;
-      for await (const message of client.fetch('1:*', { envelope: true }, { uid: false })) {
-        recentSubjects.push({
-          from: message.envelope.from?.[0]?.name || message.envelope.from?.[0]?.address || 'Inconnu',
-          subject: message.envelope.subject || 'Sans objet'
-        });
+      
+      // Récupérer les 5 derniers messages reçus pour analyse de contenu
+      const totalMessages = status.messages || 0;
+      const fetchRange = totalMessages > 0 ? `${Math.max(1, totalMessages - 4)}:*` : '1:*';
+
+      for await (const message of client.fetch(fetchRange, { envelope: true, source: true }, { uid: false })) {
+        try {
+          const parsed = await simpleParser(message.source);
+          const from = message.envelope.from?.[0]?.name 
+            ? `${message.envelope.from[0].name} <${message.envelope.from[0].address}>` 
+            : message.envelope.from?.[0]?.address || 'Inconnu';
+          
+          // Ignorer les propres topo journaliers envoyés par la sentinelle
+          const subject = message.envelope.subject || 'Sans objet';
+          if (subject.includes('[Topo Journalier Sof.IA]')) {
+            continue;
+          }
+
+          const bodySnippet = (parsed.text || parsed.html || '').replace(/\s+/g, ' ').trim().slice(0, 1500);
+
+          recentEmails.push({
+            from,
+            subject,
+            snippet: bodySnippet,
+            date: message.envelope.date
+          });
+        } catch (parseErr) {
+          console.warn('[Sentinel] Erreur parsing message :', parseErr.message);
+        }
       }
     } finally {
       lock.release();
     }
     await client.logout();
+
+    // Analyse & vulgarisation par Gemini AI des emails importants
+    let aiEmailAnalysis = null;
+    if (recentEmails.length > 0 && GEMINI_API_KEY) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        const emailTexts = recentEmails.map((m, idx) => 
+          `Email #${idx + 1} :\n- Expéditeur : ${m.from}\n- Objet : ${m.subject}\n- Extrait : ${m.snippet}`
+        ).join('\n\n---\n\n');
+
+        const prompt = `Tu es l'assistant personnel d'Aaron (fondateur de sofia-study.app).
+Voici les derniers emails reçus sur la boîte professionnelle sofia.study.app@gmail.com :
+
+${emailTexts}
+
+Consignes :
+1. Ignore les spams sans importance ou alertes d'URL automatiques non critiques.
+2. Identifie les emails réellement importants pour le business, la conformité, Google Search Console, Payhip/Stripe/PayPal, les clients étudiants ou les partenaires.
+3. Pour chaque email important : donne l'expéditeur, l'objet, puis résume et VULGARISE son contenu en 2 à 3 puces claires et simples en français (explique ce que ça veut dire concrètement pour Aaron et s'il doit agir ou non).
+4. Si aucun email n'est important, dis simplement : "Aucun email urgent ou critique nécessitant une action."
+
+Réponds de manière concise, directe et professionnelle.`;
+
+        const resp = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt
+        });
+        aiEmailAnalysis = resp.text ? resp.text.trim() : null;
+      } catch (aiErr) {
+        console.warn('[Sentinel] Erreur vulgarisation IA emails :', aiErr.message);
+      }
+    }
+
     return {
       unseenCount,
-      totalCount: recentSubjects.length,
-      latest: recentSubjects.slice(-3).reverse()
+      totalCount: recentEmails.length,
+      latest: recentEmails.slice(-3).reverse(),
+      aiAnalysis: aiEmailAnalysis
     };
   } catch (err) {
     console.warn('[Sentinel] Erreur lecture Gmail :', err.message);
-    return { unseenCount: 0, totalCount: 0, latest: [] };
+    return { unseenCount: 0, totalCount: 0, latest: [], aiAnalysis: null };
   }
 }
 
@@ -114,9 +175,11 @@ async function fetchLivePayPalBalance() {
  */
 export async function triggerDailyBriefingCall(metrics) {
   try {
-    const emailSummary = metrics.emails.latest.length > 0
-      ? metrics.emails.latest.map(m => `de ${m.from} concernant "${m.subject}"`).join(', ')
-      : "Aucun nouvel email reçu.";
+    const emailSummary = metrics.emails.aiAnalysis
+      ? `Points clés et vulgarisation des emails importants :\n${metrics.emails.aiAnalysis}`
+      : (metrics.emails.latest.length > 0
+          ? metrics.emails.latest.map(m => `de ${m.from} concernant "${m.subject}"`).join(', ')
+          : "Aucun nouvel email reçu.");
 
     const taskPrompt = `Tu es Sof.IA, l'intelligence artificielle officielle de la plateforme sofia-study.app créée par Aaron. Tu appelles Aaron pour lui faire son topo complet et structuré :
 
@@ -124,9 +187,9 @@ export async function triggerDailyBriefingCall(metrics) {
 - Visibilité : Connexion active sous sentinel-bot sur https://www.sofia-study.app/.
 - Clics et impressions actuels : ${metrics.googleClicks} clics et ${metrics.googleImpressions} impressions (le calcul Google met 48h à s'afficher pour un domaine neuf).
 
-2. RÉSUMÉ DES EMAILS RÉCENTS (sofia.study.app@gmail.com) :
+2. RÉSUMÉ DES EMAILS RÉCENTS & IMPORTANTS (sofia.study.app@gmail.com) :
 - Total d'emails : ${metrics.emails.totalCount}, dont ${metrics.emails.unseenCount} non lus.
-- Derniers messages : ${emailSummary}.
+- Synthèse et vulgarisation des emails importants : ${emailSummary}.
 
 3. FINANCES & SOLDE PAYPAL :
 - Solde PayPal disponible : ${metrics.paypalBalance} € sur le compte Professionnel Sofia.
@@ -202,6 +265,12 @@ async function sendDailyBriefingEmail(metrics) {
       }
     });
 
+    const emailDetails = metrics.emails.aiAnalysis
+      ? `\n\n📌 ANALYSE & VULGARISATION DES EMAILS IMPORTANTS (par l'IA) :\n${metrics.emails.aiAnalysis}`
+      : (metrics.emails.latest.length > 0
+          ? `\n- Derniers messages : ${metrics.emails.latest.map(m => `de ${m.from} ("${m.subject}")`).join(', ')}`
+          : '\n- Aucun nouvel email reçu.');
+
     const emailBody = `Bonjour Aaron,
 
 Voici ton topo journalier complet pour Sofia (https://www.sofia-study.app/) :
@@ -223,8 +292,8 @@ Voici ton topo journalier complet pour Sofia (https://www.sofia-study.app/) :
 - Générations IA effectuées hier : ${metrics.yesterdayAiGenerations} générations
 - Coût réel en tokens (API Gemini) : ${metrics.tokenCostEur} € (100% couvert par le Free Tier Google de 1 000+ req/jour)
 
-5. EMAILS RÉCENTS (sofia.study.app@gmail.com) :
-- Total emails : ${metrics.emails.totalCount} (dont ${metrics.emails.unseenCount} non lus)
+5. EMAILS RÉCENTS & IMPORTANTS (sofia.study.app@gmail.com) :
+- Total emails : ${metrics.emails.totalCount} (dont ${metrics.emails.unseenCount} non lus)${emailDetails}
 
 6. SANTÉ TECHNIQUE DES SERVEURS & BUGS :
 - État Vercel et Supabase : 100% au vert, aucune panne de serveur, aucun crash 500, et 0 bug bloquant sur les générations.
