@@ -104,10 +104,39 @@ export async function getPDFPageCount(file: File | Blob | ArrayBuffer): Promise<
   return pdf.numPages;
 }
 
+/**
+ * Estime le nombre de tokens d'un texte (français / multi-langue).
+ * En français, 1 token correspond à environ 3,5 à 4 caractères (espaces compris).
+ * On utilise la méthode standard de l'écosystème LLM : Math.ceil(text.trim().length / 3.7).
+ */
+export function estimateTokens(text: string): number {
+  if (!text || !text.trim()) return 0;
+  return Math.ceil(text.trim().length / 3.7);
+}
+
+/**
+ * Vérifie que le contenu textuel extrait du document respecte la limite de tokens allouée selon le plan.
+ * Gratuit : 9 500 tokens max (~7 000 mots / ~15 pages denses)
+ * Premium : 32 000 tokens max (~24 000 mots / ~50 pages denses)
+ */
+export function checkContentTokenLimit(text: string, maxTokens = 32000): { tokenCount: number; isValid: boolean } {
+  const tokenCount = estimateTokens(text);
+  if (tokenCount > maxTokens) {
+    const approxWords = Math.round(tokenCount * 0.75);
+    const maxWords = Math.round(maxTokens * 0.75);
+    throw new Error(
+      `Ce document dépasse la limite de volume autorisée (${tokenCount.toLocaleString()} tokens / ~${approxWords.toLocaleString()} mots détectés). ` +
+      `La limite pour votre forfait est de ${maxTokens.toLocaleString()} tokens (~${maxWords.toLocaleString()} mots). ` +
+      `Veuillez scinder votre cours ou passer au plan supérieur.`
+    );
+  }
+  return { tokenCount, isValid: true };
+}
+
 export async function checkPDFPageCount(file: File | Blob | ArrayBuffer, maxAllowed = 50): Promise<number> {
   const pageCount = await getPDFPageCount(file);
   if (pageCount > maxAllowed) {
-    throw new Error(`Le fichier PDF dépasse la limite autorisée de ${maxAllowed} pages (${pageCount} pages détectées). Veuillez importer un document de ${maxAllowed} pages maximum.`);
+    throw new Error(`Le fichier PDF dépasse la limite indicative de ${maxAllowed} pages (${pageCount} pages détectées). Veuillez importer un document de ${maxAllowed} pages maximum.`);
   }
   return pageCount;
 }

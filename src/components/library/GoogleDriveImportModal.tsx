@@ -13,7 +13,7 @@ import {
   getGoogleDrivePreviewUrl, 
   fetchGoogleDrivePDFBuffer
 } from '../../lib/google-drive';
-import { extractCourseContentFromPDF, checkPDFPageCount } from '../../lib/pdf-extractor';
+import { extractCourseContentFromPDF, checkPDFPageCount, checkContentTokenLimit } from '../../lib/pdf-extractor';
 import { useFileSystem } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -152,7 +152,17 @@ export const GoogleDriveImportModal: React.FC<GoogleDriveImportModalProps> = ({
 
       const text = typeof extracted === 'string' ? extracted : extracted.text;
 
-      // 3. Enregistrement du cours
+      // 4. Vérification de la limite de volume en TOKENS selon le plan (9 500 gratuit, 32 000 premium)
+      const maxAllowedTokens = profile?.plan === 'premium' ? 32000 : 9500;
+      try {
+        checkContentTokenLimit(text, maxAllowedTokens);
+      } catch (tokenErr: any) {
+        setIsProcessing(false);
+        setErrorMessage(tokenErr.message || `Le document dépasse la limite de ${maxAllowedTokens} tokens.`);
+        return;
+      }
+
+      // 5. Enregistrement du cours
       setStatusMessage('Création du cours Sofia...');
       const finalTitle = courseTitle.trim() || 'Cours Google Drive';
       const targetCourseId = await saveDriveCourse(fileId, finalTitle, text);

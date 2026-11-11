@@ -4,7 +4,7 @@ import { ArrowLeft, UploadCloud, FileText, RefreshCw, Trash2, Plus, ChevronDown,
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { updateCachedCourseData } from '../lib/courseDataCache';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
-import { checkPDFPageCount, extractCourseContentFromPDF } from '../lib/pdf-extractor';
+import { checkPDFPageCount, checkContentTokenLimit, extractCourseContentFromPDF } from '../lib/pdf-extractor';
 import { InteractiveMCQ } from '../components/library/InteractiveMCQ';
 import { InteractiveFlashcard } from '../components/library/InteractiveFlashcard';
 import { InteractiveQA } from '../components/library/InteractiveQA';
@@ -395,6 +395,17 @@ export default function SubjectDetail() {
       
       const finalPdfUrl = url || localUrl;
       const text = typeof extractedData === 'string' ? extractedData : extractedData.text;
+
+      // Verification stricte de la limite en TOKENS selon le plan (9 500 gratuit, 32 000 premium)
+      const maxAllowedTokens = profile?.plan === 'premium' ? 32000 : 9500;
+      try {
+        checkContentTokenLimit(text, maxAllowedTokens);
+      } catch (tokenErr: any) {
+        setIsUploading(false);
+        setCloudStatus('error');
+        alert(tokenErr.message || `Le document dépasse la limite de ${maxAllowedTokens} tokens.`);
+        return;
+      }
 
       setPdfUrl(finalPdfUrl);
       setExtractedContent(text);
