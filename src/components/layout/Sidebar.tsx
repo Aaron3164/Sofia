@@ -26,14 +26,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     return () => window.removeEventListener('sofia-error-book-updated', handleErrorsUpdate);
   }, []);
 
-  const navItems = [
-    { to: '/', label: 'Bibliothèque', icon: <Library size={17} />, exact: true },
-    { to: '/planning', label: 'Planification', icon: <Calendar size={17} /> },
-    { to: '/flashcards', label: 'Flashcards', icon: <Zap size={17} /> },
-    { to: '/errors', label: "Carnet d'erreurs", icon: <BookX size={17} />, badge: errorCount > 0 ? errorCount : undefined },
-    { to: '/statistics', label: 'Statistiques', icon: <BarChart3 size={17} /> },
-    { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={17} /> },
-  ];
+    // Section 1 : Outils
+    const toolItems = [
+      { to: '/', label: 'Bibliothèque', icon: <Library size={17} />, exact: true },
+      { to: '/planning', label: 'Planification', icon: <Calendar size={17} /> },
+      { to: '/flashcards', label: 'Flashcards', icon: <Zap size={17} /> },
+      { to: '/errors', label: "Carnet d'erreurs", icon: <BookX size={17} />, badge: errorCount > 0 ? errorCount : undefined },
+    ];
+
+    // Section 3 : Paramètres
+    const settingItems = [
+      { to: '/statistics', label: 'Statistiques', icon: <BarChart3 size={17} /> },
+      { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={17} /> },
+    ];
 
   React.useEffect(() => {
     const refreshUsage = () => {
@@ -79,9 +84,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       </div>
 
       <nav className="sidebar-nav">
-        <div className="nav-section-label">Navigation</div>
+        <div className="nav-section-label">Outils</div>
 
-        {navItems.map((item) => (
+        {toolItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -110,7 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </NavLink>
         ))}
 
-        <div className="nav-section-label">Outils</div>
+        <div className="nav-section-label">Navigation</div>
 
         <button
           className="nav-item"
@@ -146,6 +151,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <span className="nav-item-icon"><Sparkles size={17} /></span>
           Chat SofIA
         </NavLink>
+
+        <div className="nav-section-label">Paramètres</div>
+
+        {settingItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            onClick={() => {
+              if (window.innerWidth <= 768 && onClose) onClose();
+            }}
+          >
+            <span className="nav-item-icon">{item.icon}</span>
+            <span style={{ flex: 1 }}>{item.label}</span>
+          </NavLink>
+        ))}
       </nav>
 
       <div className="sidebar-footer">

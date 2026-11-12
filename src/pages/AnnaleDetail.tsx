@@ -437,7 +437,7 @@ export default function AnnaleDetail() {
                 <InteractiveMCQ
                   data={questions}
                   courseId={id}
-                  courseName={displayTitle}
+                  courseName={rawTitle}
                   documentContext={folderCoursesContext}
                 />
               ) : (

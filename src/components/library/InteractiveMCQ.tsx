@@ -160,10 +160,12 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   }, [selectedAnswers, writtenAnswers, placedPins, openEvaluations, labelingEvaluations, manualLabelingScores, showResults, detailedCorrections, courseId]);
 
   // Ref to track actual data content and avoid wiping localStorage on re-render
-  const prevDataStrRef = useRef<string>('');
+  // We initialize with current data so the first render never triggers a reset
+  const prevDataStrRef = useRef<string>(typeof data === 'string' ? data : JSON.stringify(data || []));
 
-  // Reset state ONLY on genuine new generation/content change
+  // Reset state ONLY on genuine new generation/content change (never on simple navigation or re-render)
   useEffect(() => {
+    if (!data || (Array.isArray(data) && data.length === 0)) return;
     const currentDataStr = typeof data === 'string' ? data : JSON.stringify(data || []);
     if (!prevDataStrRef.current) {
       prevDataStrRef.current = currentDataStr;
@@ -541,7 +543,13 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
       };
 
       if (profile) {
-        await supabase.from('mcq_grades').insert([{
+        // Optimistically update localStorage as instant fallback
+        const savedStr = localStorage.getItem('aura_mcq_grades');
+        const saved = savedStr ? JSON.parse(savedStr) : [];
+        saved.unshift(newGrade);
+        localStorage.setItem('aura_mcq_grades', JSON.stringify(saved));
+
+        const { error } = await supabase.from('mcq_grades').insert([{
           id: newGrade.id,
           user_id: profile.id,
           course_id: newGrade.courseId,
@@ -552,10 +560,13 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
           mcqs: newGrade.mcqs,
           selected_answers: newGrade.selectedAnswers
         }]);
+        if (error) {
+          console.error('Failed to sync grade with Supabase:', error);
+        }
       } else {
         const savedStr = localStorage.getItem('aura_mcq_grades');
         const saved = savedStr ? JSON.parse(savedStr) : [];
-        saved.push(newGrade);
+        saved.unshift(newGrade);
         localStorage.setItem('aura_mcq_grades', JSON.stringify(saved));
       }
     }
@@ -1660,6 +1671,16 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               setManualLabelingScores({});
               setDetailedCorrections({});
               setShowDetailedPanel(false);
+              if (courseId) {
+                localStorage.removeItem(`aura_mcq_answers_${courseId}`);
+                localStorage.removeItem(`aura_mcq_written_${courseId}`);
+                localStorage.removeItem(`aura_mcq_pins_${courseId}`);
+                localStorage.removeItem(`aura_mcq_open_evals_${courseId}`);
+                localStorage.removeItem(`aura_mcq_label_evals_${courseId}`);
+                localStorage.removeItem(`aura_mcq_label_scores_${courseId}`);
+                localStorage.removeItem(`aura_mcq_results_${courseId}`);
+                localStorage.removeItem(`aura_mcq_corrections_${courseId}`);
+              }
             }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
           >
