@@ -1040,7 +1040,7 @@ export default function LandingPage(props: LandingPageProps) {
                 </div>
             </section>
 
-            {/* Section Comparatif Anki / Quizlet (Playbook Commercial Keyword Gap) */}
+            {/* Section Comparatif Méthodes Traditionnelles (Playbook Commercial Keyword Gap) */}
             <section className="section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "4rem" }}>
                 <div className="container" data-reveal>
                     <div style={{ textAlign: "center", marginBottom: "3rem" }}>
@@ -1048,7 +1048,7 @@ export default function LandingPage(props: LandingPageProps) {
                             POURQUOI PASSER À SOF.IA
                         </span>
                         <h2 style={{ fontSize: "clamp(28px,4.5vw,42px)", letterSpacing: "-0.03em", marginTop: "0.5rem" }}>
-                            Pourquoi les étudiants quittent Anki & Quizlet pour Sof.IA
+                            Pourquoi les étudiants passent à la vitesse supérieure avec Sof.IA
                         </h2>
                         <p style={{ color: "#a1a1aa", marginTop: "0.5rem", fontSize: "0.95rem", maxWidth: 640, margin: "0.5rem auto 0" }}>
                             Garde l'efficacité scientifiquement prouvée de la répétition espacée, en éliminant les heures perdues à taper des fiches à la main.
@@ -1060,7 +1060,7 @@ export default function LandingPage(props: LandingPageProps) {
                             <thead>
                                 <tr style={{ color: "#71717a", fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                     <th style={{ padding: "0.75rem 1rem" }}>Fonctionnalité</th>
-                                    <th style={{ padding: "0.75rem 1rem" }}>Anki / Quizlet</th>
+                                    <th style={{ padding: "0.75rem 1rem" }}>Outils classiques de flashcards</th>
                                     <th style={{ padding: "0.75rem 1rem", color: "#fda4af", fontWeight: 700 }}>Sof.IA ✨</th>
                                 </tr>
                             </thead>
@@ -1068,12 +1068,12 @@ export default function LandingPage(props: LandingPageProps) {
                                 {[
                                     {
                                         feat: "Création des flashcards",
-                                        old: "2h à 4h de saisie manuelle par cours",
+                                        old: "2h à 4h de saisie manuelle au clavier",
                                         sofia: "Instantanée (1 clic depuis ton PDF ou Drive)"
                                     },
                                     {
                                         feat: "Moteur de mémorisation",
-                                        old: "SM-2 manuel ou simple QCM basique",
+                                        old: "Paramétrages complexes ou QCM basique",
                                         sofia: "Algorithme SM-2 automatisé & 100% gratuit"
                                     },
                                     {
@@ -1088,7 +1088,7 @@ export default function LandingPage(props: LandingPageProps) {
                                     },
                                     {
                                         feat: "Formats d'étude",
-                                        old: "Cartes uniquement",
+                                        old: "Cartes isolées uniquement",
                                         sofia: "Flashcards, QCM pièges, Résumés & Tuteur IA"
                                     }
                                 ].map((row, i) => (

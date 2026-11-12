@@ -55,12 +55,12 @@ Sof.IA combine les sciences cognitives de l'apprentissage (algorithme de répét
    - Prise en charge des PDF locaux (jusqu'à 50 pages avec extraction instantanée en mémoire).
    - Intégration Google Drive sans limite de taille ni de pages, sans saturer l'espace de stockage de l'utilisateur.
 
-## Positionnement & Comparatif : Pourquoi Sof.IA surpasse Anki et Quizlet
+## Positionnement : Pourquoi Sof.IA surpasse les outils de révision traditionnels
 
-Pour les étudiants intensifs (PASS, LAS, Droit, CPGE, Concours), Sof.IA comble les limites historiques d'outils comme Anki ou Quizlet :
+Pour les étudiants intensifs (PASS, LAS, Droit, CPGE, Concours), Sof.IA comble les limites des méthodes classiques de flashcards :
 
 1. **Génération instantanée vs Heures de saisie manuelle** :
-   - *Anki / Quizlet* : L'étudiant passe entre 2h et 4h à taper manuellement ses cartes au clavier avant de pouvoir réviser.
+   - *Méthodes manuelles traditionnelles* : L'étudiant passe entre 2h et 4h à taper manuellement ses cartes au clavier avant de pouvoir réviser.
    - *Sof.IA* : Un polycopié PDF ou Google Drive de 30 pages est transformé en moins de 30 secondes en un deck complet de flashcards SM-2 optimisées, fiches de synthèse structurées et QCM d'entraînement.
 
 2. **Fidélité absolue et preuve textuelle tirée du cours** :
