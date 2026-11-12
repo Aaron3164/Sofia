@@ -1,0 +1,335 @@
+.stats-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem 2rem 3rem;
+  max-width: 1300px;
+  margin: 0 auto;
+  width: 100%;
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header & Gamification Banner */
+.gamification-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem 1.75rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.08) 0%, rgba(22, 22, 25, 0.95) 45%, rgba(16, 16, 18, 0.98) 100%);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.gamification-hero::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.user-profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.level-badge {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #9f1239 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  box-shadow: 0 4px 16px var(--accent-glow);
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.level-badge span.lvl-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+
+.level-badge span.lvl-num {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.xp-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 260px;
+}
+
+.xp-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.xp-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), #fb7185);
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-badges-streak {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.streak-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-full);
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  color: #fb923c;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+/* KPI Cards Grid (shadcn) */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.kpi-card {
+  padding: 1.25rem 1.4rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.kpi-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+}
+
+.kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.kpi-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.kpi-sub {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Tabs (shadcn style) */
+.shadcn-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  width: fit-content;
+}
+
+.shadcn-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.shadcn-tab-btn.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Analytics Container Card */
+.analytics-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.analytics-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.analytics-card-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* SVG Chart Styles */
+.chart-container {
+  width: 100%;
+  height: 240px;
+  position: relative;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.chart-grid-line {
+  stroke: rgba(255, 255, 255, 0.05);
+  stroke-dasharray: 4 4;
+}
+
+.chart-axis-label {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-point {
+  fill: var(--bg-secondary);
+  stroke: var(--accent-primary);
+  stroke-width: 2.5;
+  cursor: pointer;
+  transition: r 0.15s ease, stroke-width 0.15s ease;
+}
+
+.chart-point:hover {
+  r: 6;
+  stroke-width: 3.5;
+}
+
+/* Folder Progress Breakdown */
+.folder-item-row {
+  display: grid;
+  grid-template-columns: 2fr 3fr 1fr;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.15s ease;
+}
+
+.folder-item-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.badge-achievement {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  transition: all 0.2s ease;
+}
+
+.badge-achievement.unlocked {
+  border-color: rgba(225, 29, 72, 0.35);
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.1) 0%, rgba(22, 22, 25, 0.7) 100%);
+}
+
+.badge-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.badge-achievement.unlocked .badge-icon {
+  background: rgba(225, 29, 72, 0.2);
+  border: 1px solid rgba(225, 29, 72, 0.4);
+}
+
+@media (max-width: 768px) {
+  .stats-dashboard {
+    padding: 1rem 1rem 2.5rem;
+  }
+  .gamification-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .folder-item-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+

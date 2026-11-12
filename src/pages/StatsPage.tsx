@@ -1,13 +1,18 @@
-import { useState, useEffect } from 'react';
-import { GraduationCap, Clock, Trash2, Folder, FileText, ChevronRight, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Trophy, Flame, Zap, Target, Clock, 
+  TrendingUp, Award, Folder, CheckCircle2, 
+  Calendar, Trash2, BarChart2
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
+import { useFileSystem } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { supabase } from '../lib/supabase';
+import './StatsPage.css';
 
-type StatTab = 'qcm' | 'time';
+type StatViewTab = 'overview' | 'folders' | 'annales' | 'history';
 
 interface MCQGrade {
   id: string;
@@ -24,534 +29,619 @@ interface TimeSpent {
   [courseId: string]: {
     courseName: string;
     seconds: number;
-  }
+  };
 }
 
 export default function Statistics() {
   const { nodes } = useFileSystem();
   const { profile } = useAuth();
   const { confirm } = useDialog();
-  const [activeTab, setActiveTab] = useState<StatTab>('qcm');
 
-  // State for QCM
+  const [activeTab, setActiveTab] = useState<StatViewTab>('overview');
   const [mcqGrades, setMcqGrades] = useState<MCQGrade[]>([]);
-  const [expandedQcm, setExpandedQcm] = useState<string | null>(null);
-
-  // State for Time
   const [timeData, setTimeData] = useState<TimeSpent>({});
 
-  // 1. Initial Load & Migration
+  // 1. Data Fetching & Sync
   useEffect(() => {
-    async function loadData() {
-      if (!profile) {
-        // Local only
-        const mcqStr = localStorage.getItem('aura_mcq_grades');
-        if (mcqStr) setMcqGrades(JSON.parse(mcqStr));
+    async function loadStats() {
+      try {
+        if (!profile) {
+          const mcqStr = localStorage.getItem('aura_mcq_grades');
+          if (mcqStr) setMcqGrades(JSON.parse(mcqStr));
 
-        const timeStr = localStorage.getItem('aura_time_spent');
-        if (timeStr) setTimeData(JSON.parse(timeStr));
-        return;
-      }
-
-      // Cloud Fetch
-      const [mcqRes, statsRes] = await Promise.all([
-        supabase.from('mcq_grades').select('*').order('date', { ascending: false }),
-        supabase.from('course_stats').select('*')
-      ]);
-
-      if (!mcqRes.error && mcqRes.data.length === 0) {
-        const local = localStorage.getItem('aura_mcq_grades');
-        if (local) {
-          const parsed = JSON.parse(local);
-          if (parsed.length > 0) {
-            await supabase.from('mcq_grades').insert(parsed.map((p: any) => ({ 
-              id: p.id,
-              user_id: profile.id,
-              course_id: p.courseId,
-              course_name: p.courseName,
-              score: p.score,
-              total: p.total,
-              date: p.date,
-              mcqs: p.mcqs || [],
-              selected_answers: p.selectedAnswers || {}
-            })));
-            setMcqGrades(parsed);
-          }
+          const timeStr = localStorage.getItem('aura_time_spent');
+          if (timeStr) setTimeData(JSON.parse(timeStr));
+          return;
         }
-      } else if (mcqRes.data) {
-        setMcqGrades(mcqRes.data.map(m => ({
-          id: m.id,
-          courseId: m.course_id,
-          courseName: m.course_name,
-          score: m.score,
-          total: m.total,
-          date: m.date,
-          mcqs: m.mcqs,
-          selectedAnswers: m.selected_answers
-        })));
-      }
 
-      if (!statsRes.error && statsRes.data) {
-        const statsMap: TimeSpent = {};
-        statsRes.data.forEach((s: any) => {
-          const node = nodes.find(n => n.id === s.course_id);
-          statsMap[s.course_id] = { courseName: node?.name || 'Inconnu', seconds: s.seconds };
-        });
-        setTimeData(statsMap);
+        const [mcqRes, statsRes] = await Promise.all([
+          supabase.from('mcq_grades').select('*').order('date', { ascending: false }),
+          supabase.from('course_stats').select('*')
+        ]);
+
+        if (!mcqRes.error && mcqRes.data) {
+          setMcqGrades(mcqRes.data.map(m => ({
+            id: m.id,
+            courseId: m.course_id,
+            courseName: m.course_name,
+            score: m.score,
+            total: m.total,
+            date: m.date,
+            mcqs: m.mcqs,
+            selectedAnswers: m.selected_answers
+          })));
+        } else {
+          const local = localStorage.getItem('aura_mcq_grades');
+          if (local) setMcqGrades(JSON.parse(local));
+        }
+
+        if (!statsRes.error && statsRes.data) {
+          const statsMap: TimeSpent = {};
+          statsRes.data.forEach((s: any) => {
+            const node = nodes.find(n => n.id === s.course_id);
+            statsMap[s.course_id] = { courseName: node?.name || 'Cours', seconds: s.seconds };
+          });
+          setTimeData(statsMap);
+        } else {
+          const localTime = localStorage.getItem('aura_time_spent');
+          if (localTime) setTimeData(JSON.parse(localTime));
+        }
+      } catch (err) {
+        console.error('Error loading stats:', err);
       }
     }
-    loadData();
+    loadStats();
   }, [profile, nodes]);
 
-  const handleDeleteQcm = async (id: string, e: React.MouseEvent) => {
+  // 2. Computed Metrics & Gamification (XP, Levels, Streak)
+  const metrics = useMemo(() => {
+    // Total time in seconds
+    const totalSeconds = Object.values(timeData).reduce((acc, curr) => acc + (curr.seconds || 0), 0);
+    const totalHours = Math.floor(totalSeconds / 3600);
+    const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
+
+    // QCM & Annales counts
+    const totalEvaluations = mcqGrades.length;
+    const annaleGrades = mcqGrades.filter(g => g.courseName?.includes('🎓') || g.courseName?.toLowerCase().includes('annale'));
+    const totalQuestions = mcqGrades.reduce((acc, curr) => acc + (curr.total || 0), 0);
+    const totalCorrect = mcqGrades.reduce((acc, curr) => acc + (curr.score || 0), 0);
+    const successRate = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+    // Gamification: XP Calculation
+    // Base: 10 XP per minute studied, 25 XP per correct QCM, 100 XP per test done
+    const studyXp = Math.floor(totalSeconds / 60) * 10;
+    const qcmXp = totalCorrect * 25;
+    const evalXp = totalEvaluations * 100;
+    const totalXp = studyXp + qcmXp + evalXp;
+
+    // Level curve: Level 1 = 0 XP, Level 2 = 500 XP, Level 3 = 1200 XP, etc.
+    const level = Math.floor(Math.sqrt(totalXp / 250)) + 1;
+    const currentLevelBaseXp = Math.pow(level - 1, 2) * 250;
+    const nextLevelBaseXp = Math.pow(level, 2) * 250;
+    const levelXpProgress = totalXp - currentLevelBaseXp;
+    const levelXpRequired = nextLevelBaseXp - currentLevelBaseXp;
+    const progressPercent = Math.min(100, Math.round((levelXpProgress / Math.max(1, levelXpRequired)) * 100));
+
+    // Level Titles
+    const getLevelTitle = (lvl: number) => {
+      if (lvl >= 10) return 'Major de Promotion 🏆';
+      if (lvl >= 7) return 'Grand Admissible 🎓';
+      if (lvl >= 5) return 'Praticien Confirmé ⚡';
+      if (lvl >= 3) return 'Étudiant Assidu 📚';
+      return 'Apprenti Motivé 🌟';
+    };
+
+    // Calculate Streak (Consecutive Days)
+    const uniqueDates = Array.from(new Set(mcqGrades.map(g => g.date.split('T')[0]))).sort().reverse();
+    let streak = 0;
+    const today = new Date().toISOString().split('T')[0];
+    let checkDate = new Date();
+
+    if (uniqueDates.includes(today)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    while (uniqueDates.includes(checkDate.toISOString().split('T')[0])) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    return {
+      totalHours,
+      totalMinutes,
+      totalSeconds,
+      totalEvaluations,
+      annaleGrades,
+      totalQuestions,
+      totalCorrect,
+      successRate,
+      totalXp,
+      level,
+      levelTitle: getLevelTitle(level),
+      progressPercent,
+      streak: Math.max(streak, totalSeconds > 60 ? 1 : 0)
+    };
+  }, [mcqGrades, timeData]);
+
+  // 3. Chronological Curve Data (Progression Over Time)
+  const chartPoints = useMemo(() => {
+    if (mcqGrades.length === 0) return [];
+    // Sort oldest to newest
+    const sorted = [...mcqGrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    // Group or map last 12 tests
+    const recent = sorted.slice(-12);
+    return recent.map((item, idx) => {
+      const pct = item.total > 0 ? Math.round((item.score / item.total) * 100) : 0;
+      return {
+        x: idx,
+        score: pct,
+        label: format(new Date(item.date), 'd MMM', { locale: fr }),
+        name: item.courseName.replace(/^🎓\s*/, '')
+      };
+    });
+  }, [mcqGrades]);
+
+  // 4. Folder Breakdown (Progress per Subject Folder)
+  const folderStats = useMemo(() => {
+    const folders = nodes.filter(n => n.type === 'folder');
+    return folders.map(f => {
+      // Find all courses inside this folder
+      const childCourses = nodes.filter(n => n.parentId === f.id && (n.type === 'course' || n.name.startsWith('🎓')));
+      const courseIds = new Set(childCourses.map(c => c.id));
+      
+      const folderGrades = mcqGrades.filter(g => courseIds.has(g.courseId));
+      const totalQ = folderGrades.reduce((acc, g) => acc + g.total, 0);
+      const correctQ = folderGrades.reduce((acc, g) => acc + g.score, 0);
+      const avgScore = totalQ > 0 ? Math.round((correctQ / totalQ) * 100) : 0;
+
+      let folderSeconds = 0;
+      courseIds.forEach(id => {
+        if (timeData[id]) folderSeconds += timeData[id].seconds;
+      });
+
+      return {
+        id: f.id,
+        name: f.name,
+        color: f.color,
+        courseCount: childCourses.length,
+        evalCount: folderGrades.length,
+        avgScore,
+        hours: Math.floor(folderSeconds / 3600),
+        minutes: Math.floor((folderSeconds % 3600) / 60)
+      };
+    });
+  }, [nodes, mcqGrades, timeData]);
+
+  // Delete evaluation handler
+  const handleDeleteGrade = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (await confirm('Voulez-vous vraiment supprimer cet examen blanc de votre historique ?')) {
+    if (await confirm('Supprimer cet examen de ton historique ?')) {
       const updated = mcqGrades.filter(g => g.id !== id);
       setMcqGrades(updated);
+      localStorage.setItem('aura_mcq_grades', JSON.stringify(updated));
       if (profile) {
         await supabase.from('mcq_grades').delete().eq('id', id);
-      } else {
-        localStorage.setItem('aura_mcq_grades', JSON.stringify(updated));
       }
     }
   };
 
-  const tabs = [
-    { id: 'qcm', label: 'Examens Blancs & Annales (QCM)', icon: <GraduationCap size={15} /> },
-    { id: 'time', label: 'Temps passé', icon: <Clock size={15} /> },
-  ];
-
-  const formatSeconds = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
-  };
-
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <header className="page-header" style={{ flexShrink: 0, paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)', marginBottom: '1.25rem' }}>
-        <h1>Statistiques & Progression</h1>
-        <p className="subtitle">Suivez vos résultats et votre temps d'étude</p>
-      </header>
-
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', overflowX: 'auto', flexShrink: 0 }}>
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id as StatTab)}
-            className={`btn ${activeTab === t.id ? 'btn-primary' : 'btn-outline'}`}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            {t.icon}
-            <span>{t.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="glass-panel" style={{ flex: 1, padding: '1.5rem', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-
-        {activeTab === 'qcm' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-              <GraduationCap size={20} className="text-accent" />
-              Historique des Examens Blancs
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {mcqGrades.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                  Aucun QCM complété pour le moment.
-                </div>
-              ) : (
-                <QcmTreeRoot 
-                  nodes={nodes} 
-                  mcqGrades={mcqGrades} 
-                  expandedQcm={expandedQcm} 
-                  setExpandedQcm={setExpandedQcm} 
-                  onDelete={handleDeleteQcm} 
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'time' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-              <Clock size={20} className="text-accent" />
-              Temps passé par Matière
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {Object.keys(timeData).length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                  Aucun temps d'étude enregistré.
-                </div>
-              ) : (
-                <TimeTreeRoot nodes={nodes} timeData={timeData} formatSeconds={formatSeconds} />
-              )}
-            </div>
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
-}
-
-const getCorrectAnswers = (q: any): string[] => {
-  const raw = q.correctAnswers ?? q.correct_answers ?? q.correctAnswer ?? q.correct_answer ?? q.responses ?? q.answers ?? [];
-  if (Array.isArray(raw)) return raw.map(v => v?.toString() || '');
-  if (raw === null || raw === undefined) return [];
-  return [raw.toString()];
-};
-
-const normalizeOption = (s: string) => 
-  s.toString()
-   .trim()
-   .toLowerCase()
-   .normalize("NFD")
-   .replace(/[\u0300-\u036f]/g, "") // Enlever les accents
-   .replace(/[^a-z0-9]/g, ''); // Garder uniquement l'essentiel (alphanumérique)
-
-const isCorrectOption = (correctOpts: string[], option: string, oIndex: number) => {
-  const normalizedOption = normalizeOption(option);
-  const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-  
-  return correctOpts.some(c => {
-    if (c === null || c === undefined) return false;
-    const cStr = c.toString().trim();
-    const normalizedC = normalizeOption(cStr);
-    
-    // 1. Match par texte (normalisé agressivement)
-    if (normalizedC !== '' && normalizedC === normalizedOption) return true;
-    
-    // 2. Match par index (0-based ou 1-based)
-    if (cStr === oIndex.toString() || cStr === (oIndex + 1).toString()) return true;
-    
-    // 3. Match par lettre ("a", "b", "c"...)
-    if (normalizedC === letters[oIndex]) return true;
-    
-    return false;
-  });
-};
-
-const isOptionSelected = (selected: any[], option: string, oIndex: number) => {
-  if (!Array.isArray(selected) || selected.length === 0) return false;
-  const normalizedOption = normalizeOption(option);
-  const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-
-  return selected.some(s => {
-    if (s === null || s === undefined) return false;
-    const sStr = s.toString().trim();
-    const normalizedS = normalizeOption(sStr);
-
-    // 1. Match par texte exact ou normalisé
-    if (sStr === option.trim()) return true;
-    if (normalizedS !== '' && normalizedS === normalizedOption) return true;
-
-    // 2. Match par index (0-based ou 1-based)
-    if (sStr === oIndex.toString() || sStr === (oIndex + 1).toString()) return true;
-
-    // 3. Match par lettre ("A", "B", "a"...)
-    if (normalizedS === letters[oIndex]) return true;
-
-    return false;
-  });
-};
-
-function QcmGradeItem({ g, expandedQcm, setExpandedQcm, onDelete }: any) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '0.5rem', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-      <div 
-        className="hover-lift" 
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', cursor: g.mcqs ? 'pointer' : 'default' }}
-        onClick={() => g.mcqs && setExpandedQcm(expandedQcm === g.id ? null : g.id)}
-      >
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Examen du {format(new Date(g.date), 'dd MMMM yyyy à HH:mm', { locale: fr })}
-          </span>
-          {g.mcqs && (
-            <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', color: 'var(--accent-primary)' }}>
-              {expandedQcm === g.id ? 'Masquer la correction' : 'Voir la correction détaillée'}
-            </p>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: (g.score/g.total) >= 0.5 ? 'var(--success)' : 'var(--danger)' }}>
-            {g.score} / {g.total}
-          </div>
-          <button onClick={(e) => onDelete(g.id, e)} className="icon-button delete-btn" style={{ padding: '0.5rem' }} title="Supprimer de l'historique">
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
+    <div className="stats-dashboard">
       
-      {expandedQcm === g.id && g.mcqs && (
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {g.mcqs.map((q: any, qIndex: number) => {
-              const correctOpts = getCorrectAnswers(q);
-              const selected = g.selectedAnswers?.[qIndex] || [];
+      {/* 1. Gamification Hero Card */}
+      <div className="gamification-hero">
+        <div className="user-profile-meta">
+          <div className="level-badge" title={`Niveau ${metrics.level} : ${metrics.levelTitle}`}>
+            <span className="lvl-title">NIV</span>
+            <span className="lvl-num">{metrics.level}</span>
+          </div>
 
-              return (
-                <div key={qIndex} style={{ padding: '1rem', borderRadius: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-                  <h5 style={{ marginBottom: '1rem', fontSize: '1rem' }}>{qIndex + 1}. {q.question}</h5>
-                  {((q.images && q.images.length > 0) || q.image) && (
-                    <div style={{ margin: '0.75rem 0 1rem 0', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
-                      {(q.images || [q.image]).map((imgSrc: string, iIdx: number) => (
-                        <div key={iIdx} style={{ borderRadius: '0.5rem', overflow: 'hidden', border: '1px solid var(--border-color)', maxHeight: '240px', backgroundColor: 'var(--bg-primary)' }}>
-                          <img src={imgSrc} alt="Illustration" style={{ maxHeight: '240px', maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
-                        </div>
-                      ))}
+          <div className="xp-progress-wrap">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>{metrics.levelTitle}</strong>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                <strong>{metrics.totalXp.toLocaleString()} XP</strong>
+              </span>
+            </div>
+            <div className="xp-progress-bar">
+              <div className="xp-progress-fill" style={{ width: `${metrics.progressPercent}%` }} />
+            </div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+              {metrics.progressPercent}% vers le niveau {metrics.level + 1}
+            </span>
+          </div>
+        </div>
+
+        <div className="hero-badges-streak">
+          <div className="streak-pill" title="Jours d'étude consécutifs">
+            <Flame size={18} fill="#f97316" />
+            <span>{metrics.streak} {metrics.streak > 1 ? 'Jours de série' : 'Jour actif'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Key Metrics Grid (shadcn Cards) */}
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-top">
+            <span>Taux de Réussite</span>
+            <Target size={16} className="text-accent" />
+          </div>
+          <div className="kpi-value">{metrics.successRate}%</div>
+          <div className="kpi-sub">
+            <CheckCircle2 size={12} style={{ color: 'var(--success)' }} />
+            <span>{metrics.totalCorrect} sur {metrics.totalQuestions} questions validées</span>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-top">
+            <span>Temps d'Étude Total</span>
+            <Clock size={16} className="text-accent" />
+          </div>
+          <div className="kpi-value">
+            {metrics.totalHours > 0 ? `${metrics.totalHours}h ${metrics.totalMinutes}m` : `${metrics.totalMinutes} min`}
+          </div>
+          <div className="kpi-sub">
+            <Zap size={12} style={{ color: '#fbbf24' }} />
+            <span>Temps actif enregistré sur tes cours</span>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-top">
+            <span>Examens & QCM</span>
+            <BarChart2 size={16} className="text-accent" />
+          </div>
+          <div className="kpi-value">{metrics.totalEvaluations}</div>
+          <div className="kpi-sub">
+            <span>Sessions d'entraînement terminées</span>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-top">
+            <span>Annales Officielles</span>
+            <Trophy size={16} className="text-accent" />
+          </div>
+          <div className="kpi-value">{metrics.annaleGrades.length}</div>
+          <div className="kpi-sub">
+            <span>Sujets de concours préparés</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Navigation Tabs (shadcn style) */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="shadcn-tabs">
+          <button 
+            className={`shadcn-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            <TrendingUp size={14} /> Vue Globale
+          </button>
+          <button 
+            className={`shadcn-tab-btn ${activeTab === 'folders' ? 'active' : ''}`}
+            onClick={() => setActiveTab('folders')}
+          >
+            <Folder size={14} /> Par Dossier
+          </button>
+          <button 
+            className={`shadcn-tab-btn ${activeTab === 'annales' ? 'active' : ''}`}
+            onClick={() => setActiveTab('annales')}
+          >
+            <Trophy size={14} /> Annales Concours
+          </button>
+          <button 
+            className={`shadcn-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            <Calendar size={14} /> Historique Détaillé
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Tab 1: Overview & Vector Progress Chart */}
+      {activeTab === 'overview' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          
+          <div className="analytics-card">
+            <div className="analytics-card-header">
+              <div>
+                <h3 className="analytics-card-title">
+                  <TrendingUp size={18} className="text-accent" />
+                  Courbe de Progression (Dernières Évaluations)
+                </h3>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  Évolution du taux de réussite sur tes derniers examens et QCM
+                </p>
+              </div>
+            </div>
+
+            {chartPoints.length < 2 ? (
+              <div style={{ height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '0.5rem' }}>
+                <BarChart2 size={32} style={{ opacity: 0.4 }} />
+                <span>Réalise au moins 2 séries de QCM ou annales pour générer ta courbe de tendance.</span>
+              </div>
+            ) : (
+              <div className="chart-container">
+                <svg className="chart-svg" viewBox="0 0 700 200" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Horizontal Grid lines */}
+                  <line x1="40" y1="30" x2="680" y2="30" className="chart-grid-line" />
+                  <line x1="40" y1="85" x2="680" y2="85" className="chart-grid-line" />
+                  <line x1="40" y1="140" x2="680" y2="140" className="chart-grid-line" />
+                  
+                  {/* Axis labels */}
+                  <text x="10" y="34" className="chart-axis-label">100%</text>
+                  <text x="10" y="89" className="chart-axis-label">50%</text>
+                  <text x="10" y="144" className="chart-axis-label">0%</text>
+
+                  {/* SVG Coordinates generation */}
+                  {(() => {
+                    const width = 640;
+                    const height = 130;
+                    const topOffset = 25;
+                    const leftOffset = 45;
+                    const step = width / Math.max(1, chartPoints.length - 1);
+
+                    const pts = chartPoints.map((p, i) => {
+                      const cx = leftOffset + (i * step);
+                      const cy = topOffset + (height - (p.score / 100) * height);
+                      return { cx, cy, ...p };
+                    });
+
+                    const pathD = pts.reduce((acc, curr, i) => {
+                      if (i === 0) return `M ${curr.cx} ${curr.cy}`;
+                      // Smooth bezier curve
+                      const prev = pts[i - 1];
+                      const cp1x = prev.cx + (curr.cx - prev.cx) / 2;
+                      const cp1y = prev.cy;
+                      const cp2x = prev.cx + (curr.cx - prev.cx) / 2;
+                      const cp2y = curr.cy;
+                      return `${acc} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.cx} ${curr.cy}`;
+                    }, '');
+
+                    const areaD = `${pathD} L ${pts[pts.length - 1].cx} ${topOffset + height} L ${pts[0].cx} ${topOffset + height} Z`;
+
+                    return (
+                      <>
+                        <path d={areaD} fill="url(#chartGradient)" />
+                        <path d={pathD} className="chart-line" />
+                        {pts.map((pt, i) => (
+                          <g key={i}>
+                            <circle cx={pt.cx} cy={pt.cy} r="4.5" className="chart-point">
+                              <title>{`${pt.name} : ${pt.score}% (${pt.label})`}</title>
+                            </circle>
+                            <text x={pt.cx} y="180" textAnchor="middle" className="chart-axis-label">
+                              {pt.label}
+                            </text>
+                          </g>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </svg>
+              </div>
+            )}
+          </div>
+
+          {/* Badges & Achievements Grid */}
+          <div className="analytics-card">
+            <h3 className="analytics-card-title">
+              <Award size={18} className="text-accent" />
+              Badges & Succès Débloquables
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
+              <div className={`badge-achievement ${metrics.totalEvaluations >= 1 ? 'unlocked' : ''}`}>
+                <div className="badge-icon">⚡</div>
+                <div>
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Premier Déclic</strong>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Terminer sa première série de QCM</p>
+                </div>
+              </div>
+
+              <div className={`badge-achievement ${metrics.totalCorrect >= 50 ? 'unlocked' : ''}`}>
+                <div className="badge-icon">🎯</div>
+                <div>
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Tireur d'Élite</strong>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Valider 50 questions avec succès</p>
+                </div>
+              </div>
+
+              <div className={`badge-achievement ${metrics.annaleGrades.length >= 3 ? 'unlocked' : ''}`}>
+                <div className="badge-icon">🏛️</div>
+                <div>
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Major du Concours</strong>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Résoudre au moins 3 annales officielles</p>
+                </div>
+              </div>
+
+              <div className={`badge-achievement ${metrics.totalHours >= 5 ? 'unlocked' : ''}`}>
+                <div className="badge-icon">⏳</div>
+                <div>
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Endurance Ultime</strong>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Cumuler plus de 5 heures d'étude active</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* 5. Tab 2: Folder Breakdown */}
+      {activeTab === 'folders' && (
+        <div className="analytics-card">
+          <h3 className="analytics-card-title">
+            <Folder size={18} className="text-accent" />
+            Performance par Dossier d'Étude
+          </h3>
+          <p style={{ margin: '0.2rem 0 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Suis la maîtrise de tes différentes matières pour cibler tes révisions prioritaires
+          </p>
+
+          {folderStats.length === 0 ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              Aucun dossier créé dans ta bibliothèque.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {folderStats.map(f => (
+                <div key={f.id} className="folder-item-row">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: f.color || 'var(--accent-primary)' }} />
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{f.name}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({f.courseCount} cours)</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ flex: 1, height: '7px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                      <div 
+                        style={{ 
+                          height: '100%', 
+                          width: `${f.avgScore}%`, 
+                          backgroundColor: f.avgScore >= 70 ? 'var(--success)' : f.avgScore >= 50 ? '#f59e0b' : 'var(--accent-primary)',
+                          borderRadius: '999px' 
+                        }} 
+                      />
                     </div>
-                  )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {q.options.map((option: string, oIndex: number) => {
-                      const isSelected = isOptionSelected(selected, option, oIndex);
-                      const isCorrect = isCorrectOption(correctOpts, option, oIndex);
-                      
-                      let bgColor = 'var(--bg-primary)';
-                      let borderColor = 'var(--border-color)';
-                      let feedbackText = '';
-                      
-                      if (isCorrect && isSelected) {
-                        bgColor = '#10b98120'; 
-                        borderColor = 'var(--success)';
-                        feedbackText = '✅ Bonne réponse cochée';
-                      } else if (isCorrect && !isSelected) {
-                        bgColor = '#f59e0b20'; 
-                        borderColor = 'var(--warning)';
-                        feedbackText = '⚠️ Réponse correcte oubliée';
-                      } else if (!isCorrect && isSelected) {
-                        bgColor = '#ef444420'; 
-                        borderColor = 'var(--danger)';
-                        feedbackText = '❌ Cochée par erreur';
-                      }
+                    <span style={{ minWidth: '45px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {f.avgScore}%
+                    </span>
+                  </div>
 
-                      return (
-                        <div
-                          key={oIndex}
-                          style={{
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: `1px solid ${borderColor}`,
-                            backgroundColor: bgColor,
-                            color: 'var(--text-primary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            marginLeft: '0.5rem'
-                          }}
-                        >
-                          <div style={{ 
-                            width: '16px', height: '16px', flexShrink: 0, 
-                            border: `2px solid ${isSelected ? (!isCorrect ? 'var(--danger)' : 'var(--accent-primary)') : 'var(--text-secondary)'}`, 
-                            borderRadius: '4px',
-                            backgroundColor: isSelected ? (!isCorrect ? 'var(--danger)' : 'var(--accent-primary)') : 'transparent',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                          }}>
-                            {isSelected && <div style={{ width: '8px', height: '8px', backgroundColor: 'white', clipPath: 'polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%)' }} />}
-                          </div>
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '0.9rem' }}>{option}</span>
-                            {feedbackText && (
-                              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: borderColor, marginTop: '0.2rem' }}>
-                                {feedbackText}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    {f.hours > 0 ? `${f.hours}h ${f.minutes}m` : `${f.minutes} min`} passées
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QcmTreeCourse({ course, mcqGrades, expandedQcm, setExpandedQcm, onDelete }: any) {
-  const [isOpen, setIsOpen] = useState(false);
-  if (mcqGrades.length === 0) return null;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
-      <div 
-        className="hover-lift glass-panel" 
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem', cursor: 'pointer', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--accent-primary)', borderRadius: '0.5rem' }}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {isOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        <FileText size={20} color="var(--accent-primary)" />
-        <span style={{ fontWeight: 600 }}>{course.name}</span>
-        <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{mcqGrades.length} examen(s)</span>
-      </div>
-      
-      {isOpen && (
-        <div style={{ paddingLeft: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '0.5rem' }}>
-          {mcqGrades.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((g: any) => (
-            <QcmGradeItem key={g.id} g={g} expandedQcm={expandedQcm} setExpandedQcm={setExpandedQcm} onDelete={onDelete} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QcmTreeFolder({ folder, nodes, mcqGrades, expandedQcm, setExpandedQcm, onDelete }: any) {
-  const [isOpen, setIsOpen] = useState(false);
-  const children = nodes.filter((n: FileNode) => n.parentId === folder.id);
-  const courseIdsWithGrades = new Set(mcqGrades.map((g: any) => g.courseId));
-  
-  const hasGrades = (nodeId: string): boolean => {
-    const childs = nodes.filter((n: FileNode) => n.parentId === nodeId);
-    return childs.some((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
-  };
-
-  const relevantChildren = children.filter((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
-
-  if (relevantChildren.length === 0) return null;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
-      <div 
-        className="hover-lift glass-panel" 
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem', cursor: 'pointer', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '0.5rem' }}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {isOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        <Folder size={20} color={folder.color || 'var(--accent-primary)'} />
-        <span style={{ fontWeight: 600 }}>{folder.name}</span>
-      </div>
-      {isOpen && (
-        <div style={{ paddingLeft: '2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-          {relevantChildren.map((child: FileNode) => child.type === 'folder' 
-            ? <QcmTreeFolder key={child.id} folder={child} nodes={nodes} mcqGrades={mcqGrades} expandedQcm={expandedQcm} setExpandedQcm={setExpandedQcm} onDelete={onDelete} />
-            : <QcmTreeCourse key={child.id} course={child} mcqGrades={mcqGrades.filter((g: any) => g.courseId === child.id)} expandedQcm={expandedQcm} setExpandedQcm={setExpandedQcm} onDelete={onDelete} />
+              ))}
+            </div>
           )}
         </div>
       )}
-    </div>
-  );
-}
 
-function QcmTreeRoot({ nodes, mcqGrades, expandedQcm, setExpandedQcm, onDelete }: any) {
-  const rootNodes = nodes.filter((n: FileNode) => n.parentId === null);
-  const courseIdsWithGrades = new Set(mcqGrades.map((g: any) => g.courseId));
-  
-  const hasGrades = (nodeId: string): boolean => {
-    const childs = nodes.filter((n: FileNode) => n.parentId === nodeId);
-    return childs.some((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
-  };
+      {/* 6. Tab 3: Annales Overview */}
+      {activeTab === 'annales' && (
+        <div className="analytics-card">
+          <h3 className="analytics-card-title">
+            <Trophy size={18} className="text-accent" />
+            Suivi des Épreuves d'Annales
+          </h3>
+          <p style={{ margin: '0.2rem 0 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Résultats obtenus sur les sujets de concours et examens blancs officiels
+          </p>
 
-  const relevantRoots = rootNodes.filter((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
+          {metrics.annaleGrades.length === 0 ? (
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              Aucune annale passée pour l'instant. Importe un sujet d'examen officiel pour tester ton niveau en conditions réelles !
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {metrics.annaleGrades.map(g => {
+                const pct = g.total > 0 ? Math.round((g.score / g.total) * 100) : 0;
+                return (
+                  <div key={g.id} className="folder-item-row" style={{ gridTemplateColumns: '2fr 1fr 1fr' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Trophy size={15} style={{ color: '#fbbf24' }} />
+                      <strong style={{ color: 'var(--text-primary)' }}>{g.courseName.replace(/^🎓\s*/, '')}</strong>
+                    </div>
 
-  const existingCourseIds = new Set(nodes.filter((n: FileNode) => n.type === 'course').map((n: FileNode) => n.id));
-  const detachedGrades = mcqGrades.filter((g: any) => !existingCourseIds.has(g.courseId));
+                    <div>
+                      <span style={{ 
+                        display: 'inline-block',
+                        padding: '0.25rem 0.6rem', 
+                        borderRadius: 'var(--radius-sm)', 
+                        fontSize: '0.82rem', 
+                        fontWeight: 700,
+                        backgroundColor: pct >= 70 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(225, 29, 72, 0.15)',
+                        color: pct >= 70 ? '#4ade80' : '#fb7185'
+                      }}>
+                        {g.score} / {g.total} ({pct}%)
+                      </span>
+                    </div>
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      {relevantRoots.map((child: FileNode) => child.type === 'folder' 
-            ? <QcmTreeFolder key={child.id} folder={child} nodes={nodes} mcqGrades={mcqGrades} expandedQcm={expandedQcm} setExpandedQcm={setExpandedQcm} onDelete={onDelete} />
-            : <QcmTreeCourse key={child.id} course={child} mcqGrades={mcqGrades.filter((g: any) => g.courseId === child.id)} expandedQcm={expandedQcm} setExpandedQcm={setExpandedQcm} onDelete={onDelete} />
-      )}
-      {detachedGrades.length > 0 && (
-         <QcmTreeCourse 
-           key="deleted-courses" 
-           course={{ id: 'deleted', name: 'Cours ou Examens Orphelins', type: 'course' } as any} 
-           mcqGrades={detachedGrades} 
-           expandedQcm={expandedQcm} 
-           setExpandedQcm={setExpandedQcm} 
-           onDelete={onDelete} 
-         />
-      )}
-    </div>
-  );
-}
-function TimeTreeCourse({ course, time, formatSeconds }: any) {
-  return (
-    <div key={course.id} style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: 'var(--bg-elevated)', borderRadius: '0.5rem', border: '1px solid var(--accent-primary)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <FileText size={18} color="var(--accent-primary)" />
-          <span style={{ fontWeight: '600' }}>{course.name}</span>
-        </div>
-        <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{formatSeconds(time)}</span>
-      </div>
-      <div style={{ height: '8px', backgroundColor: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden' }}>
-        <div 
-          className="time-bar"
-          style={{ 
-            height: '100%', 
-            backgroundColor: 'var(--accent-primary)',
-            width: `${Math.min(100, (time / 3600) * 100)}%`,
-            transition: 'width 1s ease-out'
-          }} 
-        />
-      </div>
-    </div>
-  );
-}
-
-function TimeTreeFolder({ folder, nodes, timeData, formatSeconds }: any) {
-  const [isOpen, setIsOpen] = useState(false);
-  const children = nodes.filter((n: FileNode) => n.parentId === folder.id);
-  
-  const hasTime = (nodeId: string): boolean => {
-    const childs = nodes.filter((n: FileNode) => n.parentId === nodeId);
-    return childs.some((c: FileNode) => c.type === 'course' ? !!timeData[c.id] : hasTime(c.id));
-  };
-
-  const relevantChildren = children.filter((c: FileNode) => c.type === 'course' ? !!timeData[c.id] : hasTime(c.id));
-
-  if (relevantChildren.length === 0) return null;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
-      <div 
-        className="hover-lift glass-panel" 
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem', cursor: 'pointer', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '0.5rem' }}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {isOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        <Folder size={20} color={folder.color || 'var(--accent-primary)'} />
-        <span style={{ fontWeight: 600 }}>{folder.name}</span>
-      </div>
-      {isOpen && (
-        <div style={{ paddingLeft: '2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-          {relevantChildren.map((child: FileNode) => child.type === 'folder' 
-            ? <TimeTreeFolder key={child.id} folder={child} nodes={nodes} timeData={timeData} formatSeconds={formatSeconds} />
-            : <TimeTreeCourse key={child.id} course={child} time={timeData[child.id]?.seconds || 0} formatSeconds={formatSeconds} />
+                    <div style={{ textAlign: 'right', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {format(new Date(g.date), 'dd MMMM yyyy', { locale: fr })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
-    </div>
-  );
-}
 
-function TimeTreeRoot({ nodes, timeData, formatSeconds }: any) {
-  const rootNodes = nodes.filter((n: FileNode) => n.parentId === null);
-  
-  const hasTime = (nodeId: string): boolean => {
-    const childs = nodes.filter((n: FileNode) => n.parentId === nodeId);
-    return childs.some((c: FileNode) => c.type === 'course' ? !!timeData[c.id] : hasTime(c.id));
-  };
+      {/* 7. Tab 4: Full History List */}
+      {activeTab === 'history' && (
+        <div className="analytics-card">
+          <h3 className="analytics-card-title">
+            <Calendar size={18} className="text-accent" />
+            Historique de Tous les Examens & QCM
+          </h3>
 
-  const relevantRoots = rootNodes.filter((c: FileNode) => c.type === 'course' ? !!timeData[c.id] : hasTime(c.id));
+          {mcqGrades.length === 0 ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              Aucun examen dans l'historique.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              {mcqGrades.map(grade => {
+                const pct = grade.total > 0 ? Math.round((grade.score / grade.total) * 100) : 0;
+                return (
+                  <div 
+                    key={grade.id} 
+                    style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      padding: '0.85rem 1rem', 
+                      borderRadius: 'var(--radius-md)', 
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.05)'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                        {grade.courseName}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {format(new Date(grade.date), 'dd/MM/yyyy à HH:mm')}
+                      </div>
+                    </div>
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      {relevantRoots.map((child: FileNode) => child.type === 'folder' 
-            ? <TimeTreeFolder key={child.id} folder={child} nodes={nodes} timeData={timeData} formatSeconds={formatSeconds} />
-            : <TimeTreeCourse key={child.id} course={child} time={timeData[child.id]?.seconds || 0} formatSeconds={formatSeconds} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <span style={{ 
+                        fontSize: '0.88rem', 
+                        fontWeight: 700, 
+                        color: pct >= 60 ? 'var(--success)' : 'var(--accent-primary)' 
+                      }}>
+                        {grade.score} / {grade.total} ({pct}%)
+                      </span>
+                      <button 
+                        onClick={(e) => handleDeleteGrade(grade.id, e)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem' }}
+                        title="Supprimer de l'historique"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
+
     </div>
   );
 }
