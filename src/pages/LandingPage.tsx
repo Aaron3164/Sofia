@@ -1040,6 +1040,83 @@ export default function LandingPage(props: LandingPageProps) {
                 </div>
             </section>
 
+            {/* Section Comparatif Anki / Quizlet (Playbook Commercial Keyword Gap) */}
+            <section className="section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "4rem" }}>
+                <div className="container" data-reveal>
+                    <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+                        <span className="eyebrow" style={{ textTransform: "uppercase", letterSpacing: "0.08em", fontSize: "0.78rem", color: "#fda4af" }}>
+                            POURQUOI PASSER À SOF.IA
+                        </span>
+                        <h2 style={{ fontSize: "clamp(28px,4.5vw,42px)", letterSpacing: "-0.03em", marginTop: "0.5rem" }}>
+                            Pourquoi les étudiants quittent Anki & Quizlet pour Sof.IA
+                        </h2>
+                        <p style={{ color: "#a1a1aa", marginTop: "0.5rem", fontSize: "0.95rem", maxWidth: 640, margin: "0.5rem auto 0" }}>
+                            Garde l'efficacité scientifiquement prouvée de la répétition espacée, en éliminant les heures perdues à taper des fiches à la main.
+                        </p>
+                    </div>
+
+                    <div style={{ maxWidth: 840, margin: "0 auto", overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 0.5rem", textAlign: "left" }}>
+                            <thead>
+                                <tr style={{ color: "#71717a", fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                    <th style={{ padding: "0.75rem 1rem" }}>Fonctionnalité</th>
+                                    <th style={{ padding: "0.75rem 1rem" }}>Anki / Quizlet</th>
+                                    <th style={{ padding: "0.75rem 1rem", color: "#fda4af", fontWeight: 700 }}>Sof.IA ✨</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {[
+                                    {
+                                        feat: "Création des flashcards",
+                                        old: "2h à 4h de saisie manuelle par cours",
+                                        sofia: "Instantanée (1 clic depuis ton PDF ou Drive)"
+                                    },
+                                    {
+                                        feat: "Moteur de mémorisation",
+                                        old: "SM-2 manuel ou simple QCM basique",
+                                        sofia: "Algorithme SM-2 automatisé & 100% gratuit"
+                                    },
+                                    {
+                                        feat: "Fiabilité du contenu",
+                                        old: "Risque d'erreurs de saisie ou d'oubli",
+                                        sofia: "100% fidèle au cours (extraits cités à la lettre)"
+                                    },
+                                    {
+                                        feat: "Entraînement sur annales",
+                                        old: "Non pris en charge",
+                                        sofia: "Corrigés officiels avec preuves tirées du cours"
+                                    },
+                                    {
+                                        feat: "Formats d'étude",
+                                        old: "Cartes uniquement",
+                                        sofia: "Flashcards, QCM pièges, Résumés & Tuteur IA"
+                                    }
+                                ].map((row, i) => (
+                                    <tr 
+                                        key={i}
+                                        style={{ 
+                                            backgroundColor: "rgba(255,255,255,0.02)", 
+                                            border: "1px solid rgba(255,255,255,0.06)",
+                                            borderRadius: "0.5rem"
+                                        }}
+                                    >
+                                        <td style={{ padding: "1rem", fontWeight: 600, color: "#fff", borderTopLeftRadius: "0.5rem", borderBottomLeftRadius: "0.5rem" }}>
+                                            {row.feat}
+                                        </td>
+                                        <td style={{ padding: "1rem", color: "#a1a1aa", fontSize: "0.92rem" }}>
+                                            {row.old}
+                                        </td>
+                                        <td style={{ padding: "1rem", color: "#fda4af", fontWeight: 600, fontSize: "0.92rem", borderTopRightRadius: "0.5rem", borderBottomRightRadius: "0.5rem" }}>
+                                            ✓ {row.sofia}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
             <section id="tarifs" className="section">
                 <div className="container" data-reveal>
                     <h2
