@@ -7,7 +7,7 @@ import React, {
 } from "react"
 import type { CSSProperties } from "react"
 import CookieBanner from "../components/CookieBanner"
-import { Check, X as XIcon } from "lucide-react"
+import { Check, X as XIcon, ChevronDown } from "lucide-react"
 
 interface LandingPageProps {
     onGetStarted?: () => void
@@ -19,6 +19,7 @@ export default function LandingPage(props: LandingPageProps) {
     const { onGetStarted, appUrl, style } = props
     const [flashRevealed, setFlashRevealed] = useState(false)
     const [qcmChoice, setQcmChoice] = useState<"A" | "B" | null>(null)
+    const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null)
 
     const handleAction = useCallback(
         (event?: React.MouseEvent) => {
@@ -1129,6 +1130,94 @@ export default function LandingPage(props: LandingPageProps) {
                                 </a>
                             )}
                         </article>
+                    </div>
+                </div>
+            </section>
+
+            {/* Section FAQ (Questions Fréquentes Étudiants & PAA SEO) */}
+            <section className="section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "4rem" }}>
+                <div className="container" style={{ maxWidth: 840 }}>
+                    <div style={{ textAlign: "center", marginBottom: "2.5rem" }} data-reveal>
+                        <span className="eyebrow" style={{ textTransform: "uppercase", letterSpacing: "0.08em", fontSize: "0.78rem", color: "#fda4af" }}>
+                            Questions Fréquentes
+                        </span>
+                        <h2 style={{ fontSize: "clamp(26px,4vw,38px)", letterSpacing: "-0.03em", marginTop: "0.5rem" }}>
+                            Tout ce que tu dois savoir avant de commencer
+                        </h2>
+                        <p style={{ color: "#a1a1aa", marginTop: "0.5rem", fontSize: "0.95rem" }}>
+                            Des réponses claires et transparentes pour préparer tes examens sereinement.
+                        </p>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                        {[
+                            {
+                                q: "Comment transformer un polycopié ou PDF de cours en flashcards intelligentes ?",
+                                a: "Il te suffit d'importer ton cours en PDF (ou de coller un lien Google Drive). Sofia analyse instantanément le document, repère les définitions fondamentales, les mécanismes clés et les pièges classiques d'examen pour générer un deck de flashcards interactif, prêt à réviser sans aucune saisie manuelle."
+                            },
+                            {
+                                q: "En quoi la répétition espacée (algorithme SM-2) est-elle supérieure au par cœur classique ?",
+                                a: "L'algorithme SM-2 calcule scientifiquement le moment exact où ta mémoire s'apprête à oublier une notion pour te réinterroger au moment le plus efficace. Tu n'as plus à te demander quel cours réviser aujourd'hui : le planning s'ajuste automatiquement et te fait gagner 50 à 70% de temps d'étude."
+                            },
+                            {
+                                q: "Est-ce que Sof.IA est adapté aux filières intensives comme le PASS/LAS, le Droit ou les Prépas ?",
+                                a: "Absolument. Sofia a été calibrée sur des cours ultra-denses : vocabulaire médical de pointe, articles du Code civil, jurisprudence ou démonstrations scientifiques. Elle sait également simuler des examens complets sur tes annales officielles avec barèmes d'évaluation et justification des réponses."
+                            },
+                            {
+                                q: "Combien coûte Sof.IA et comment fonctionne l'offre gratuite ?",
+                                a: "L'inscription est 100% gratuite et te donne immédiatement 75 crédits chaque mois sans jamais demander de carte bancaire. Si tu as un volume de cours très élevé, le forfait Premium à 9,90 €/mois t'offre 1 750 crédits mensuels avec l'IA la plus avancée et jusqu'à 50 pages par document."
+                            }
+                        ].map((item, idx) => {
+                            const isOpen = openFaqIndex === idx;
+                            return (
+                                <div 
+                                    key={idx}
+                                    style={{
+                                        border: "1px solid rgba(255,255,255,0.08)",
+                                        borderRadius: "0.75rem",
+                                        backgroundColor: isOpen ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)",
+                                        overflow: "hidden",
+                                        transition: "all 0.2s ease"
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                                        style={{
+                                            width: "100%",
+                                            padding: "1.1rem 1.25rem",
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            background: "none",
+                                            border: "none",
+                                            color: "#fff",
+                                            fontSize: "0.98rem",
+                                            fontWeight: 600,
+                                            textAlign: "left",
+                                            cursor: "pointer",
+                                            gap: "1rem"
+                                        }}
+                                    >
+                                        <span>{item.q}</span>
+                                        <ChevronDown 
+                                            size={18} 
+                                            style={{ 
+                                                flexShrink: 0, 
+                                                color: isOpen ? "#fda4af" : "#71717a",
+                                                transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                                                transition: "transform 0.2s ease"
+                                            }} 
+                                        />
+                                    </button>
+                                    {isOpen && (
+                                        <div style={{ padding: "0 1.25rem 1.1rem", color: "#a1a1aa", fontSize: "0.92rem", lineHeight: 1.6 }}>
+                                            {item.a}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </section>
