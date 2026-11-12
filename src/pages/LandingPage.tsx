@@ -511,9 +511,6 @@ export default function LandingPage(props: LandingPageProps) {
                         <span>sof.ia</span>
                     </div>
                     <div className="header-right">
-                        <div className="tagline">
-                            Un peu d’IA. Beaucoup de déclics.
-                        </div>
                         {onGetStarted ? (
                             <button className="pill btn-outline focusable" onClick={handleAction} type="button">
                                 Ouvrir Sofia
