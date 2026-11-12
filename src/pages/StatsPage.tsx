@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Trophy, Flame, Zap, Target, Clock, 
   TrendingUp, Award, Folder, CheckCircle2, 
-  Calendar, Trash2, BarChart2
+  Calendar, Trash2, BarChart2, ChevronRight, ChevronDown,
+  FileText, ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useFileSystem } from '../hooks/useFileSystem';
+import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { supabase } from '../lib/supabase';
@@ -25,6 +27,16 @@ interface MCQGrade {
   selectedAnswers?: Record<number, string[]>;
 }
 
+interface AnnaleGrade {
+  id: string;
+  folderId?: string;
+  courseId?: string;
+  subject: string;
+  score: number;
+  date: string;
+  attachments?: string[];
+}
+
 interface TimeSpent {
   [courseId: string]: {
     courseName: string;
@@ -32,16 +44,76 @@ interface TimeSpent {
   };
 }
 
+// -------------------------------------------------------------
+// Helper: MCQ Answer checking (same robust logic as before)
+// -------------------------------------------------------------
+const getCorrectAnswers = (q: any): string[] => {
+  const raw = q.correctAnswers ?? q.correct_answers ?? q.correctAnswer ?? q.correct_answer ?? q.responses ?? q.answers ?? [];
+  if (Array.isArray(raw)) return raw.map(v => v?.toString() || '');
+  if (raw === null || raw === undefined) return [];
+  return [raw.toString()];
+};
+
+const normalizeOption = (s: string) => 
+  s.toString()
+   .trim()
+   .toLowerCase()
+   .normalize('NFD')
+   .replace(/[\u0300-\u036f]/g, '')
+   .replace(/[^a-z0-9]/g, '');
+
+const isCorrectOption = (correctOpts: string[], option: string, oIndex: number) => {
+  const normalizedOption = normalizeOption(option);
+  const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  
+  return correctOpts.some(c => {
+    if (c === null || c === undefined) return false;
+    const cStr = c.toString().trim();
+    const normalizedC = normalizeOption(cStr);
+    
+    // Match direct
+    if (normalizedC !== '' && normalizedC === normalizedOption) return true;
+    // Match index (0-based ou 1-based)
+    if (cStr === oIndex.toString() || cStr === (oIndex + 1).toString()) return true;
+    // Match letter
+    if (normalizedC === letters[oIndex]) return true;
+    
+    return false;
+  });
+};
+
+const isOptionSelected = (selected: any[], option: string, oIndex: number) => {
+  if (!Array.isArray(selected) || selected.length === 0) return false;
+  const normalizedOption = normalizeOption(option);
+  const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+
+  return selected.some(s => {
+    if (s === null || s === undefined) return false;
+    const sStr = s.toString().trim();
+    const normalizedS = normalizeOption(sStr);
+
+    if (sStr === option.trim()) return true;
+    if (normalizedS !== '' && normalizedS === normalizedOption) return true;
+    if (sStr === oIndex.toString() || sStr === (oIndex + 1).toString()) return true;
+    if (normalizedS === letters[oIndex]) return true;
+
+    return false;
+  });
+};
+
 export default function Statistics() {
   const { nodes } = useFileSystem();
   const { profile } = useAuth();
   const { confirm } = useDialog();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<StatViewTab>('overview');
   const [mcqGrades, setMcqGrades] = useState<MCQGrade[]>([]);
+  const [legacyAnnales, setLegacyAnnales] = useState<AnnaleGrade[]>([]);
   const [timeData, setTimeData] = useState<TimeSpent>({});
+  const [expandedQcm, setExpandedQcm] = useState<string | null>(null);
 
-  // 1. Data Fetching & Sync
+  // 1. Data Fetching & Sync (Loads both mcq_grades, course_stats and legacy annales_grades)
   useEffect(() => {
     async function loadStats() {
       try {
@@ -49,18 +121,23 @@ export default function Statistics() {
           const mcqStr = localStorage.getItem('aura_mcq_grades');
           if (mcqStr) setMcqGrades(JSON.parse(mcqStr));
 
+          const annalesStr = localStorage.getItem('aura_annales_grades');
+          if (annalesStr) setLegacyAnnales(JSON.parse(annalesStr));
+
           const timeStr = localStorage.getItem('aura_time_spent');
           if (timeStr) setTimeData(JSON.parse(timeStr));
           return;
         }
 
-        const [mcqRes, statsRes] = await Promise.all([
+        const [mcqRes, statsRes, annalesRes] = await Promise.all([
           supabase.from('mcq_grades').select('*').order('date', { ascending: false }),
-          supabase.from('course_stats').select('*')
+          supabase.from('course_stats').select('*'),
+          supabase.from('annales_grades').select('*').order('date', { ascending: false })
         ]);
 
+        // MCQ Grades
         if (!mcqRes.error && mcqRes.data) {
-          setMcqGrades(mcqRes.data.map(m => ({
+          setMcqGrades(mcqRes.data.map((m: any) => ({
             id: m.id,
             courseId: m.course_id,
             courseName: m.course_name,
@@ -75,6 +152,23 @@ export default function Statistics() {
           if (local) setMcqGrades(JSON.parse(local));
         }
 
+        // Legacy Annales Grades (if any in Supabase or local storage)
+        if (annalesRes && annalesRes.data && annalesRes.data.length > 0) {
+          setLegacyAnnales(annalesRes.data.map((a: any) => ({
+            id: a.id,
+            folderId: a.folder_id,
+            courseId: a.course_id,
+            subject: a.subject,
+            score: a.score,
+            date: a.date,
+            attachments: a.attachments
+          })));
+        } else {
+          const localAnn = localStorage.getItem('aura_annales_grades');
+          if (localAnn) setLegacyAnnales(JSON.parse(localAnn));
+        }
+
+        // Time spent
         if (!statsRes.error && statsRes.data) {
           const statsMap: TimeSpent = {};
           statsRes.data.forEach((s: any) => {
@@ -95,26 +189,27 @@ export default function Statistics() {
 
   // 2. Computed Metrics & Gamification (XP, Levels, Streak)
   const metrics = useMemo(() => {
-    // Total time in seconds
     const totalSeconds = Object.values(timeData).reduce((acc, curr) => acc + (curr.seconds || 0), 0);
     const totalHours = Math.floor(totalSeconds / 3600);
     const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
 
-    // QCM & Annales counts
-    const totalEvaluations = mcqGrades.length;
-    const annaleGrades = mcqGrades.filter(g => g.courseName?.includes('🎓') || g.courseName?.toLowerCase().includes('annale'));
+    const totalEvaluations = mcqGrades.length + legacyAnnales.length;
+    
+    // Annales are either mcqGrades with 🎓 or "annale" in courseName, or legacy annales
+    const annaleMcqGrades = mcqGrades.filter(g => g.courseName?.includes('🎓') || g.courseName?.toLowerCase().includes('annale'));
+    const totalAnnalesCount = annaleMcqGrades.length + legacyAnnales.length;
+
     const totalQuestions = mcqGrades.reduce((acc, curr) => acc + (curr.total || 0), 0);
     const totalCorrect = mcqGrades.reduce((acc, curr) => acc + (curr.score || 0), 0);
     const successRate = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
-    // Gamification: XP Calculation
-    // Base: 10 XP per minute studied, 25 XP per correct QCM, 100 XP per test done
+    // Gamification XP
     const studyXp = Math.floor(totalSeconds / 60) * 10;
     const qcmXp = totalCorrect * 25;
     const evalXp = totalEvaluations * 100;
     const totalXp = studyXp + qcmXp + evalXp;
 
-    // Level curve: Level 1 = 0 XP, Level 2 = 500 XP, Level 3 = 1200 XP, etc.
+    // Level curve
     const level = Math.floor(Math.sqrt(totalXp / 250)) + 1;
     const currentLevelBaseXp = Math.pow(level - 1, 2) * 250;
     const nextLevelBaseXp = Math.pow(level, 2) * 250;
@@ -122,8 +217,8 @@ export default function Statistics() {
     const levelXpRequired = nextLevelBaseXp - currentLevelBaseXp;
     const progressPercent = Math.min(100, Math.round((levelXpProgress / Math.max(1, levelXpRequired)) * 100));
 
-    // Level Titles
     const getLevelTitle = (lvl: number) => {
+      if (lvl >= 15) return 'Légende Académique 👑';
       if (lvl >= 10) return 'Major de Promotion 🏆';
       if (lvl >= 7) return 'Grand Admissible 🎓';
       if (lvl >= 5) return 'Praticien Confirmé ⚡';
@@ -132,7 +227,11 @@ export default function Statistics() {
     };
 
     // Calculate Streak (Consecutive Days)
-    const uniqueDates = Array.from(new Set(mcqGrades.map(g => g.date.split('T')[0]))).sort().reverse();
+    const allGradeDates = [
+      ...mcqGrades.map(g => g.date.split('T')[0]),
+      ...legacyAnnales.map(a => a.date.split('T')[0])
+    ];
+    const uniqueDates = Array.from(new Set(allGradeDates)).sort().reverse();
     let streak = 0;
     const today = new Date().toISOString().split('T')[0];
     let checkDate = new Date();
@@ -152,7 +251,8 @@ export default function Statistics() {
       totalMinutes,
       totalSeconds,
       totalEvaluations,
-      annaleGrades,
+      annaleGrades: annaleMcqGrades,
+      totalAnnalesCount,
       totalQuestions,
       totalCorrect,
       successRate,
@@ -162,16 +262,15 @@ export default function Statistics() {
       progressPercent,
       streak: Math.max(streak, totalSeconds > 60 ? 1 : 0)
     };
-  }, [mcqGrades, timeData]);
+  }, [mcqGrades, legacyAnnales, timeData]);
 
-  // 3. Chronological Curve Data (Progression Over Time)
+  // 3. Chronological Progression Curve Data
   const chartPoints = useMemo(() => {
     if (mcqGrades.length === 0) return [];
-    // Sort oldest to newest
     const sorted = [...mcqGrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    // Group or map last 12 tests
-    const recent = sorted.slice(-12);
+    // Take last 15 tests
+    const recent = sorted.slice(-15);
     return recent.map((item, idx) => {
       const pct = item.total > 0 ? Math.round((item.score / item.total) * 100) : 0;
       return {
@@ -183,38 +282,7 @@ export default function Statistics() {
     });
   }, [mcqGrades]);
 
-  // 4. Folder Breakdown (Progress per Subject Folder)
-  const folderStats = useMemo(() => {
-    const folders = nodes.filter(n => n.type === 'folder');
-    return folders.map(f => {
-      // Find all courses inside this folder
-      const childCourses = nodes.filter(n => n.parentId === f.id && (n.type === 'course' || n.name.startsWith('🎓')));
-      const courseIds = new Set(childCourses.map(c => c.id));
-      
-      const folderGrades = mcqGrades.filter(g => courseIds.has(g.courseId));
-      const totalQ = folderGrades.reduce((acc, g) => acc + g.total, 0);
-      const correctQ = folderGrades.reduce((acc, g) => acc + g.score, 0);
-      const avgScore = totalQ > 0 ? Math.round((correctQ / totalQ) * 100) : 0;
-
-      let folderSeconds = 0;
-      courseIds.forEach(id => {
-        if (timeData[id]) folderSeconds += timeData[id].seconds;
-      });
-
-      return {
-        id: f.id,
-        name: f.name,
-        color: f.color,
-        courseCount: childCourses.length,
-        evalCount: folderGrades.length,
-        avgScore,
-        hours: Math.floor(folderSeconds / 3600),
-        minutes: Math.floor((folderSeconds % 3600) / 60)
-      };
-    });
-  }, [nodes, mcqGrades, timeData]);
-
-  // Delete evaluation handler
+  // 4. Delete handlers
   const handleDeleteGrade = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (await confirm('Supprimer cet examen de ton historique ?')) {
@@ -226,6 +294,127 @@ export default function Statistics() {
       }
     }
   };
+
+  const handleDeleteLegacyAnnale = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (await confirm('Supprimer cette note d\'annale ?')) {
+      const updated = legacyAnnales.filter(a => a.id !== id);
+      setLegacyAnnales(updated);
+      localStorage.setItem('aura_annales_grades', JSON.stringify(updated));
+      if (profile) {
+        await supabase.from('annales_grades').delete().eq('id', id);
+      }
+    }
+  };
+
+  const handleOpenCourse = (courseId: string, courseName?: string) => {
+    if (!courseId || courseId === 'deleted') return;
+    if (courseName?.startsWith('🎓')) {
+      navigate(`/annale/${courseId}`);
+    } else {
+      navigate(`/subject/${courseId}`);
+    }
+  };
+
+  // 5. Rich Badges List
+  const badges = [
+    {
+      id: 'first_step',
+      title: 'Premier Déclic',
+      desc: 'Terminer sa première série de QCM',
+      icon: '⚡',
+      unlocked: metrics.totalEvaluations >= 1,
+      progress: `${Math.min(1, metrics.totalEvaluations)}/1`
+    },
+    {
+      id: 'streak_3',
+      title: 'Régularité de Bronze',
+      desc: 'Maintenir 3 jours consécutifs de révision',
+      icon: '🔥',
+      unlocked: metrics.streak >= 3,
+      progress: `${Math.min(3, metrics.streak)}/3 j`
+    },
+    {
+      id: 'streak_7',
+      title: 'Série de Feu',
+      desc: '7 jours de série ininterrompue',
+      icon: '💥',
+      unlocked: metrics.streak >= 7,
+      progress: `${Math.min(7, metrics.streak)}/7 j`
+    },
+    {
+      id: 'qcm_25',
+      title: 'Apprenti Tireur',
+      desc: 'Valider 25 questions avec succès',
+      icon: '🎯',
+      unlocked: metrics.totalCorrect >= 25,
+      progress: `${Math.min(25, metrics.totalCorrect)}/25`
+    },
+    {
+      id: 'qcm_100',
+      title: 'Centurion des QCM',
+      desc: 'Valider 100 questions avec succès',
+      icon: '💯',
+      unlocked: metrics.totalCorrect >= 100,
+      progress: `${Math.min(100, metrics.totalCorrect)}/100`
+    },
+    {
+      id: 'qcm_300',
+      title: 'Maître des QCM',
+      desc: 'Valider 300 questions avec succès',
+      icon: '⚔️',
+      unlocked: metrics.totalCorrect >= 300,
+      progress: `${Math.min(300, metrics.totalCorrect)}/300`
+    },
+    {
+      id: 'annale_1',
+      title: 'Baptême du Concours',
+      desc: 'Passer une première épreuve d\'annale',
+      icon: '🎓',
+      unlocked: metrics.totalAnnalesCount >= 1,
+      progress: `${Math.min(1, metrics.totalAnnalesCount)}/1`
+    },
+    {
+      id: 'annale_5',
+      title: 'Major du Concours',
+      desc: 'Résoudre au moins 5 annales officielles',
+      icon: '🏛️',
+      unlocked: metrics.totalAnnalesCount >= 5,
+      progress: `${Math.min(5, metrics.totalAnnalesCount)}/5`
+    },
+    {
+      id: 'time_2h',
+      title: 'Éveil de Concentration',
+      desc: 'Cumuler 2 heures d\'étude active',
+      icon: '⏱️',
+      unlocked: metrics.totalHours >= 2,
+      progress: `${Math.min(2, metrics.totalHours)}/2 h`
+    },
+    {
+      id: 'time_10h',
+      title: 'Endurance Ultime',
+      desc: 'Cumuler plus de 10 heures d\'étude active',
+      icon: '⏳',
+      unlocked: metrics.totalHours >= 10,
+      progress: `${Math.min(10, metrics.totalHours)}/10 h`
+    },
+    {
+      id: 'perfect_score',
+      title: 'Sans Faute Impérial',
+      desc: 'Obtenir 100% à un examen d\'au moins 5 questions',
+      icon: '🌟',
+      unlocked: mcqGrades.some(g => g.total >= 5 && g.score === g.total),
+      progress: mcqGrades.some(g => g.total >= 5 && g.score === g.total) ? '1/1' : '0/1'
+    },
+    {
+      id: 'level_5',
+      title: 'Praticien Confirmé',
+      desc: 'Atteindre le Niveau 5 dans Sofia',
+      icon: '🛡️',
+      unlocked: metrics.level >= 5,
+      progress: `Niv. ${Math.min(5, metrics.level)}/5`
+    }
+  ];
 
   return (
     <div className="stats-dashboard">
@@ -306,14 +495,14 @@ export default function Statistics() {
             <span>Annales Officielles</span>
             <Trophy size={16} className="text-accent" />
           </div>
-          <div className="kpi-value">{metrics.annaleGrades.length}</div>
+          <div className="kpi-value">{metrics.totalAnnalesCount}</div>
           <div className="kpi-sub">
             <span>Sujets de concours préparés</span>
           </div>
         </div>
       </div>
 
-      {/* 3. Navigation Tabs (shadcn style) */}
+      {/* 3. Navigation Tabs */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div className="shadcn-tabs">
           <button 
@@ -326,13 +515,13 @@ export default function Statistics() {
             className={`shadcn-tab-btn ${activeTab === 'folders' ? 'active' : ''}`}
             onClick={() => setActiveTab('folders')}
           >
-            <Folder size={14} /> Par Dossier
+            <Folder size={14} /> Par Dossier & Matière
           </button>
           <button 
             className={`shadcn-tab-btn ${activeTab === 'annales' ? 'active' : ''}`}
             onClick={() => setActiveTab('annales')}
           >
-            <Trophy size={14} /> Annales Concours
+            <Trophy size={14} /> Annales & Concours
           </button>
           <button 
             className={`shadcn-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
@@ -343,7 +532,7 @@ export default function Statistics() {
         </div>
       </div>
 
-      {/* 4. Tab 1: Overview & Vector Progress Chart */}
+      {/* 4. Tab 1: Overview (Harmonious Curve + Badges) */}
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
@@ -355,42 +544,46 @@ export default function Statistics() {
                   Courbe de Progression (Dernières Évaluations)
                 </h3>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  Évolution du taux de réussite sur tes derniers examens et QCM
+                  Évolution de ton taux de réussite au fil des entraînements
                 </p>
               </div>
             </div>
 
             {chartPoints.length < 2 ? (
-              <div style={{ height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '0.5rem' }}>
+              <div style={{ height: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '0.5rem' }}>
                 <BarChart2 size={32} style={{ opacity: 0.4 }} />
                 <span>Réalise au moins 2 séries de QCM ou annales pour générer ta courbe de tendance.</span>
               </div>
             ) : (
               <div className="chart-container">
-                <svg className="chart-svg" viewBox="0 0 700 200" preserveAspectRatio="none">
+                {/* SVG using viewBox with preserveAspectRatio="xMidYMid meet" so it doesn't get steamrolled */}
+                <svg className="chart-svg" viewBox="0 0 760 280">
                   <defs>
                     <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.25" />
+                      <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.32" />
+                      <stop offset="85%" stopColor="var(--accent-primary)" stopOpacity="0.04" />
                       <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
                   {/* Horizontal Grid lines */}
-                  <line x1="40" y1="30" x2="680" y2="30" className="chart-grid-line" />
-                  <line x1="40" y1="85" x2="680" y2="85" className="chart-grid-line" />
-                  <line x1="40" y1="140" x2="680" y2="140" className="chart-grid-line" />
+                  <line x1="45" y1="35" x2="735" y2="35" className="chart-grid-line" />
+                  <line x1="45" y1="90" x2="735" y2="90" className="chart-grid-line" />
+                  <line x1="45" y1="145" x2="735" y2="145" className="chart-grid-line" />
+                  <line x1="45" y1="200" x2="735" y2="200" className="chart-grid-line" />
                   
                   {/* Axis labels */}
-                  <text x="10" y="34" className="chart-axis-label">100%</text>
-                  <text x="10" y="89" className="chart-axis-label">50%</text>
-                  <text x="10" y="144" className="chart-axis-label">0%</text>
+                  <text x="12" y="39" className="chart-axis-label">100%</text>
+                  <text x="12" y="94" className="chart-axis-label">75%</text>
+                  <text x="12" y="149" className="chart-axis-label">50%</text>
+                  <text x="12" y="204" className="chart-axis-label">0%</text>
 
                   {/* SVG Coordinates generation */}
                   {(() => {
-                    const width = 640;
-                    const height = 130;
-                    const topOffset = 25;
-                    const leftOffset = 45;
+                    const width = 670;
+                    const height = 165;
+                    const topOffset = 35;
+                    const leftOffset = 55;
                     const step = width / Math.max(1, chartPoints.length - 1);
 
                     const pts = chartPoints.map((p, i) => {
@@ -401,11 +594,10 @@ export default function Statistics() {
 
                     const pathD = pts.reduce((acc, curr, i) => {
                       if (i === 0) return `M ${curr.cx} ${curr.cy}`;
-                      // Smooth bezier curve
                       const prev = pts[i - 1];
-                      const cp1x = prev.cx + (curr.cx - prev.cx) / 2;
+                      const cp1x = prev.cx + (curr.cx - prev.cx) * 0.45;
                       const cp1y = prev.cy;
-                      const cp2x = prev.cx + (curr.cx - prev.cx) / 2;
+                      const cp2x = prev.cx + (curr.cx - prev.cx) * 0.55;
                       const cp2y = curr.cy;
                       return `${acc} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.cx} ${curr.cy}`;
                     }, '');
@@ -418,10 +610,10 @@ export default function Statistics() {
                         <path d={pathD} className="chart-line" />
                         {pts.map((pt, i) => (
                           <g key={i}>
-                            <circle cx={pt.cx} cy={pt.cy} r="4.5" className="chart-point">
+                            <circle cx={pt.cx} cy={pt.cy} r="5" className="chart-point">
                               <title>{`${pt.name} : ${pt.score}% (${pt.label})`}</title>
                             </circle>
-                            <text x={pt.cx} y="180" textAnchor="middle" className="chart-axis-label">
+                            <text x={pt.cx} y="235" textAnchor="middle" className="chart-axis-label">
                               {pt.label}
                             </text>
                           </g>
@@ -436,145 +628,139 @@ export default function Statistics() {
 
           {/* Badges & Achievements Grid */}
           <div className="analytics-card">
-            <h3 className="analytics-card-title">
-              <Award size={18} className="text-accent" />
-              Badges & Succès Débloquables
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="analytics-card-title">
+                <Award size={18} className="text-accent" />
+                Badges & Trophées ({badges.filter(b => b.unlocked).length}/{badges.length} Débloqués)
+              </h3>
+            </div>
+            
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
-              <div className={`badge-achievement ${metrics.totalEvaluations >= 1 ? 'unlocked' : ''}`}>
-                <div className="badge-icon">⚡</div>
-                <div>
-                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Premier Déclic</strong>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Terminer sa première série de QCM</p>
+              {badges.map(b => (
+                <div key={b.id} className={`badge-achievement ${b.unlocked ? 'unlocked' : ''}`}>
+                  <div className="badge-icon">{b.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>{b.title}</strong>
+                      <span style={{ fontSize: '0.72rem', color: b.unlocked ? 'var(--success)' : 'var(--text-muted)', fontWeight: 600 }}>
+                        {b.progress}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0.15rem 0 0', fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                      {b.desc}
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              <div className={`badge-achievement ${metrics.totalCorrect >= 50 ? 'unlocked' : ''}`}>
-                <div className="badge-icon">🎯</div>
-                <div>
-                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Tireur d'Élite</strong>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Valider 50 questions avec succès</p>
-                </div>
-              </div>
-
-              <div className={`badge-achievement ${metrics.annaleGrades.length >= 3 ? 'unlocked' : ''}`}>
-                <div className="badge-icon">🏛️</div>
-                <div>
-                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Major du Concours</strong>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Résoudre au moins 3 annales officielles</p>
-                </div>
-              </div>
-
-              <div className={`badge-achievement ${metrics.totalHours >= 5 ? 'unlocked' : ''}`}>
-                <div className="badge-icon">⏳</div>
-                <div>
-                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Endurance Ultime</strong>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Cumuler plus de 5 heures d'étude active</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
         </div>
       )}
 
-      {/* 5. Tab 2: Folder Breakdown */}
+      {/* 5. Tab 2: Folders Tree with Expandable Subfolders & Full Correction */}
       {activeTab === 'folders' && (
         <div className="analytics-card">
-          <h3 className="analytics-card-title">
-            <Folder size={18} className="text-accent" />
-            Performance par Dossier d'Étude
-          </h3>
-          <p style={{ margin: '0.2rem 0 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Suis la maîtrise de tes différentes matières pour cibler tes révisions prioritaires
-          </p>
-
-          {folderStats.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Aucun dossier créé dans ta bibliothèque.
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <h3 className="analytics-card-title">
+                <Folder size={18} className="text-accent" />
+                Dossiers d'Étude & Séances QCM Dépliables
+              </h3>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Clique sur un dossier ou cours pour déplier les sessions, voir la correction détaillée et ouvrir le cours associé.
+              </p>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {folderStats.map(f => (
-                <div key={f.id} className="folder-item-row">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: f.color || 'var(--accent-primary)' }} />
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{f.name}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({f.courseCount} cours)</span>
-                  </div>
+          </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ flex: 1, height: '7px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                      <div 
-                        style={{ 
-                          height: '100%', 
-                          width: `${f.avgScore}%`, 
-                          backgroundColor: f.avgScore >= 70 ? 'var(--success)' : f.avgScore >= 50 ? '#f59e0b' : 'var(--accent-primary)',
-                          borderRadius: '999px' 
-                        }} 
-                      />
-                    </div>
-                    <span style={{ minWidth: '45px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {f.avgScore}%
-                    </span>
-                  </div>
-
-                  <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {f.hours > 0 ? `${f.hours}h ${f.minutes}m` : `${f.minutes} min`} passées
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <QcmFolderTreeRoot 
+            nodes={nodes}
+            mcqGrades={mcqGrades}
+            expandedQcm={expandedQcm}
+            setExpandedQcm={setExpandedQcm}
+            onDelete={handleDeleteGrade}
+            onOpenCourse={handleOpenCourse}
+          />
         </div>
       )}
 
-      {/* 6. Tab 3: Annales Overview */}
+      {/* 6. Tab 3: Dedicated Annales & Examens Blancs View */}
       {activeTab === 'annales' && (
         <div className="analytics-card">
           <h3 className="analytics-card-title">
             <Trophy size={18} className="text-accent" />
-            Suivi des Épreuves d'Annales
+            Suivi des Épreuves d'Annales & Concours Blancs
           </h3>
-          <p style={{ margin: '0.2rem 0 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Résultats obtenus sur les sujets de concours et examens blancs officiels
+          <p style={{ margin: '0.2rem 0 0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Retrouve ici tous tes entraînements sur sujets officiels avec correction intégrale.
           </p>
 
-          {metrics.annaleGrades.length === 0 ? (
+          {metrics.totalAnnalesCount === 0 ? (
             <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
               Aucune annale passée pour l'instant. Importe un sujet d'examen officiel pour tester ton niveau en conditions réelles !
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {metrics.annaleGrades.map(g => {
-                const pct = g.total > 0 ? Math.round((g.score / g.total) * 100) : 0;
-                return (
-                  <div key={g.id} className="folder-item-row" style={{ gridTemplateColumns: '2fr 1fr 1fr' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Annales from MCQ table */}
+              {metrics.annaleGrades.map(g => (
+                <QcmGradeItem 
+                  key={g.id} 
+                  g={g} 
+                  expandedQcm={expandedQcm} 
+                  setExpandedQcm={setExpandedQcm} 
+                  onDelete={handleDeleteGrade} 
+                  onOpenCourse={handleOpenCourse}
+                  showCourseLink={true}
+                />
+              ))}
+
+              {/* Legacy annales if any */}
+              {legacyAnnales.map(a => (
+                <div 
+                  key={a.id} 
+                  className="hover-lift glass-panel" 
+                  style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '1rem 1.25rem', 
+                    backgroundColor: 'var(--bg-elevated)', 
+                    borderRadius: 'var(--radius-md)', 
+                    border: '1px solid var(--border-color)' 
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <Trophy size={15} style={{ color: '#fbbf24' }} />
-                      <strong style={{ color: 'var(--text-primary)' }}>{g.courseName.replace(/^🎓\s*/, '')}</strong>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '0.92rem' }}>{a.subject}</strong>
                     </div>
-
-                    <div>
-                      <span style={{ 
-                        display: 'inline-block',
-                        padding: '0.25rem 0.6rem', 
-                        borderRadius: 'var(--radius-sm)', 
-                        fontSize: '0.82rem', 
-                        fontWeight: 700,
-                        backgroundColor: pct >= 70 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(225, 29, 72, 0.15)',
-                        color: pct >= 70 ? '#4ade80' : '#fb7185'
-                      }}>
-                        {g.score} / {g.total} ({pct}%)
-                      </span>
-                    </div>
-
-                    <div style={{ textAlign: 'right', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      {format(new Date(g.date), 'dd MMMM yyyy', { locale: fr })}
-                    </div>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {format(new Date(a.date), 'dd MMMM yyyy', { locale: fr })}
+                    </span>
                   </div>
-                );
-              })}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ 
+                      fontSize: '1rem', 
+                      fontWeight: 800, 
+                      color: a.score >= 10 ? 'var(--success)' : 'var(--danger)',
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'rgba(255,255,255,0.03)'
+                    }}>
+                      {a.score} / 20
+                    </div>
+                    <button 
+                      onClick={(e) => handleDeleteLegacyAnnale(a.id, e)} 
+                      className="icon-button delete-btn" 
+                      style={{ padding: '0.35rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                      title="Supprimer de l'historique"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -585,63 +771,486 @@ export default function Statistics() {
         <div className="analytics-card">
           <h3 className="analytics-card-title">
             <Calendar size={18} className="text-accent" />
-            Historique de Tous les Examens & QCM
+            Historique Global des Examens & QCM
           </h3>
+          <p style={{ margin: '0.2rem 0 0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Consulte et déplie la correction complète de chaque test passé.
+          </p>
 
           {mcqGrades.length === 0 ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
               Aucun examen dans l'historique.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-              {mcqGrades.map(grade => {
-                const pct = grade.total > 0 ? Math.round((grade.score / grade.total) * 100) : 0;
-                return (
-                  <div 
-                    key={grade.id} 
-                    style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center', 
-                      padding: '0.85rem 1rem', 
-                      borderRadius: 'var(--radius-md)', 
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.05)'
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                        {grade.courseName}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {format(new Date(grade.date), 'dd/MM/yyyy à HH:mm')}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <span style={{ 
-                        fontSize: '0.88rem', 
-                        fontWeight: 700, 
-                        color: pct >= 60 ? 'var(--success)' : 'var(--accent-primary)' 
-                      }}>
-                        {grade.score} / {grade.total} ({pct}%)
-                      </span>
-                      <button 
-                        onClick={(e) => handleDeleteGrade(grade.id, e)}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem' }}
-                        title="Supprimer de l'historique"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {mcqGrades.map(grade => (
+                <QcmGradeItem 
+                  key={grade.id} 
+                  g={grade} 
+                  expandedQcm={expandedQcm} 
+                  setExpandedQcm={setExpandedQcm} 
+                  onDelete={handleDeleteGrade} 
+                  onOpenCourse={handleOpenCourse}
+                  showCourseLink={true}
+                />
+              ))}
             </div>
           )}
         </div>
       )}
 
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// Component: QcmGradeItem (Full expandable correction + link to course)
+// -------------------------------------------------------------
+function QcmGradeItem({ g, expandedQcm, setExpandedQcm, onDelete, onOpenCourse, showCourseLink }: any) {
+  const pct = g.total > 0 ? Math.round((g.score / g.total) * 100) : 0;
+  const isExpanded = expandedQcm === g.id;
+
+  return (
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      backgroundColor: 'var(--bg-elevated)', 
+      borderRadius: 'var(--radius-md)', 
+      border: '1px solid var(--border-color)', 
+      overflow: 'hidden',
+      transition: 'border-color 0.15s ease'
+    }}>
+      <div 
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          padding: '1rem 1.25rem', 
+          cursor: g.mcqs ? 'pointer' : 'default',
+          flexWrap: 'wrap',
+          gap: '0.75rem'
+        }}
+        onClick={() => g.mcqs && setExpandedQcm(isExpanded ? null : g.id)}
+      >
+        <div style={{ flex: 1, minWidth: '220px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {g.courseName}
+            </span>
+            {showCourseLink && g.courseId && g.courseId !== 'deleted' && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onOpenCourse(g.courseId, g.courseName); }}
+                style={{ 
+                  background: 'rgba(255,255,255,0.06)', 
+                  border: '1px solid var(--border-color)', 
+                  color: 'var(--accent-primary)', 
+                  borderRadius: 'var(--radius-sm)', 
+                  padding: '0.2rem 0.45rem', 
+                  fontSize: '0.72rem', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '0.25rem', 
+                  cursor: 'pointer' 
+                }}
+                title="Ouvrir le cours associé"
+              >
+                <span>Accéder au cours</span>
+                <ExternalLink size={11} />
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+              {format(new Date(g.date), 'dd MMMM yyyy à HH:mm', { locale: fr })}
+            </span>
+            {g.mcqs && (
+              <span style={{ fontSize: '0.76rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
+                {isExpanded ? 'Masquer la correction ▲' : 'Voir la correction détaillée ▼'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ 
+            fontSize: '1rem', 
+            fontWeight: 800, 
+            color: pct >= 60 ? 'var(--success)' : 'var(--danger)',
+            padding: '0.25rem 0.65rem',
+            borderRadius: 'var(--radius-sm)',
+            background: pct >= 60 ? 'rgba(34, 197, 94, 0.12)' : 'rgba(225, 29, 72, 0.12)'
+          }}>
+            {g.score} / {g.total} ({pct}%)
+          </div>
+          <button 
+            onClick={(e) => onDelete(g.id, e)} 
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.35rem' }} 
+            title="Supprimer de l'historique"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded detailed correction view */}
+      {isExpanded && g.mcqs && (
+        <div style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {g.mcqs.map((q: any, qIndex: number) => {
+              const correctOpts = getCorrectAnswers(q);
+              const selected = g.selectedAnswers?.[qIndex] || [];
+
+              return (
+                <div key={qIndex} style={{ padding: '1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                  <h5 style={{ margin: '0 0 0.85rem', fontSize: '0.92rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                    {qIndex + 1}. {q.question}
+                  </h5>
+
+                  {((q.images && q.images.length > 0) || q.image) && (
+                    <div style={{ margin: '0.75rem 0 1rem 0', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
+                      {(q.images || [q.image]).map((imgSrc: string, iIdx: number) => (
+                        <div key={iIdx} style={{ borderRadius: '0.5rem', overflow: 'hidden', border: '1px solid var(--border-color)', maxHeight: '240px', backgroundColor: 'var(--bg-primary)' }}>
+                          <img src={imgSrc} alt="Illustration" style={{ maxHeight: '240px', maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                    {q.options.map((option: string, oIndex: number) => {
+                      const isSelected = isOptionSelected(selected, option, oIndex);
+                      const isCorrect = isCorrectOption(correctOpts, option, oIndex);
+
+                      let bgColor = 'var(--bg-primary)';
+                      let borderColor = 'var(--border-color)';
+                      let feedbackText = '';
+
+                      if (isCorrect && isSelected) {
+                        bgColor = '#10b98120'; 
+                        borderColor = 'var(--success)';
+                        feedbackText = '✅ Bonne réponse cochée';
+                      } else if (isCorrect && !isSelected) {
+                        bgColor = '#f59e0b20'; 
+                        borderColor = 'var(--warning)';
+                        feedbackText = '⚠️ Réponse correcte oubliée';
+                      } else if (!isCorrect && isSelected) {
+                        bgColor = '#ef444420'; 
+                        borderColor = 'var(--danger)';
+                        feedbackText = '❌ Cochée par erreur';
+                      }
+
+                      return (
+                        <div
+                          key={oIndex}
+                          style={{
+                            padding: '0.65rem 0.85rem',
+                            borderRadius: 'var(--radius-sm)',
+                            border: `1px solid ${borderColor}`,
+                            backgroundColor: bgColor,
+                            color: 'var(--text-primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.65rem'
+                          }}
+                        >
+                          <div style={{ 
+                            width: '16px', height: '16px', flexShrink: 0, 
+                            border: `2px solid ${isSelected ? (!isCorrect ? 'var(--danger)' : 'var(--accent-primary)') : 'var(--text-secondary)'}`, 
+                            borderRadius: '3px',
+                            backgroundColor: isSelected ? (!isCorrect ? 'var(--danger)' : 'var(--accent-primary)') : 'transparent',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}>
+                            {isSelected && <div style={{ width: '8px', height: '8px', backgroundColor: 'white', clipPath: 'polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%)' }} />}
+                          </div>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '0.85rem' }}>{option}</span>
+                            {feedbackText && (
+                              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: borderColor, marginTop: '0.2rem' }}>
+                                {feedbackText}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// Component: QcmFolderTreeRoot (Hierarchical recursive folder tree with calculated average scores)
+// -------------------------------------------------------------
+function QcmFolderTreeRoot({ nodes, mcqGrades, expandedQcm, setExpandedQcm, onDelete, onOpenCourse }: any) {
+  const rootNodes = nodes.filter((n: FileNode) => n.parentId === null);
+  const courseIdsWithGrades = new Set(mcqGrades.map((g: any) => g.courseId));
+  
+  const hasGrades = (nodeId: string): boolean => {
+    const childs = nodes.filter((n: FileNode) => n.parentId === nodeId);
+    return childs.some((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
+  };
+
+  const relevantRoots = rootNodes.filter((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
+  const existingCourseIds = new Set(nodes.filter((n: FileNode) => n.type === 'course').map((n: FileNode) => n.id));
+  const detachedGrades = mcqGrades.filter((g: any) => !existingCourseIds.has(g.courseId));
+
+  if (relevantRoots.length === 0 && detachedGrades.length === 0) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+        Aucun QCM complété dans tes dossiers pour le moment.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {relevantRoots.map((child: FileNode) => child.type === 'folder' ? (
+        <QcmTreeFolder 
+          key={child.id} 
+          folder={child} 
+          nodes={nodes} 
+          mcqGrades={mcqGrades} 
+          expandedQcm={expandedQcm} 
+          setExpandedQcm={setExpandedQcm} 
+          onDelete={onDelete}
+          onOpenCourse={onOpenCourse}
+        />
+      ) : (
+        <QcmTreeCourse 
+          key={child.id} 
+          course={child} 
+          mcqGrades={mcqGrades.filter((g: any) => g.courseId === child.id)} 
+          expandedQcm={expandedQcm} 
+          setExpandedQcm={setExpandedQcm} 
+          onDelete={onDelete} 
+          onOpenCourse={onOpenCourse}
+        />
+      ))}
+
+      {detachedGrades.length > 0 && (
+        <QcmTreeCourse 
+          key="deleted-courses" 
+          course={{ id: 'deleted', name: 'Cours ou Examens Orphelins', type: 'course' } as any} 
+          mcqGrades={detachedGrades} 
+          expandedQcm={expandedQcm} 
+          setExpandedQcm={setExpandedQcm} 
+          onDelete={onDelete}
+          onOpenCourse={onOpenCourse}
+        />
+      )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// Component: QcmTreeFolder (Recursive folder with % average badge)
+// -------------------------------------------------------------
+function QcmTreeFolder({ folder, nodes, mcqGrades, expandedQcm, setExpandedQcm, onDelete, onOpenCourse }: any) {
+  const [isOpen, setIsOpen] = useState(false);
+  const children = nodes.filter((n: FileNode) => n.parentId === folder.id);
+  const courseIdsWithGrades = new Set(mcqGrades.map((g: any) => g.courseId));
+  
+  const hasGrades = (nodeId: string): boolean => {
+    const childs = nodes.filter((n: FileNode) => n.parentId === nodeId);
+    return childs.some((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
+  };
+
+  const relevantChildren = children.filter((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
+
+  // Compute recursive average score for this folder and all subfolders/courses
+  const computeFolderStats = (fId: string): { totalScore: number; totalMax: number; count: number } => {
+    let totalScore = 0;
+    let totalMax = 0;
+    let count = 0;
+
+    const directChildren = nodes.filter((n: FileNode) => n.parentId === fId);
+    directChildren.forEach((child: FileNode) => {
+      if (child.type === 'course') {
+        const grades = mcqGrades.filter((g: any) => g.courseId === child.id);
+        grades.forEach((g: any) => {
+          totalScore += g.score;
+          totalMax += g.total;
+          count++;
+        });
+      } else if (child.type === 'folder') {
+        const sub = computeFolderStats(child.id);
+        totalScore += sub.totalScore;
+        totalMax += sub.totalMax;
+        count += sub.count;
+      }
+    });
+
+    return { totalScore, totalMax, count };
+  };
+
+  const stats = useMemo(() => computeFolderStats(folder.id), [folder.id, nodes, mcqGrades]);
+  const avgPct = stats.totalMax > 0 ? Math.round((stats.totalScore / stats.totalMax) * 100) : null;
+
+  if (relevantChildren.length === 0) return null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.35rem' }}>
+      <div 
+        className="hover-lift glass-panel" 
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          padding: '0.85rem 1.15rem', 
+          cursor: 'pointer', 
+          backgroundColor: 'var(--bg-secondary)', 
+          border: '1px solid var(--border-color)', 
+          borderRadius: 'var(--radius-md)' 
+        }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+          <Folder size={18} color={folder.color || 'var(--accent-primary)'} />
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.92rem' }}>{folder.name}</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({stats.count} test{stats.count > 1 ? 's' : ''})</span>
+        </div>
+
+        {avgPct !== null && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <span style={{ 
+              fontSize: '0.78rem', 
+              fontWeight: 700, 
+              padding: '0.2rem 0.55rem', 
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: avgPct >= 70 ? 'rgba(34, 197, 94, 0.15)' : avgPct >= 50 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(225, 29, 72, 0.15)',
+              color: avgPct >= 70 ? '#4ade80' : avgPct >= 50 ? '#fbbf24' : '#fb7185'
+            }}>
+              Moyenne : {avgPct}%
+            </span>
+          </div>
+        )}
+      </div>
+
+      {isOpen && (
+        <div style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.35rem' }}>
+          {relevantChildren.map((child: FileNode) => child.type === 'folder' ? (
+            <QcmTreeFolder 
+              key={child.id} 
+              folder={child} 
+              nodes={nodes} 
+              mcqGrades={mcqGrades} 
+              expandedQcm={expandedQcm} 
+              setExpandedQcm={setExpandedQcm} 
+              onDelete={onDelete}
+              onOpenCourse={onOpenCourse}
+            />
+          ) : (
+            <QcmTreeCourse 
+              key={child.id} 
+              course={child} 
+              mcqGrades={mcqGrades.filter((g: any) => g.courseId === child.id)} 
+              expandedQcm={expandedQcm} 
+              setExpandedQcm={setExpandedQcm} 
+              onDelete={onDelete}
+              onOpenCourse={onOpenCourse}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// Component: QcmTreeCourse (Course row with average %, direct access button & expandable exam sessions)
+// -------------------------------------------------------------
+function QcmTreeCourse({ course, mcqGrades, expandedQcm, setExpandedQcm, onDelete, onOpenCourse }: any) {
+  const [isOpen, setIsOpen] = useState(false);
+  if (mcqGrades.length === 0) return null;
+
+  const totalScore = mcqGrades.reduce((acc: number, g: any) => acc + g.score, 0);
+  const totalMax = mcqGrades.reduce((acc: number, g: any) => acc + g.total, 0);
+  const coursePct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.35rem' }}>
+      <div 
+        className="hover-lift glass-panel" 
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          padding: '0.85rem 1.15rem', 
+          cursor: 'pointer', 
+          backgroundColor: 'var(--bg-elevated)', 
+          border: '1px solid var(--accent-primary)', 
+          borderRadius: 'var(--radius-md)' 
+        }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+          <FileText size={18} color="var(--accent-primary)" />
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{course.name}</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({mcqGrades.length} examen{mcqGrades.length > 1 ? 's' : ''})</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {coursePct !== null && (
+            <span style={{ 
+              fontSize: '0.78rem', 
+              fontWeight: 700, 
+              padding: '0.2rem 0.55rem', 
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: coursePct >= 70 ? 'rgba(34, 197, 94, 0.15)' : coursePct >= 50 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(225, 29, 72, 0.15)',
+              color: coursePct >= 70 ? '#4ade80' : coursePct >= 50 ? '#fbbf24' : '#fb7185'
+            }}>
+              Moyenne : {coursePct}%
+            </span>
+          )}
+
+          {course.id !== 'deleted' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenCourse(course.id, course.name); }}
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--accent-primary)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.25rem 0.55rem',
+                fontSize: '0.75rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                cursor: 'pointer'
+              }}
+              title="Ouvrir la page de ce cours"
+            >
+              <span>Accéder</span>
+              <ExternalLink size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {isOpen && (
+        <div style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.35rem' }}>
+          {mcqGrades.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((g: any) => (
+            <QcmGradeItem 
+              key={g.id} 
+              g={g} 
+              expandedQcm={expandedQcm} 
+              setExpandedQcm={setExpandedQcm} 
+              onDelete={onDelete}
+              onOpenCourse={onOpenCourse}
+              showCourseLink={false}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
