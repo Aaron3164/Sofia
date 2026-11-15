@@ -417,7 +417,7 @@ CONSIGNE VERSO (b) : Les réponses doivent rester CONCISES (entre 2 et 15 mots m
 
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec les clés courtes "f" (question) et "b" (réponse).`,
     mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
-Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "q" (énoncé de la question), "o" (tableau de 4 ou 5 chaînes correspondant aux propositions), et "a" (tableau contenant UNIQUEMENT les indices numériques 0 à 4 des propositions vraies, ex: [0, 2]). N'inclus aucune clé "scenario" ou "context".`,
+Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "q" (énoncé de la question), "o" (tableau d'EXACTEMENT 5 chaînes correspondant aux 5 propositions/items par question), et "a" (tableau contenant UNIQUEMENT les indices numériques 0 à 4 des propositions vraies, ex: [0, 2]). N'inclus aucune clé "scenario" ou "context". Chaque question DOIT impérativement comporter 5 propositions (items).`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du cours fourni. 
     
 CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le cours section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
