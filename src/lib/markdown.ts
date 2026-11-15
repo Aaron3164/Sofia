@@ -81,9 +81,15 @@ export const parseMarkdownTables = (text: string): string => {
   return result.join('\n');
 };
 
+const mdCache = new Map<string, string>();
+const MAX_MD_CACHE_SIZE = 300;
+
 // Clean, robust markdown and HTML parser for Sof.IA with LaTeX and Tables support
 export const mdToHtml = (md: string) => {
   if (!md || !md.trim()) return '';
+
+  const cached = mdCache.get(md);
+  if (cached !== undefined) return cached;
 
   // 1. Normalize line endings
   let html = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -163,9 +169,17 @@ export const mdToHtml = (md: string) => {
   }).filter(l => l !== '').join('\n');
 
   // Sanitize the final HTML to prevent XSS (Cross-Site Scripting)
-  return DOMPurify.sanitize(html, {
+  const sanitized = DOMPurify.sanitize(html, {
     ADD_TAGS: ['figure', 'figcaption', 'img', 'mark', 'u'],
     ADD_ATTR: ['target', 'style', 'src', 'alt', 'class'],
     ADD_DATA_URI_TAGS: ['img']
   });
+
+  if (mdCache.size >= MAX_MD_CACHE_SIZE) {
+    const oldestKey = mdCache.keys().next().value;
+    if (oldestKey !== undefined) mdCache.delete(oldestKey);
+  }
+  mdCache.set(md, sanitized);
+
+  return sanitized;
 };

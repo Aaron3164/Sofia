@@ -7,7 +7,7 @@ import {
 import { type FileNode } from '../../hooks/useFileSystem';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { updateCachedCourseData } from '../../lib/courseDataCache';
+import { updateCachedCourseData, getCachedAllCourseData, getSyncCachedAllCourseData } from '../../lib/courseDataCache';
 import { OccludedImageViewer, type OcclusionRect } from './OccludedImageViewer';
 import { ErrorBookService } from '../../lib/ErrorBookService';
 import { 
@@ -136,94 +136,105 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
     }
 
     const loadFolderCards = async () => {
-      setLoading(true);
       const targetCourses = getDescendantCourses(folderId);
       const courseIds = targetCourses.map(c => c.id);
 
-      const bundles: CourseCardsBundle[] = [];
-      const cloudMap = new Map<string, any>();
+      const applyCloudMap = (cloudMap: Map<string, any>) => {
+        const bundles: CourseCardsBundle[] = [];
+        const genMap = new Map<string, any>();
 
-      // 1. Fetch from Supabase
-      if (profile && courseIds.length > 0) {
-        try {
-          const { data, error } = await supabase
-            .from('course_data')
-            .select('course_id, generations')
-            .in('course_id', courseIds);
+        for (const course of targetCourses) {
+          let cards: Flashcard[] = [];
+          const cloudGenerations = cloudMap.get(course.id);
+          let activeGenerations = cloudGenerations || {};
 
-          if (!error && data) {
-            data.forEach(row => {
-              cloudMap.set(row.course_id, row.generations);
+          if (cloudGenerations?.flashcards) {
+            cards = parseFlashcards(cloudGenerations.flashcards);
+          } else {
+            const localStr = localStorage.getItem(`aura_subject_${course.id}`);
+            if (localStr) {
+              try {
+                const parsed = JSON.parse(localStr);
+                if (parsed?.generations) {
+                  activeGenerations = parsed.generations;
+                }
+                if (parsed?.generations?.flashcards) {
+                  cards = parseFlashcards(parsed.generations.flashcards);
+                }
+              } catch {}
+            }
+          }
+
+          genMap.set(course.id, activeGenerations);
+
+          if (cards.length > 0) {
+            bundles.push({
+              courseId: course.id,
+              courseName: course.name,
+              cards
             });
           }
+        }
+
+        courseGenerationsRef.current = genMap;
+        courseBundlesRef.current = bundles;
+        setCourseBundles(bundles);
+
+        const allItems: SessionQueueItem[] = [];
+        const dueItems: SessionQueueItem[] = [];
+
+        bundles.forEach(bundle => {
+          bundle.cards.forEach((card, idx) => {
+            const item: SessionQueueItem = {
+              id: `${bundle.courseId}_${idx}_${Date.now()}`,
+              card,
+              courseId: bundle.courseId,
+              courseName: bundle.courseName,
+              cardIndex: idx,
+              hasBeenFailed: false,
+            };
+            allItems.push(item);
+            if (isCardDue(card)) {
+              dueItems.push(item);
+            }
+          });
+        });
+
+        setAllCardsList(allItems);
+        setDueCardsList(dueItems);
+        return bundles.length;
+      };
+
+      // 1. Synchronous 0ms pass from memory cache + localStorage
+      const syncCached = getSyncCachedAllCourseData();
+      const syncMap = new Map<string, any>();
+      if (syncCached) {
+        syncCached.forEach(row => {
+          syncMap.set(row.course_id, row.generations);
+        });
+      }
+      const initialCount = applyCloudMap(syncMap);
+      if (syncCached !== null || initialCount > 0 || !profile || courseIds.length === 0) {
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
+      // 2. If memory cache was cold and user is logged in, fetch via shared session cache
+      if (profile && courseIds.length > 0 && syncCached === null) {
+        try {
+          const data = await getCachedAllCourseData(profile.id);
+          const cloudMap = new Map<string, any>();
+          data.forEach(row => {
+            cloudMap.set(row.course_id, row.generations);
+          });
+          applyCloudMap(cloudMap);
         } catch (err) {
           console.error('Error loading cloud cards for folder:', err);
+        } finally {
+          setLoading(false);
         }
       }
-
-      // 2. Combine with LocalStorage
-      const genMap = new Map<string, any>();
-      for (const course of targetCourses) {
-        let cards: Flashcard[] = [];
-        const cloudGenerations = cloudMap.get(course.id);
-        let activeGenerations = cloudGenerations || {};
-        
-        if (cloudGenerations?.flashcards) {
-          cards = parseFlashcards(cloudGenerations.flashcards);
-        } else {
-          const localStr = localStorage.getItem(`aura_subject_${course.id}`);
-          if (localStr) {
-            try {
-              const parsed = JSON.parse(localStr);
-              if (parsed?.generations) {
-                activeGenerations = parsed.generations;
-              }
-              if (parsed?.generations?.flashcards) {
-                cards = parseFlashcards(parsed.generations.flashcards);
-              }
-            } catch {}
-          }
-        }
-
-        genMap.set(course.id, activeGenerations);
-
-        if (cards.length > 0) {
-          bundles.push({
-            courseId: course.id,
-            courseName: course.name,
-            cards
-          });
-        }
-      }
-
-      courseGenerationsRef.current = genMap;
-      courseBundlesRef.current = bundles;
-      setCourseBundles(bundles);
-
-      // Create flat items
-      const allItems: SessionQueueItem[] = [];
-      const dueItems: SessionQueueItem[] = [];
-
-      bundles.forEach(bundle => {
-        bundle.cards.forEach((card, idx) => {
-          const item: SessionQueueItem = {
-            id: `${bundle.courseId}_${idx}_${Date.now()}`,
-            card,
-            courseId: bundle.courseId,
-            courseName: bundle.courseName,
-            cardIndex: idx,
-            hasBeenFailed: false,
-          };
-          allItems.push(item);
-          if (isCardDue(card)) {
-            dueItems.push(item);
-          }
-        });
-      });
-
-      setAllCardsList(allItems);
-      setDueCardsList(dueItems);
-      setLoading(false);
     };
 
     loadFolderCards();

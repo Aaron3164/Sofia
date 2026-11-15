@@ -624,7 +624,31 @@ export async function parseAnnalePDF(
 
   const fullText = pageTexts.join('');
 
-  // 3. Sofia IA parsing for complete layout and checkbox comprehension
+  // 3. Fast 0-token algorithmic pass first when the PDF is standard & clean
+  const hasRawCheckboxes = /[☑■☒☐]/.test(fullText);
+  if (!hasRawCheckboxes) {
+    const algoCandidate = parseAnnaleQuestionsFromText(fullText, pageImagesMap);
+    const qs = algoCandidate.questions;
+    if (qs.length >= 3) {
+      const mcqQs = qs.filter(q => q.type === 'mcq');
+      const wellFormedMcqs = mcqQs.filter(q => q.options.length >= 3 && q.question.trim().length >= 8);
+      const validStems = qs.filter(q => q.question.trim().length >= 8);
+      const hasUncapturedClinicalCase = /(?:dossier\s+progressif|cas\s+clinique\s+n|énoncé\s+commun)/i.test(fullText) && !qs.some(q => q.context);
+
+      if (
+        validStems.length >= qs.length * 0.85 &&
+        (mcqQs.length === 0 || wellFormedMcqs.length >= mcqQs.length * 0.8) &&
+        !hasUncapturedClinicalCase
+      ) {
+        if (onProgress) {
+          onProgress('Découpage instantané des QCM et propositions terminé !', numPages, numPages);
+        }
+        return algoCandidate;
+      }
+    }
+  }
+
+  // 4. Sofia IA parsing for complex layouts, clinical cases, or checkbox comprehension
   try {
     if (onProgress) {
       onProgress('Sofia IA structure les questions mot pour mot et analyse le corrigé...', numPages, numPages);
@@ -634,6 +658,7 @@ export async function parseAnnalePDF(
       const pageImagesCopy = new Map<number, string[]>();
       pageImagesMap.forEach((imgs, p) => pageImagesCopy.set(p, [...imgs]));
 
+      let lastSeenContext: string | undefined = undefined;
       const extractedQuestions: ExtractedQuestion[] = aiQuestions.map((q: any, idx: number) => {
         const qNum = q.questionNumber || idx + 1;
         const pageNum = q.pageNumber || 1;
@@ -667,11 +692,18 @@ export async function parseAnnalePDF(
               : parseAnswerLetters(String(rawAnswers)))
           : [];
 
+        let resolvedContext = q.context ? String(q.context).trim() : undefined;
+        if (resolvedContext && /^(?:IDEM|IDEM_PRECEDENT|MÊME_CONTEXTE|SAME)$/i.test(resolvedContext)) {
+          resolvedContext = lastSeenContext;
+        } else if (resolvedContext) {
+          lastSeenContext = resolvedContext;
+        }
+
         return {
           id: crypto.randomUUID(),
           questionNumber: qNum,
           type: isMcq ? 'mcq' : 'open',
-          context: q.context ? String(q.context).trim() : undefined,
+          context: resolvedContext,
           question: String(q.question || `Question ${qNum}`).trim(),
           options: cleanOptions,
           correctAnswers: Array.from(new Set(cleanAnswers)).sort(),

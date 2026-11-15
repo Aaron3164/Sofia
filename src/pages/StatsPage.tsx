@@ -108,9 +108,30 @@ export default function Statistics() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<StatViewTab>('overview');
-  const [mcqGrades, setMcqGrades] = useState<MCQGrade[]>([]);
-  const [legacyAnnales, setLegacyAnnales] = useState<AnnaleGrade[]>([]);
-  const [timeData, setTimeData] = useState<TimeSpent>({});
+  const [mcqGrades, setMcqGrades] = useState<MCQGrade[]>(() => {
+    try {
+      const s = localStorage.getItem('aura_mcq_grades');
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [legacyAnnales, setLegacyAnnales] = useState<AnnaleGrade[]>(() => {
+    try {
+      const s = localStorage.getItem('aura_annales_grades');
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [timeData, setTimeData] = useState<TimeSpent>(() => {
+    try {
+      const s = localStorage.getItem('aura_time_spent');
+      return s ? JSON.parse(s) : {};
+    } catch {
+      return {};
+    }
+  });
   const [expandedQcm, setExpandedQcm] = useState<string | null>(null);
 
   // 1. Data Fetching & Sync (Loads both mcq_grades, course_stats and legacy annales_grades)
@@ -155,13 +176,16 @@ export default function Statistics() {
           const missingLocals = localGrades.filter(g => !cloudIds.has(g.id));
           const merged = [...missingLocals, ...cloudGrades].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           setMcqGrades(merged);
+          try {
+            localStorage.setItem('aura_mcq_grades', JSON.stringify(merged));
+          } catch {}
         } else {
           setMcqGrades(localGrades);
         }
 
         // Legacy Annales Grades (if any in Supabase or local storage)
         if (annalesRes && annalesRes.data && annalesRes.data.length > 0) {
-          setLegacyAnnales(annalesRes.data.map((a: any) => ({
+          const mappedAnnales = annalesRes.data.map((a: any) => ({
             id: a.id,
             folderId: a.folder_id,
             courseId: a.course_id,
@@ -169,7 +193,11 @@ export default function Statistics() {
             score: a.score,
             date: a.date,
             attachments: a.attachments
-          })));
+          }));
+          setLegacyAnnales(mappedAnnales);
+          try {
+            localStorage.setItem('aura_annales_grades', JSON.stringify(mappedAnnales));
+          } catch {}
         } else {
           const localAnn = localStorage.getItem('aura_annales_grades');
           if (localAnn) setLegacyAnnales(JSON.parse(localAnn));
@@ -183,6 +211,9 @@ export default function Statistics() {
             statsMap[s.course_id] = { courseName: node?.name || 'Cours', seconds: s.seconds };
           });
           setTimeData(statsMap);
+          try {
+            localStorage.setItem('aura_time_spent', JSON.stringify(statsMap));
+          } catch {}
         } else {
           const localTime = localStorage.getItem('aura_time_spent');
           if (localTime) setTimeData(JSON.parse(localTime));

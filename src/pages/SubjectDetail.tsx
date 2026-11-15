@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UploadCloud, FileText, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar, Zap, GraduationCap, MessageSquare, BookOpen, SlidersHorizontal, CheckCircle2 } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
-import { updateCachedCourseData } from '../lib/courseDataCache';
+import { updateCachedCourseData, getSyncCachedCourseData } from '../lib/courseDataCache';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
 import { checkPDFPageCount, checkContentTokenLimit, extractCourseContentFromPDF } from '../lib/pdf-extractor';
 import { InteractiveMCQ } from '../components/library/InteractiveMCQ';
@@ -136,6 +136,20 @@ export default function SubjectDetail() {
           );
         } catch (e) {
           console.error('Failed to preload local data');
+        }
+      }
+
+      if (!hasInstantLocalData && id) {
+        const memCourse = getSyncCachedCourseData(id);
+        if (memCourse) {
+          if (memCourse.extracted_content) setExtractedContent(memCourse.extracted_content);
+          if (memCourse.generations) setGenerations(memCourse.generations);
+          if (memCourse.file_name) setFileName(memCourse.file_name);
+          if (memCourse.generations?.custom_instructions) setCustomInstructions(memCourse.generations.custom_instructions);
+          hasInstantLocalData = Boolean(
+            memCourse.extracted_content ||
+            (memCourse.generations && Object.values(memCourse.generations).some(v => v !== null && (!Array.isArray(v) || v.length > 0)))
+          );
         }
       }
 

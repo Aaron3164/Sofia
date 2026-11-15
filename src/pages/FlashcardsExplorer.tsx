@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { Search, Zap, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { getCachedAllCourseData, getSyncCachedAllCourseData } from '../lib/courseDataCache';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
 import { OccludedImageViewer, type OcclusionRect } from '../components/library/OccludedImageViewer';
 
@@ -42,44 +42,32 @@ export default function FlashcardsExplorer() {
     return path;
   };
 
-  const loadAllCards = async () => {
-    setLoading(true);
+  const buildCardsList = (cloudData: { course_id: string; generations?: any }[] | null): FlashcardSource[] => {
     const cards: FlashcardSource[] = [];
     const processedCourseIds = new Set<string>();
 
-    // 1. Fetch from Supabase (Cloud)
-    if (profile) {
-      try {
-        const { data, error } = await supabase
-          .from('course_data')
-          .select('course_id, generations');
-
-        if (!error && data) {
-          data.forEach(row => {
-            const courseNode = nodes.find(n => n.id === row.course_id);
-            if (courseNode) {
-              const flashcardsData = row.generations?.flashcards;
-              if (flashcardsData) {
-                const parsedCards = parseFlashcards(flashcardsData);
-                if (parsedCards) {
-                  const folderPath = getFolderPath(courseNode);
-                  parsedCards.forEach((card: Flashcard) => {
-                    cards.push({ courseId: courseNode.id, courseName: courseNode.name, folderPath, card });
-                  });
-                  processedCourseIds.add(row.course_id);
-                }
-              }
+    if (cloudData) {
+      cloudData.forEach(row => {
+        const courseNode = nodes.find(n => n.id === row.course_id);
+        if (courseNode) {
+          const flashcardsData = row.generations?.flashcards;
+          if (flashcardsData) {
+            const parsedCards = parseFlashcards(flashcardsData);
+            if (parsedCards) {
+              const folderPath = getFolderPath(courseNode);
+              parsedCards.forEach((card: Flashcard) => {
+                cards.push({ courseId: courseNode.id, courseName: courseNode.name, folderPath, card });
+              });
+              processedCourseIds.add(row.course_id);
             }
-          });
+          }
         }
-      } catch (e) {
-        console.error('Error fetching cloud flashcards:', e);
-      }
+      });
     }
 
-    // 2. Supplement with Local Storage (Local Buffer / Non-synced)
+    // Supplement with Local Storage (Local Buffer / Non-synced)
     nodes.filter(n => n.type === 'course').forEach(courseNode => {
-      if (processedCourseIds.has(courseNode.id)) return; // Skip if already loaded from cloud
+      if (processedCourseIds.has(courseNode.id)) return;
 
       const dataStr = localStorage.getItem(`aura_subject_${courseNode.id}`);
       if (dataStr) {
@@ -98,9 +86,34 @@ export default function FlashcardsExplorer() {
         } catch (e) {}
       }
     });
-    
-    setAllCards(cards);
-    setLoading(false);
+
+    return cards;
+  };
+
+  const loadAllCards = async () => {
+    // 1. Instant 0ms synchronous pass from memory cache + localStorage
+    const syncCloud = getSyncCachedAllCourseData();
+    const instantCards = buildCardsList(syncCloud);
+    if (syncCloud !== null || instantCards.length > 0) {
+      setAllCards(instantCards);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    // 2. If logged in and memory cache was cold, resolve from shared session cache
+    if (profile && syncCloud === null) {
+      try {
+        const cloudData = await getCachedAllCourseData(profile.id);
+        setAllCards(buildCardsList(cloudData));
+      } catch (e) {
+        console.error('Error fetching cloud flashcards:', e);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
+    }
   };
 
   const parseFlashcards = (data: any): Flashcard[] | null => {

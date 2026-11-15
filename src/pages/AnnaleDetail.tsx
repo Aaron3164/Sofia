@@ -8,7 +8,7 @@ import { useFileSystem } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { supabase } from '../lib/supabase';
-import { getCachedAllCourseData, updateCachedCourseData } from '../lib/courseDataCache';
+import { getCachedAllCourseData, getSyncCachedCourseData, updateCachedCourseData } from '../lib/courseDataCache';
 import { InteractiveMCQ, type MCQ } from '../components/library/InteractiveMCQ';
 import { InteractiveQA } from '../components/library/InteractiveQA';
 import './SubjectDetail.css';
@@ -41,15 +41,53 @@ export default function AnnaleDetail() {
   useEffect(() => {
     async function loadAnnaleData() {
       if (!id) return;
-      setLoading(true);
 
       try {
         let loadedQuestions: MCQ[] = [];
         let loadedQa: string | null = null;
         let ownContent = '';
 
-        // A. Load this annale from Supabase
-        if (user) {
+        const extractFromGen = (gen: any, contentStr?: string | null) => {
+          if (contentStr) ownContent = contentStr;
+          if (!gen) return;
+          if (Array.isArray(gen.questions) && gen.questions.length > 0) {
+            loadedQuestions = gen.questions;
+          } else if (gen.mcq) {
+            try {
+              loadedQuestions = typeof gen.mcq === 'string' ? JSON.parse(gen.mcq) : gen.mcq;
+            } catch {}
+          }
+          if (gen.explications) {
+            loadedQa = typeof gen.explications === 'string' ? gen.explications : JSON.stringify(gen.explications);
+          }
+        };
+
+        // A1. Instant 0ms synchronous check (Memory cache + localStorage)
+        const syncEntry = getSyncCachedCourseData(id);
+        if (syncEntry) {
+          extractFromGen(syncEntry.generations, syncEntry.extracted_content);
+        }
+
+        if (loadedQuestions.length === 0) {
+          const localSaved = localStorage.getItem(`aura_subject_${id}`);
+          if (localSaved) {
+            try {
+              const parsed = JSON.parse(localSaved);
+              extractFromGen(parsed.generations, parsed.extractedContent);
+            } catch {}
+          }
+        }
+
+        if (loadedQuestions.length > 0) {
+          setQuestions(loadedQuestions);
+          setQaData(loadedQa);
+          setLoading(false);
+        } else {
+          setLoading(true);
+        }
+
+        // A2. Background / fallback fetch from Supabase if user is authenticated
+        if (user && (!syncEntry || loadedQuestions.length === 0)) {
           const { data, error } = await supabase
             .from('course_data')
             .select('generations, extracted_content')
@@ -57,47 +95,11 @@ export default function AnnaleDetail() {
             .maybeSingle();
 
           if (!error && data) {
-            ownContent = data.extracted_content || '';
-            const gen = data.generations;
-            if (gen) {
-              if (Array.isArray(gen.questions)) {
-                loadedQuestions = gen.questions;
-              } else if (typeof gen.mcq === 'string') {
-                try {
-                  loadedQuestions = JSON.parse(gen.mcq);
-                } catch {
-                  // ignore
-                }
-              }
-              if (gen.explications) {
-                loadedQa = typeof gen.explications === 'string' ? gen.explications : JSON.stringify(gen.explications);
-              }
-            }
-          }
-        }
-
-        // Fallback to local storage
-        if (loadedQuestions.length === 0) {
-          const localSaved = localStorage.getItem(`aura_subject_${id}`);
-          if (localSaved) {
-            try {
-              const parsed = JSON.parse(localSaved);
-              if (parsed.generations?.questions) {
-                loadedQuestions = parsed.generations.questions;
-              } else if (parsed.generations?.mcq) {
-                loadedQuestions = typeof parsed.generations.mcq === 'string' 
-                  ? JSON.parse(parsed.generations.mcq) 
-                  : parsed.generations.mcq;
-              }
-              if (parsed.generations?.explications) {
-                loadedQa = parsed.generations.explications;
-              }
-              if (parsed.extractedContent) {
-                ownContent = parsed.extractedContent;
-              }
-            } catch {
-              // ignore
-            }
+            extractFromGen(data.generations, data.extracted_content);
+            updateCachedCourseData(id, {
+              extracted_content: data.extracted_content,
+              generations: data.generations
+            });
           }
         }
 
@@ -115,16 +117,21 @@ export default function AnnaleDetail() {
 
         let combinedContext = `=== [ZONE_1_SUJET_OFFICIEL_DE_L_ANNALE : ${displayTitle}] ===\n`;
         combinedContext += `(CIBLE EXCLUSIVE DES CORRECTIONS : Lorsque l'étudiant demande de corriger l'annale ou d'expliquer une question N, ce sont EXCLUSIVEMENT les questions de cette ZONE 1 qui doivent être corrigées.)\n\n`;
-        combinedContext += `--- TEXTE BRUT OFFICIEL DE L'ÉPREUVE ---\n${ownContent}\n\n`;
 
-        // If parsed questions and official answers exist, format and append the official grid
+        // If parsed questions and official answers exist, format the official grid without duplicating raw ownContent
         if (loadedQuestions && loadedQuestions.length > 0) {
           const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+          let lastContext = '';
           combinedContext += `--- GRILLE DE CORRECTION OFFICIELLE DU CONCOURS (VÉRITÉ ABSOLUE NON NÉGOCIABLE) ---\n`;
           loadedQuestions.forEach((q, qIdx) => {
             const raw = (q as any).correctAnswers ?? (q as any).correct_answers ?? (q as any).correctAnswer ?? (q as any).correct_answer ?? [];
             const rawArr = Array.isArray(raw) ? raw : [raw];
             const qNum = (q as any).questionNumber || (qIdx + 1);
+            const qContext = (q as any).context || (q as any).scenario;
+            if (qContext && qContext !== lastContext) {
+              combinedContext += `[ÉNONCÉ / CAS CLINIQUE] : ${qContext}\n`;
+              lastContext = qContext;
+            }
             
             combinedContext += `[ANNALE_OFFICIELLE_QUESTION_${qNum}] Question ${qNum} : "${q.question}"\n`;
             if (q.options && q.options.length > 0) {
@@ -150,6 +157,8 @@ export default function AnnaleDetail() {
             combinedContext += `\n`;
           });
           combinedContext += `--- FIN DE LA GRILLE OFFICIELLE DU CONCOURS ---\n`;
+        } else if (ownContent) {
+          combinedContext += `--- TEXTE BRUT OFFICIEL DE L'ÉPREUVE ---\n${ownContent}\n\n`;
         }
         combinedContext += `=== [FIN_ZONE_1_SUJET_OFFICIEL_DE_L_ANNALE] ===\n\n`;
 

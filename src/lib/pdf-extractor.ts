@@ -444,7 +444,7 @@ export async function extractCourseContentFromPDF(
         pageText = appendWithSmartSpace(pageText, formatted);
       }
 
-      allPageTexts[pageIdx] = `--- Page ${pageNum} ---\n${pageText.trim()}\n\n`;
+      allPageTexts[pageIdx] = pageText.trim();
 
       // 2. Extract schemas for this page if quota not reached
       const remainingQuota = MAX_TOTAL_SCHEMAS - allSchemas.length;
@@ -463,7 +463,7 @@ export async function extractCourseContentFromPDF(
     const cleanedText = cleanExtractedPDFTextLossless(allPageTexts);
 
     return {
-      text: cleanedText || allPageTexts.join(''),
+      text: cleanedText || allPageTexts.map((t, idx) => `--- Page ${idx + 1} ---\n${t}\n\n`).join(''),
       schemas: allSchemas
     };
   } catch (error) {
@@ -489,7 +489,10 @@ export function cleanExtractedPDFTextLossless(rawPageTexts: string[]): string {
   const minPagesForHeaderDedup = 5;
 
   const pageLines = rawPageTexts.map(text => {
-    return text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    return text
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0 && !/^---\s*Page\s*\d+\s*---$/i.test(l));
   });
 
   const repeatedBoundaryLines = new Set<string>();
@@ -501,12 +504,12 @@ export function cleanExtractedPDFTextLossless(rawPageTexts: string[]): string {
       if (lines.length === 0) return;
       const candidates = new Set<string>();
       
-      // Analyser strictement la 1ère ou 2ème ligne du haut (en-tête)
-      for (let i = 0; i < Math.min(2, lines.length); i++) {
+      // Analyser strictement les 3 premières lignes du haut (en-tête)
+      for (let i = 0; i < Math.min(3, lines.length); i++) {
         candidates.add(lines[i]);
       }
-      // Analyser strictement la toute dernière ligne du bas (pied de page)
-      for (let i = Math.max(0, lines.length - 2); i < lines.length; i++) {
+      // Analyser strictement les 3 dernières lignes du bas (pied de page)
+      for (let i = Math.max(0, lines.length - 3); i < lines.length; i++) {
         candidates.add(lines[i]);
       }
 
@@ -517,8 +520,8 @@ export function cleanExtractedPDFTextLossless(rawPageTexts: string[]): string {
       });
     });
 
-    // Seuil strict : la ligne doit être présente sur au moins 50% des pages ET au minimum 4 pages distinctes
-    const threshold = Math.max(4, Math.ceil(numPages * 0.50));
+    // Seuil strict : la ligne doit être présente sur au moins 45% des pages ET au minimum 4 pages distinctes
+    const threshold = Math.max(4, Math.ceil(numPages * 0.45));
     lineFrequencies.forEach((count, normLine) => {
       // Ignorer les lignes trop longues (> 120 caractères) qui pourraient être des phrases de contenu
       if (count >= threshold && normLine.length <= 120) {
@@ -531,7 +534,7 @@ export function cleanExtractedPDFTextLossless(rawPageTexts: string[]): string {
     const pageNum = idx + 1;
     const filtered = lines.filter((line, lineIdx) => {
       // 1. Filtrer les en-têtes et pieds de page répétés en bordure
-      const isBoundary = lineIdx < 2 || lineIdx >= lines.length - 2;
+      const isBoundary = lineIdx < 3 || lineIdx >= lines.length - 3;
       if (isBoundary && repeatedBoundaryLines.size > 0) {
         const norm = line.replace(/\b\d+\b/g, '#').toLowerCase();
         if (repeatedBoundaryLines.has(norm)) {

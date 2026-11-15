@@ -6,16 +6,44 @@ import { GlobalMigration } from './components/auth/GlobalMigration';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import AuthPage from './pages/AuthPage';
 
-const Library = lazy(() => import('./pages/Library'));
-const ChatSofia = lazy(() => import('./pages/ChatSofia'));
-const PlanningCenter = lazy(() => import('./pages/PlanningCenter'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const SubjectDetail = lazy(() => import('./pages/SubjectDetail'));
-const AnnaleDetail = lazy(() => import('./pages/AnnaleDetail'));
-const Statistics = lazy(() => import('./pages/StatsPage'));
-const FlashcardsExplorer = lazy(() => import('./pages/FlashcardsExplorer'));
-const ErrorBookPage = lazy(() => import('./pages/ErrorBookPage'));
-const LegalPage = lazy(() => import('./pages/LegalPage'));
+const loadLibrary = () => import('./pages/Library');
+const loadChatSofia = () => import('./pages/ChatSofia');
+const loadPlanningCenter = () => import('./pages/PlanningCenter');
+const loadDashboard = () => import('./pages/Dashboard');
+const loadSubjectDetail = () => import('./pages/SubjectDetail');
+const loadAnnaleDetail = () => import('./pages/AnnaleDetail');
+const loadStatistics = () => import('./pages/StatsPage');
+const loadFlashcardsExplorer = () => import('./pages/FlashcardsExplorer');
+const loadErrorBookPage = () => import('./pages/ErrorBookPage');
+const loadLegalPage = () => import('./pages/LegalPage');
+
+const Library = lazy(loadLibrary);
+const ChatSofia = lazy(loadChatSofia);
+const PlanningCenter = lazy(loadPlanningCenter);
+const Dashboard = lazy(loadDashboard);
+const SubjectDetail = lazy(loadSubjectDetail);
+const AnnaleDetail = lazy(loadAnnaleDetail);
+const Statistics = lazy(loadStatistics);
+const FlashcardsExplorer = lazy(loadFlashcardsExplorer);
+const ErrorBookPage = lazy(loadErrorBookPage);
+const LegalPage = lazy(loadLegalPage);
+
+let routesPreloaded = false;
+export function preloadAllRoutes() {
+  if (routesPreloaded) return;
+  routesPreloaded = true;
+  Promise.allSettled([
+    loadLibrary(),
+    loadSubjectDetail(),
+    loadAnnaleDetail(),
+    loadChatSofia(),
+    loadFlashcardsExplorer(),
+    loadStatistics(),
+    loadPlanningCenter(),
+    loadErrorBookPage(),
+    loadDashboard(),
+  ]);
+}
 
 import { DialogProvider } from './context/DialogContext';
 import { useTheme } from './context/ThemeContext';
@@ -33,6 +61,16 @@ function AppContent() {
       setTheme(profile.preferences.theme);
     }
   }, [profile?.preferences?.theme, setTheme]);
+
+  // Preload all route chunks in background once authenticated so tab transitions take 0ms
+  useEffect(() => {
+    if (!user || loading) return;
+    const idleCb = (window as any).requestIdleCallback || ((cb: () => void) => setTimeout(cb, 150));
+    const handle = idleCb(() => preloadAllRoutes());
+    return () => {
+      if ((window as any).cancelIdleCallback) (window as any).cancelIdleCallback(handle);
+    };
+  }, [user, loading]);
 
   // Special public route accessible with or without authentication
   if (window.location.pathname === '/legal') {

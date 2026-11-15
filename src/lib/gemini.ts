@@ -7,6 +7,13 @@ export type AIPreferences = {
   ai_auto_flashcards?: boolean;
 };
 
+// In-memory cache & deduplication for daily AI usage and user plan to prevent redundant network waterfalls
+let cachedDailyUsage: number | null = null;
+let cachedDailyUsageTime = 0;
+let cachedUsageUserId: string | null = null;
+let inflightUsagePromise: Promise<number> | null = null;
+let cachedUserPlan: { userId: string; plan: string; ts: number } | null = null;
+
 /**
  * Sends prompt requests securely through the serverless backend proxy (/api/gemini)
  */
@@ -15,7 +22,7 @@ async function callGeminiProxy(
   contents: string[] | any[],
   config?: Record<string, any>
 ): Promise<{ text: string; groundingMetadata?: any }> {
-  // Vérification stricte du quota côté client avant tout appel
+  // Vérification rapide du quota côté client (0ms via cache mémoire si déjà chargé)
   await ensureQuota();
 
   // Get current user session for secure backend authorization
@@ -41,15 +48,22 @@ async function callGeminiProxy(
 
   const data = await response.json();
 
-  // Met à jour la barre de quota dans la Sidebar en temps réel
-  window.dispatchEvent(new CustomEvent('ai-usage-updated'));
-
   if (!response.ok || data.error) {
     if (data.error === 'QUOTA_EXCEEDED' || response.status === 429) {
+      // Force refresh usage cache on 429
+      cachedDailyUsageTime = 0;
+      window.dispatchEvent(new CustomEvent('ai-usage-updated'));
       throw new Error(data.message || 'Limite quotidienne de générations atteinte (5 pour le plan gratuit, 50 pour le plan Premium).');
     }
     throw new Error(data.message || data.error || 'Erreur lors de la génération avec Gemini.');
   }
+
+  // Incrémente instantanément le cache mémoire avant de notifier les composants (0 requête Supabase supplémentaire)
+  if (cachedDailyUsage !== null) {
+    cachedDailyUsage += 1;
+    cachedDailyUsageTime = Date.now();
+  }
+  window.dispatchEvent(new CustomEvent('ai-usage-updated'));
 
   return { 
     text: data.text || '',
@@ -58,47 +72,68 @@ async function callGeminiProxy(
 }
 
 /**
- * Fetches the current daily AI usage for the logged-in user.
+ * Fetches the current daily AI usage for the logged-in user with a 30s memory cache and in-flight deduplication.
  * Supports both database structures:
  * - (user_id, count, updated_at) from original schema
  * - (user_id, usage_date, generation_count) from updated schema
  */
-export async function getDailyUsage(): Promise<number> {
+export async function getDailyUsage(forceRefresh = false): Promise<number> {
   try {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData?.session?.user?.id;
     if (!userId) return 0;
 
-    // Calcul de la date du jour (supporte date locale et UTC pour éviter les décalages de fuseau)
-    const now = new Date();
-    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const utcDate = now.toISOString().split('T')[0];
-    const datesToCheck = Array.from(new Set([localDate, utcDate]));
+    if (cachedUsageUserId && cachedUsageUserId !== userId) {
+      cachedDailyUsage = null;
+      cachedDailyUsageTime = 0;
+      inflightUsagePromise = null;
+    }
+    cachedUsageUserId = userId;
 
-    // Requête ciblée sur la clé primaire (user_id, usage_date)
-    const { data, error } = await supabase
-      .from('ai_usage')
-      .select('generation_count')
-      .eq('user_id', userId)
-      .in('usage_date', datesToCheck)
-      .order('usage_date', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!error && data && typeof data.generation_count === 'number') {
-      return data.generation_count;
+    const nowMs = Date.now();
+    if (!forceRefresh && cachedDailyUsage !== null && (nowMs - cachedDailyUsageTime) < 30000) {
+      return cachedDailyUsage;
     }
 
-    return 0;
+    if (!forceRefresh && inflightUsagePromise) {
+      return inflightUsagePromise;
+    }
+
+    inflightUsagePromise = (async () => {
+      try {
+        const now = new Date();
+        const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const utcDate = now.toISOString().split('T')[0];
+        const datesToCheck = Array.from(new Set([localDate, utcDate]));
+
+        const { data, error } = await supabase
+          .from('ai_usage')
+          .select('generation_count')
+          .eq('user_id', userId)
+          .in('usage_date', datesToCheck)
+          .order('usage_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const count = (!error && data && typeof data.generation_count === 'number') ? data.generation_count : 0;
+        cachedDailyUsage = count;
+        cachedDailyUsageTime = Date.now();
+        return count;
+      } finally {
+        inflightUsagePromise = null;
+      }
+    })();
+
+    return inflightUsagePromise;
   } catch (err) {
     console.error('[Quota] Erreur getDailyUsage:', err);
-    return 0;
+    return cachedDailyUsage ?? 0;
   }
 }
 
 /**
  * Checks if the user has reached their daily AI generation limit (5 for free, 50 for premium).
- * Throws immediately if reached to block client-side execution.
+ * Uses in-memory cached values when fresh to avoid blocking every AI call on 2 sequential DB round-trips.
  */
 export async function ensureQuota(): Promise<void> {
   try {
@@ -106,23 +141,29 @@ export async function ensureQuota(): Promise<void> {
     const userId = sessionData?.session?.user?.id;
     if (!userId) return;
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan')
-      .eq('id', userId)
-      .maybeSingle();
+    let plan = 'free';
+    if (cachedUserPlan && cachedUserPlan.userId === userId && (Date.now() - cachedUserPlan.ts) < 60000) {
+      plan = cachedUserPlan.plan;
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('plan')
+        .eq('id', userId)
+        .maybeSingle();
+      plan = profile?.plan || 'free';
+      cachedUserPlan = { userId, plan, ts: Date.now() };
+    }
 
-    const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
+    const maxGenerations = plan === 'premium' ? 50 : 5;
     const usage = await getDailyUsage();
 
     if (usage >= maxGenerations) {
-      throw new Error(`Limite quotidienne de générations IA atteinte (${usage}/${maxGenerations} pour le plan ${profile?.plan || 'gratuit'}). Revenez demain ou passez Premium !`);
+      throw new Error(`Limite quotidienne de générations IA atteinte (${usage}/${maxGenerations} pour le plan ${plan === 'premium' ? 'premium' : 'gratuit'}). Revenez demain ou passez Premium !`);
     }
   } catch (err) {
     if (err instanceof Error && err.message.includes('Limite quotidienne')) {
       throw err;
     }
-    // Si c'est une simple erreur réseau de lecture, on ne bloque pas inutilement
   }
 }
 
@@ -185,6 +226,165 @@ function compactCourseText(text: string): string {
     .trim();
 }
 
+const FRENCH_STOPWORDS = new Set([
+  'dans', 'avec', 'pour', 'sans', 'sous', 'vers', 'chez', 'entre', 'mais', 'donc',
+  'alors', 'ainsi', 'comme', 'plus', 'moins', 'tres', 'tout', 'tous', 'toute', 'toutes',
+  'cette', 'ces', 'cet', 'celui', 'celle', 'ceux', 'celles', 'leur', 'leurs', 'notre',
+  'votre', 'meme', 'autres', 'autre', 'quel', 'quelle', 'quels', 'quelles', 'lequel',
+  'laquelle', 'lesquels', 'lesquelles', 'dont', 'quand', 'comment', 'pourquoi', 'parce',
+  'sont', 'etre', 'avoir', 'fait', 'faire', 'peut', 'peuvent', 'doit', 'doivent',
+  'concernant', 'parmi', 'propositions', 'suivantes', 'laquelle', 'indiquez', 'exacte',
+  'exactes', 'fausse', 'fausses', 'question', 'cours', 'document', 'partie', 'chapitre'
+]);
+
+/**
+ * Sélectionne intelligemment les passages et pages les plus pertinents d'un très long polycopié
+ * autour des mots-clés de la question ou des QCM, tout en conservant les repères de pages (--- Page X ---)
+ * et de documents (--- DOCUMENT DE COURS ... ---).
+ * Si le texte est déjà inférieur à maxChars, le renvoie intégralement à 100%.
+ */
+function extractRelevantCourseExcerpts(fullText: string, queryTerms: string, maxChars: number): string {
+  if (!fullText || fullText.length <= maxChars) return fullText;
+
+  const normalize = (s: string) =>
+    s.toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+  const rawWords = normalize(queryTerms)
+    .split(/[^a-z0-9]+/)
+    .filter(w => w.length >= 3 && !FRENCH_STOPWORDS.has(w));
+  const keywords = Array.from(new Set(rawWords));
+
+  if (keywords.length === 0) {
+    return fullText.substring(0, maxChars);
+  }
+
+  // Découper en blocs logiques tout en suivant le document et la page courante
+  const rawParagraphs = fullText.split(/\n{2,}/);
+  interface ScoredChunk {
+    idx: number;
+    text: string;
+    docHeader: string;
+    pageHeader: string;
+    score: number;
+  }
+
+  let currentDoc = '';
+  let currentPage = '';
+  const chunks: ScoredChunk[] = [];
+
+  for (let i = 0; i < rawParagraphs.length; i++) {
+    const p = rawParagraphs[i].trim();
+    if (!p) continue;
+
+    const docMatch = p.match(/^---\s*(?:DOCUMENT DE COURS[^\n]*|COURS\s*:[^\n]*)\s*---/im);
+    if (docMatch) {
+      currentDoc = docMatch[0].trim();
+    }
+    const pageMatch = p.match(/---\s*Page\s*\d+\s*---/i);
+    if (pageMatch) {
+      currentPage = pageMatch[0].trim();
+    }
+
+    const normP = normalize(p);
+    let score = 0;
+    for (const kw of keywords) {
+      if (normP.includes(kw)) {
+        // Bonus si mot entier ou terme long (>5 lettres)
+        score += kw.length >= 6 ? 3 : 2;
+      }
+    }
+
+    chunks.push({
+      idx: i,
+      text: p,
+      docHeader: currentDoc,
+      pageHeader: currentPage,
+      score
+    });
+  }
+
+  // Propager un léger bonus de contexte aux paragraphes adjacents d'un paragraphe très pertinent
+  for (let i = 0; i < chunks.length; i++) {
+    if (chunks[i].score >= 6) {
+      if (i > 0) chunks[i - 1].score += 1;
+      if (i + 1 < chunks.length) chunks[i + 1].score += 1;
+    }
+  }
+
+  // Trier par pertinence décroissante, puis sélectionner dans la limite de maxChars
+  const sortedByScore = [...chunks].sort((a, b) => b.score - a.score || a.idx - b.idx);
+  const selectedIndices = new Set<number>();
+  let currentLength = 0;
+
+  for (const ch of sortedByScore) {
+    if (currentLength + ch.text.length + 60 > maxChars) {
+      if (currentLength > maxChars * 0.75) break;
+      continue;
+    }
+    selectedIndices.add(ch.idx);
+    currentLength += ch.text.length + 40;
+  }
+
+  // Remettre dans l'ordre chronologique du cours avec les balises de document et de page
+  const orderedSelected = chunks.filter(ch => selectedIndices.has(ch.idx));
+  let lastDoc = '';
+  let lastPage = '';
+  const outputParts: string[] = [];
+
+  for (const ch of orderedSelected) {
+    if (ch.docHeader && ch.docHeader !== lastDoc && !ch.text.includes(ch.docHeader)) {
+      outputParts.push(ch.docHeader);
+      lastDoc = ch.docHeader;
+    } else if (ch.docHeader) {
+      lastDoc = ch.docHeader;
+    }
+
+    if (ch.pageHeader && ch.pageHeader !== lastPage && !ch.text.includes(ch.pageHeader)) {
+      outputParts.push(ch.pageHeader);
+      lastPage = ch.pageHeader;
+    } else if (ch.pageHeader) {
+      lastPage = ch.pageHeader;
+    }
+
+    outputParts.push(ch.text);
+  }
+
+  return outputParts.join('\n\n');
+}
+
+/**
+ * Fenêtre glissante pour l'historique de conversation :
+ * Garde les 6 derniers messages intacts à 100%, et compacte les anciens messages (> 6 tours)
+ * pour éviter la croissance quadratique des tokens sur les longues discussions.
+ */
+function formatSlidingHistory(
+  messages: { role: string; text: string }[],
+  userLabel: string,
+  aiLabel: string,
+  keepRecentCount = 6
+): string {
+  if (!messages || messages.length === 0) return '';
+  const cutoff = Math.max(0, messages.length - keepRecentCount);
+
+  return messages
+    .map((m, idx) => {
+      const speaker = m.role === 'user' ? userLabel : aiLabel;
+      const rawText = (m.text || '').trim();
+      if (idx >= cutoff) {
+        return `${speaker} : ${rawText}`;
+      }
+      // Ancien message au-delà des 6 derniers : compacter sans perdre le fil conducteur
+      const maxLen = m.role === 'user' ? 240 : 350;
+      const compacted = rawText.length > maxLen
+        ? rawText.substring(0, maxLen).replace(/\s+\S*$/, '') + '…'
+        : rawText;
+      return `${speaker} : ${compacted}`;
+    })
+    .join('\n\n');
+}
+
 export interface CourseSchemaInput {
   id: string; // e.g. "FIGURE_1"
   url: string; // Base64 data URL
@@ -211,13 +411,13 @@ export async function generateStudyMaterials(
   const prompts = {
     flashcards: `[Session unique: ${randomSeed}] Crée exactement ${cardCount || 30} flashcards de révision à partir de ce texte. Extraie les concepts, détails et définitions les plus importants sans faire de doublons ni de répétitions. Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte.
     
-CONSIGNE RECTO (front) : Sois explicite dans la question pour que l'étudiant sache précisément quoi répondre (ex: "Quelle est la définition de [concept] ?", "Quelles sont les 3 conditions de [X] ?", "En quoi consiste l'exception de [Y] ?"). Évite les questions trop vagues comme juste un nom de concept.
+CONSIGNE RECTO (f) : Sois explicite dans la question pour que l'étudiant sache précisément quoi répondre (ex: "Quelle est la définition de [concept] ?", "Quelles sont les 3 conditions de [X] ?", "En quoi consiste l'exception de [Y] ?"). Évite les questions trop vagues comme juste un nom de concept.
 
-CONSIGNE VERSO (back) : Les réponses doivent rester CONCISES (entre 2 et 15 mots maximum). On veut une information percutante, pas de longs paragraphes.
+CONSIGNE VERSO (b) : Les réponses doivent rester CONCISES (entre 2 et 15 mots maximum). On veut une information percutante, pas de longs paragraphes.
 
-Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "front" (question) et "back" (réponse).`,
+Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec les clés courtes "f" (question) et "b" (réponse).`,
     mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
-Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "question", "options" (tableau de 4 ou 5 chaînes), et "correctAnswers" (tableau contenant les réponses exactes).`,
+Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "q" (énoncé de la question), "o" (tableau de 4 ou 5 chaînes correspondant aux propositions), et "a" (tableau contenant UNIQUEMENT les indices numériques 0 à 4 des propositions vraies, ex: [0, 2]). N'inclus aucune clé "scenario" ou "context".`,
     resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du cours fourni. 
     
 CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le cours section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
@@ -286,27 +486,80 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
         }
       }
 
-      // STRICT PROGRAMMATIC GUARANTEE FOR MCQ:
-      // If a clinical case/scenario was NOT explicitly requested in custom instructions,
-      // programmatically strip out any scenario/context key so it NEVER returns a scenario!
+      // Normalize compact JSON keys ("f"/"b" for flashcards, "q"/"o"/"a" for mcq) into the standard schema expected by the UI
+      if (mode === 'flashcards') {
+        try {
+          const parsed = JSON.parse(generatedText);
+          const cardsArr = Array.isArray(parsed) ? parsed : (parsed.flashcards || parsed.cards || []);
+          if (Array.isArray(cardsArr)) {
+            const normalizedCards = cardsArr.map((c: any) => ({
+              ...c,
+              front: c.front ?? c.f ?? c.question ?? '',
+              back: c.back ?? c.b ?? c.answer ?? '',
+            })).map(({ f, b, ...rest }: any) => rest);
+            generatedText = JSON.stringify(normalizedCards);
+          }
+        } catch (e) {
+          console.warn('Could not normalize flashcards JSON:', e);
+        }
+      }
+
       if (mode === 'mcq') {
         const isClinicalRequested = Boolean(
           customInstructions && /cas clinique|scénario|scenario|histoire|énoncé|enoncé|patient|mise en situation/i.test(customInstructions)
         );
-        if (!isClinicalRequested) {
-          try {
-            const parsed = JSON.parse(generatedText);
-            let questionsArray = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.mcqs || []);
-            if (Array.isArray(questionsArray)) {
-              questionsArray = questionsArray.map((q: any) => {
-                const { scenario, context, statement, ...cleanQ } = q;
-                return cleanQ;
-              });
+        try {
+          const parsed = JSON.parse(generatedText);
+          const isWrappedObject = !Array.isArray(parsed) && parsed && typeof parsed === 'object';
+          let questionsArray = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.mcqs || []);
+          if (Array.isArray(questionsArray)) {
+            const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+            questionsArray = questionsArray.map((rawQ: any) => {
+              const { scenario, context, statement, q, o, a, ...rest } = rawQ;
+              const questionText = rawQ.question ?? q ?? '';
+              const optionsList: string[] = Array.isArray(rawQ.options) ? rawQ.options : (Array.isArray(o) ? o : []);
+              const rawCorrect = rawQ.correctAnswers ?? rawQ.correct_answers ?? a ?? [];
+              const rawCorrectArr = Array.isArray(rawCorrect) ? rawCorrect : [rawCorrect];
+
+              // Map compact indices (0..4) or letters ("A".."E") back to the exact option strings so InteractiveMCQ & ErrorBook work seamlessly
+              const resolvedCorrectAnswers = rawCorrectArr.map((item: any) => {
+                if (typeof item === 'number' && optionsList[item] !== undefined) {
+                  return optionsList[item];
+                }
+                const str = String(item ?? '').trim();
+                if (/^\d+$/.test(str)) {
+                  const idx = parseInt(str, 10);
+                  if (optionsList[idx] !== undefined) return optionsList[idx];
+                }
+                const upper = str.toUpperCase();
+                const letterIdx = letters.indexOf(upper);
+                if (letterIdx !== -1 && optionsList[letterIdx] !== undefined) {
+                  return optionsList[letterIdx];
+                }
+                return str;
+              }).filter(Boolean);
+
+              const normalizedQ: Record<string, any> = {
+                ...rest,
+                question: questionText,
+                options: optionsList,
+                correctAnswers: resolvedCorrectAnswers,
+              };
+              if (isClinicalRequested) {
+                if (scenario) normalizedQ.scenario = scenario;
+                if (context) normalizedQ.context = context;
+              }
+              return normalizedQ;
+            });
+
+            if (isClinicalRequested && isWrappedObject && parsed.scenario) {
+              generatedText = JSON.stringify({ scenario: parsed.scenario, questions: questionsArray });
+            } else {
               generatedText = JSON.stringify(questionsArray);
             }
-          } catch (e) {
-            console.warn('Could not parse generated MCQ JSON for scenario stripping:', e);
           }
+        } catch (e) {
+          console.warn('Could not parse generated MCQ JSON for normalization:', e);
         }
       }
     }
@@ -420,7 +673,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
   let historyPrompt = "";
   if (history && history.length > 0) {
     historyPrompt = "\nHistorique précédent de cette conversation :\n" + 
-      history.map(h => `${h.role === 'user' ? 'Étudiant' : 'Sofia (IA)'} : ${h.text}`).join('\n') + '\n';
+      formatSlidingHistory(history, 'Étudiant', 'Sofia (IA)', 6) + '\n';
   }
 
   let annalePrompt = "";
@@ -428,12 +681,34 @@ Consignes de formatage strictes (PRIORITÉ #1) :
     annalePrompt = `\n\n=== [ZONE_1_SUJET_D_ANNALE_ATTACHE_PAR_L_ETUDIANT] ===\n${compactCourseText(annaleContext).substring(0, 150000)}\n=== [FIN_ZONE_1_SUJET_ATTACHE] ===\n\nCONSIGNE DE CORRECTION ET D'EXPLICATION : L'étudiant t'a soumis un sujet d'examen ou d'exercice ci-dessus. Résous, explique ou réponds aux questions relatives à ce sujet en t'appuyant rigoureusement sur le cours principal mis en cache tout en haut, ses méthodes, sa structure et ses notions. Respecte impérativement la grille de correction officielle sans jamais la contredire.`;
   }
 
-  const cleanContext = compactCourseText(context);
+  let cleanContext = compactCourseText(context);
+  // Si le contexte contient une ZONE_2 (cours théoriques du dossier d'une annale) très volumineuse,
+  // conserver 100% de la ZONE_1 (l'annale officielle) et sélectionner les passages les plus pertinents de la ZONE_2
+  const zone2StartMarker = '=== [ZONE_2_COURS_THEORIQUES_DU_DOSSIER] ===';
+  const zone2EndMarker = '=== [FIN_ZONE_2_COURS_THEORIQUES_DU_DOSSIER] ===';
+  const z2StartIdx = cleanContext.indexOf(zone2StartMarker);
+  const z2EndIdx = cleanContext.indexOf(zone2EndMarker);
+  if (z2StartIdx !== -1 && z2EndIdx > z2StartIdx) {
+    const zone1Block = cleanContext.substring(0, z2StartIdx);
+    const zone2Inner = cleanContext.substring(z2StartIdx + zone2StartMarker.length, z2EndIdx);
+    const afterZone2 = cleanContext.substring(z2EndIdx);
+    if (zone2Inner.length > 50000) {
+      const searchTerms = `${question} ${zone1Block.substring(0, 15000)}`;
+      const filteredZone2 = extractRelevantCourseExcerpts(zone2Inner, searchTerms, 50000);
+      cleanContext = `${zone1Block}${zone2StartMarker}\n${filteredZone2}\n${afterZone2}`;
+    }
+  } else if (cleanContext.length > 75000 && !isAnnaleOrQcmQuery) {
+    // Question ciblée sur un très gros cours isolé (>75 000 caractères)
+    cleanContext = extractRelevantCourseExcerpts(cleanContext, question, 60000);
+  }
+
   const cachedPrefixBlock = buildCourseCachePrefix(courseId, cleanContext);
-  const fullPrompt = `${cachedPrefixBlock}\n\n=== INSTRUCTIONS PÉDAGOGIQUES & QUESTION ===\n${systemInstruction}${baseInstruction}${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
+  const fullPrompt = `${cachedPrefixBlock}\n\n=== INSTRUCTIONS PÉDAGOGIQUES & QUESTION ===\n${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
   
   try {
-    const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt]);
+    const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt], {
+      systemInstruction: `${systemInstruction}${baseInstruction}`
+    });
     const resultText = response.text || '';
     sessionStorage.setItem(cacheKey, resultText);
     return resultText;
@@ -538,7 +813,14 @@ Bonne(s) réponse(s) : ${err.correctAnswers.join(' | ')}
 Réponse(s) choisie(s) par l'étudiant : ${err.userSelected.length > 0 ? err.userSelected.join(' | ') : 'Aucune sélection'}`;
   }).join('\n\n');
 
-  const cleanDoc = compactCourseText(documentContext).substring(0, 250000);
+  const errorQueryTerms = errors
+    .map(e => `${e.question} ${e.options.join(' ')} ${e.correctAnswers.join(' ')}`)
+    .join(' ');
+  const cleanDoc = extractRelevantCourseExcerpts(
+    compactCourseText(documentContext),
+    errorQueryTerms,
+    24000
+  );
   const cachedPrefixBlock = buildCourseCachePrefix(courseId, cleanDoc);
 
   const fullPrompt = `${cachedPrefixBlock}\n\n=== TÂCHE : EXPLICATION DES ERREURS DE QCM ===\n${systemInstruction}Tu t'appelles Sofia. Tu es une assistante universitaire d'apprentissage experte.
@@ -656,7 +938,8 @@ CONSIGNES PARTICULIÈRES SUR LES MISES EN PAGE D'ANNALES :
    - Très souvent (comme les dossiers progressifs, cas cliniques, problèmes en médecine, droit ou sciences), un énoncé de mise en situation ou de contexte précède une ou plusieurs questions (ex: "PROBLEME : Une patiente de 47 ans consulte pour une asthénie... Les bilans mettent en évidence : ... L'IRM met en évidence...").
    - Tu DOIS IMPÉRATIVEMENT capturer cette mise en contexte dans le champ "context" de CHAQUE question qui en dépend !
    - Ne résume pas, ne saute rien de cette mise en contexte : recopie-la mot pour mot avec toutes ses données cliniques, valeurs biologiques et paramètres.
-   - Si une question possède sa propre mise en situation, ou si plusieurs questions successives partagent le même cas clinique / problème, reporte ce texte complet dans "context" pour chacune d'elles.
+   - Si une question possède sa propre mise en situation, écris son texte complet dans "context".
+   - OPTIMISATION ANTI-DOUBLON CRITIQUE : Si plusieurs questions consécutives partagent EXACTEMENT le même cas clinique / énoncé préalable, écris le texte complet dans "context" UNIQUEMENT sur la PREMIÈRE question de cette série, et écris simplement "IDEM" dans le champ "context" des questions suivantes qui en dépendent !
    - La question proprement dite (ex: "A partir de vos connaissances sur la régulation de l'axe...") va dans "question".
 
 2. ORDRE DES QUESTIONS ET PROPOSITIONS :
@@ -726,6 +1009,22 @@ ${rawPdfText.substring(0, 300000)}`;
 
   const parsed = JSON.parse(jsonStr);
   const questionsList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
+
+  // Re-expand "IDEM" context references into full clinical case text on the client (0 extra output tokens)
+  let lastValidContext: string | undefined;
+  if (Array.isArray(questionsList)) {
+    for (const q of questionsList) {
+      if (q && typeof q.context === 'string') {
+        const trimmed = q.context.trim();
+        if (/^(?:IDEM|IDEM_PRECEDENT|MÊME_CONTEXTE|SAME)$/i.test(trimmed)) {
+          q.context = lastValidContext || undefined;
+        } else if (trimmed.length > 0) {
+          lastValidContext = trimmed;
+        }
+      }
+    }
+  }
+
   return questionsList;
 }
 
@@ -960,7 +1259,11 @@ export async function askChatSofia(
 
   // 1. PRIORITÉ ABSOLUE EN DÉBUT DE PROMPT (Pour Google Context Caching optimal) : Les polycopiés et cours de l'étudiant
   if (options?.coursesContext && options.coursesContext.trim()) {
-    const cleanCourses = compactCourseText(options.coursesContext).slice(0, 300000);
+    const lastQuestion = messages[messages.length - 1]?.content || '';
+    const rawCompacted = compactCourseText(options.coursesContext);
+    const cleanCourses = rawCompacted.length > 80000
+      ? extractRelevantCourseExcerpts(rawCompacted, lastQuestion, 75000)
+      : rawCompacted;
     const scopeId = options.targetScopeId || 'chat_sofia_courses';
     basePrompt += `${buildCourseCachePrefix(scopeId, cleanCourses)}\n\n`;
     basePrompt += `====================================================================
@@ -972,8 +1275,6 @@ RÈGLE D'OR DE PRIORITÉ :
 ====================================================================\n\n`;
   }
 
-  basePrompt += `${systemInstruction}\n\n`;
-
   // 2. Fichier temporaire joint par l'étudiant dans le chat
   if (options?.attachmentContext && options.attachmentContext.trim()) {
     basePrompt += `DOCUMENT SPÉCIFIQUEMENT JOINT DANS CE MESSAGE :\n"""\n${compactCourseText(options.attachmentContext).slice(0, 100000)}\n"""\n\n`;
@@ -983,15 +1284,20 @@ RÈGLE D'OR DE PRIORITÉ :
   const previousMessages = messages.slice(0, -1);
 
   if (previousMessages.length > 0) {
-    basePrompt += `HISTORIQUE RÉCENT DE CETTE CONVERSATION :\n` +
-      previousMessages.map(m => `${m.role === 'user' ? 'Étudiant' : 'SofIA'} : ${m.content}`).join('\n\n') +
-      `\n\n`;
+    const formattedHistory = formatSlidingHistory(
+      previousMessages.map(m => ({ role: m.role, text: m.content })),
+      'Étudiant',
+      'SofIA',
+      6
+    );
+    basePrompt += `HISTORIQUE RÉCENT DE CETTE CONVERSATION :\n${formattedHistory}\n\n`;
   }
 
   basePrompt += `MESSAGE DE L'ÉTUDIANT :\n${lastUserMsg}`;
 
   const config: Record<string, any> = {
     temperature: 0.7,
+    systemInstruction,
   };
 
   if (options?.useWebSearch) {

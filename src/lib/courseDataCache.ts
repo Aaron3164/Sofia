@@ -12,6 +12,21 @@ let cachedCourses: CourseDataEntry[] | null = null;
 let inflightPromise: Promise<CourseDataEntry[]> | null = null;
 
 /**
+ * Accès synchrone (0ms) au cache mémoire des cours s'il est déjà chargé.
+ */
+export function getSyncCachedAllCourseData(): CourseDataEntry[] | null {
+  return cachedCourses;
+}
+
+/**
+ * Accès synchrone (0ms) à un cours spécifique depuis le cache mémoire.
+ */
+export function getSyncCachedCourseData(courseId?: string): CourseDataEntry | undefined {
+  if (!courseId || !cachedCourses) return undefined;
+  return cachedCourses.find(c => c.course_id === courseId);
+}
+
+/**
  * Récupère la liste des cours (course_data) de l'utilisateur avec un cache mémoire de session.
  * Évite de re-télécharger 100 % des textes de PDF à chaque message ChatSofia ou recherche Ctrl+K.
  */

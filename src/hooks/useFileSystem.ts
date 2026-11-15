@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { supabase, deletePDFFromR2 } from '../lib/supabase';
-import { removeCachedCourseData } from '../lib/courseDataCache';
+import { removeCachedCourseData, getCachedAllCourseData } from '../lib/courseDataCache';
 import { useAuth } from '../context/AuthContext';
 import { seedDemoCourseIfEmpty } from '../lib/OnboardingHelper';
 
@@ -67,6 +67,9 @@ function useFileSystemInternal(): FileSystemContextType {
       setIsInitialLoad(false);
       return;
     }
+
+    // Préchauffer le cache mémoire des cours en arrière-plan pour un accès 0ms dans Flashcards, Recherche, Chat et Cours
+    getCachedAllCourseData(user.id).catch(() => {});
 
     // 1. Fetch from Supabase
     const { data: cloudNodes, error } = await supabase

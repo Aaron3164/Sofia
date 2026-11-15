@@ -28,7 +28,6 @@ export default async function handler(req, res) {
   let supabaseClient = null;
   let authenticatedUserId = null;
   let quotaWasIncremented = false;
-  let isPremiumUser = false;
 
   if (supabaseUrl && supabaseAnonKey) {
     // Client initialized with user's access token so auth.uid() is populated in Supabase RPC
@@ -47,25 +46,7 @@ export default async function handler(req, res) {
     }
     authenticatedUserId = user.id;
 
-    // Fetch user plan for tier segmentation (Premium vs Free)
-    try {
-      const { data: profileData } = await supabaseClient
-        .from('profiles')
-        .select('plan, premium_until')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileData && profileData.plan === 'premium') {
-        const isExpired = profileData.premium_until
-          ? new Date(profileData.premium_until) < new Date()
-          : false;
-        isPremiumUser = !isExpired;
-      }
-    } catch (profileErr) {
-      console.warn('[Gemini Proxy] Impossible de vérifier le plan utilisateur, repli sur gratuit:', profileErr);
-    }
-
-    // 2. Strict Server-Side Quota Verification & Increment
+    // 2. Strict Server-Side Quota Verification & Increment (RPC already checks user plan)
     const { data: quotaAllowed, error: quotaError } = await supabaseClient.rpc('check_and_increment_ai_usage');
 
     if (quotaError) {
