@@ -135,6 +135,8 @@ export default function Statistics() {
     }
   });
   const [expandedQcm, setExpandedQcm] = useState<string | null>(null);
+  const [chartFilter, setChartFilter] = useState<'all' | 'qcm' | 'annales'>('all');
+  const [hoveredPointIdx, setHoveredPointIdx] = useState<number | null>(null);
 
   // 1. Data Fetching & Sync (Loads mcq_grades, course_stats, legacy annales_grades, course_data flags & retroactive recovery)
   useEffect(() => {
@@ -395,21 +397,38 @@ export default function Statistics() {
 
   // 3. Chronological Progression Curve Data
   const chartPoints = useMemo(() => {
-    if (mcqGrades.length === 0) return [];
-    const sorted = [...mcqGrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sourceList =
+      chartFilter === 'qcm'
+        ? metrics.pureMcqGrades
+        : chartFilter === 'annales'
+          ? metrics.annaleGrades
+          : mcqGrades;
 
-    // Take last 15 tests
-    const recent = sorted.slice(-15);
+    if (sourceList.length === 0) return [];
+    const sorted = [...sourceList].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Take last 20 tests
+    const recent = sorted.slice(-20);
     return recent.map((item, idx) => {
       const pct = item.total > 0 ? Math.round((item.score / item.total) * 100) : 0;
       return {
         x: idx,
         score: pct,
+        rawScore: item.score,
+        rawTotal: item.total,
+        courseId: item.courseId,
+        courseName: item.courseName,
         label: format(new Date(item.date), 'd MMM', { locale: fr }),
+        fullDate: format(new Date(item.date), 'dd MMM yyyy à HH:mm', { locale: fr }),
         name: item.courseName.replace(/^🎓\s*/, '')
       };
     });
-  }, [mcqGrades]);
+  }, [mcqGrades, metrics.pureMcqGrades, metrics.annaleGrades, chartFilter]);
+
+  const chartAvg = useMemo(() => {
+    if (chartPoints.length === 0) return 0;
+    return Math.round(chartPoints.reduce((acc, p) => acc + p.score, 0) / chartPoints.length);
+  }, [chartPoints]);
 
   // 4. Delete handlers
   const handleDeleteGrade = async (id: string, e: React.MouseEvent) => {
@@ -666,54 +685,89 @@ export default function Statistics() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
           <div className="analytics-card">
-            <div className="analytics-card-header">
+            <div className="analytics-card-header" style={{ flexWrap: 'wrap', gap: '0.85rem' }}>
               <div>
                 <h3 className="analytics-card-title">
                   <TrendingUp size={18} className="text-accent" />
-                  Courbe de Progression (Dernières Évaluations)
+                  Courbe de Progression ({chartPoints.length} dernières évaluations)
                 </h3>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  Évolution de ton taux de réussite au fil des entraînements
+                  Survole un point pour voir le détail ou clique dessus pour ouvrir le cours
                 </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                {chartPoints.length > 0 && (
+                  <span style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    padding: '0.28rem 0.65rem',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)'
+                  }}>
+                    Moyenne : <strong style={{ color: 'var(--text-primary)' }}>{chartAvg}%</strong>
+                  </span>
+                )}
+                <div className="shadcn-tabs" style={{ padding: '0.2rem' }}>
+                  {[
+                    { id: 'all', label: 'Tout' },
+                    { id: 'qcm', label: 'QCM' },
+                    { id: 'annales', label: 'Annales' }
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={`shadcn-tab-btn ${chartFilter === f.id ? 'active' : ''}`}
+                      onClick={() => { setChartFilter(f.id as any); setHoveredPointIdx(null); }}
+                      style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem' }}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {chartPoints.length < 2 ? (
-              <div style={{ height: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '0.5rem' }}>
+              <div style={{ height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '0.5rem' }}>
                 <BarChart2 size={32} style={{ opacity: 0.4 }} />
-                <span>Réalise au moins 2 séries de QCM ou annales pour générer ta courbe de tendance.</span>
+                <span>Réalise au moins 2 séries dans cette catégorie pour générer ta courbe de tendance.</span>
               </div>
             ) : (
-              <div className="chart-container">
-                {/* SVG using viewBox with preserveAspectRatio="xMidYMid meet" so it doesn't get steamrolled */}
-                <svg className="chart-svg" viewBox="0 0 760 280">
+              <div className="chart-container" onMouseLeave={() => setHoveredPointIdx(null)}>
+                <svg className="chart-svg" viewBox="0 0 1100 340" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.32" />
-                      <stop offset="85%" stopColor="var(--accent-primary)" stopOpacity="0.04" />
+                      <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.34" />
+                      <stop offset="85%" stopColor="var(--accent-primary)" stopOpacity="0.05" />
                       <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
                   {/* Horizontal Grid lines */}
-                  <line x1="45" y1="35" x2="735" y2="35" className="chart-grid-line" />
-                  <line x1="45" y1="90" x2="735" y2="90" className="chart-grid-line" />
-                  <line x1="45" y1="145" x2="735" y2="145" className="chart-grid-line" />
-                  <line x1="45" y1="200" x2="735" y2="200" className="chart-grid-line" />
+                  <line x1="48" y1="30" x2="1075" y2="30" className="chart-grid-line" />
+                  <line x1="48" y1="95" x2="1075" y2="95" className="chart-grid-line" />
+                  <line x1="48" y1="160" x2="1075" y2="160" className="chart-grid-line" />
+                  <line x1="48" y1="225" x2="1075" y2="225" className="chart-grid-line" />
+                  <line x1="48" y1="290" x2="1075" y2="290" className="chart-grid-line" />
 
                   {/* Axis labels */}
-                  <text x="12" y="39" className="chart-axis-label">100%</text>
-                  <text x="12" y="94" className="chart-axis-label">75%</text>
-                  <text x="12" y="149" className="chart-axis-label">50%</text>
-                  <text x="12" y="204" className="chart-axis-label">0%</text>
+                  <text x="10" y="34" className="chart-axis-label">100%</text>
+                  <text x="10" y="99" className="chart-axis-label">75%</text>
+                  <text x="10" y="164" className="chart-axis-label">50%</text>
+                  <text x="10" y="229" className="chart-axis-label">25%</text>
+                  <text x="10" y="294" className="chart-axis-label">0%</text>
 
                   {/* SVG Coordinates generation */}
                   {(() => {
-                    const width = 670;
-                    const height = 165;
-                    const topOffset = 35;
-                    const leftOffset = 55;
+                    const width = 1005;
+                    const height = 260;
+                    const topOffset = 30;
+                    const leftOffset = 60;
                     const step = width / Math.max(1, chartPoints.length - 1);
+                    const avgY = topOffset + (height - (chartAvg / 100) * height);
 
                     const pts = chartPoints.map((p, i) => {
                       const cx = leftOffset + (i * step);
@@ -732,25 +786,110 @@ export default function Statistics() {
                     }, '');
 
                     const areaD = `${pathD} L ${pts[pts.length - 1].cx} ${topOffset + height} L ${pts[0].cx} ${topOffset + height} Z`;
+                    const hoveredPt = hoveredPointIdx !== null ? pts[hoveredPointIdx] : null;
 
                     return (
                       <>
+                        {/* Average dashed reference line */}
+                        <line
+                          x1={leftOffset}
+                          y1={avgY}
+                          x2={leftOffset + width}
+                          y2={avgY}
+                          stroke="rgba(255, 255, 255, 0.18)"
+                          strokeWidth="1.2"
+                          strokeDasharray="6 6"
+                        />
+
                         <path d={areaD} fill="url(#chartGradient)" />
                         <path d={pathD} className="chart-line" />
-                        {pts.map((pt, i) => (
-                          <g key={i}>
-                            <circle cx={pt.cx} cy={pt.cy} r="5" className="chart-point">
-                              <title>{`${pt.name} : ${pt.score}% (${pt.label})`}</title>
-                            </circle>
-                            <text x={pt.cx} y="235" textAnchor="middle" className="chart-axis-label">
-                              {pt.label}
-                            </text>
-                          </g>
-                        ))}
+
+                        {/* Vertical hover guide */}
+                        {hoveredPt && (
+                          <line
+                            x1={hoveredPt.cx}
+                            y1={topOffset}
+                            x2={hoveredPt.cx}
+                            y2={topOffset + height}
+                            stroke="var(--accent-primary)"
+                            strokeOpacity="0.35"
+                            strokeWidth="1.5"
+                            strokeDasharray="4 4"
+                          />
+                        )}
+
+                        {pts.map((pt, i) => {
+                          const isHovered = hoveredPointIdx === i;
+                          return (
+                            <g
+                              key={i}
+                              style={{ cursor: 'pointer' }}
+                              onMouseEnter={() => setHoveredPointIdx(i)}
+                              onClick={() => handleOpenCourse(pt.courseId, pt.courseName)}
+                            >
+                              {/* Invisible larger hit target for easy hovering */}
+                              <circle cx={pt.cx} cy={pt.cy} r="16" fill="transparent" />
+                              <circle
+                                cx={pt.cx}
+                                cy={pt.cy}
+                                r={isHovered ? 7.5 : 5}
+                                className="chart-point"
+                                style={isHovered ? { strokeWidth: 3.5, fill: 'var(--accent-primary)' } : undefined}
+                              />
+                              <text
+                                x={pt.cx}
+                                y="320"
+                                textAnchor="middle"
+                                className="chart-axis-label"
+                                style={isHovered ? { fill: 'var(--text-primary)', fontWeight: 700 } : undefined}
+                              >
+                                {pt.label}
+                              </text>
+                            </g>
+                          );
+                        })}
                       </>
                     );
                   })()}
                 </svg>
+
+                {/* Floating interactive tooltip */}
+                {hoveredPointIdx !== null && chartPoints[hoveredPointIdx] && (() => {
+                  const pt = chartPoints[hoveredPointIdx];
+                  const leftPct = 5.5 + (hoveredPointIdx / Math.max(1, chartPoints.length - 1)) * 91;
+                  const topPct = 8 + ((100 - pt.score) / 100) * 65;
+                  return (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${Math.min(82, Math.max(18, leftPct))}%`,
+                        top: `${Math.max(4, topPct - 18)}%`,
+                        transform: 'translate(-50%, -100%)',
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--accent-primary)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '0.6rem 0.85rem',
+                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.45)',
+                        pointerEvents: 'none',
+                        zIndex: 20,
+                        minWidth: '185px',
+                        maxWidth: '260px'
+                      }}
+                    >
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {pt.name}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginTop: '0.25rem' }}>
+                        <span style={{ fontSize: '0.92rem', fontWeight: 800, color: pt.score >= 60 ? '#4ade80' : pt.score >= 40 ? '#fbbf24' : '#fb7185' }}>
+                          {pt.rawScore} / {pt.rawTotal} ({pt.score}%)
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        {pt.fullDate} • Cliquer pour ouvrir
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
