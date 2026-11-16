@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Trophy, Flame, Zap, Target, Clock,
   TrendingUp, Award, Folder, CheckCircle2,
-  Calendar, Trash2, BarChart2, ChevronRight, ChevronDown,
+  Trash2, BarChart2, ChevronRight, ChevronDown,
   FileText, ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -22,7 +22,7 @@ import {
 } from '../lib/gradesService';
 import './StatsPage.css';
 
-type StatViewTab = 'overview' | 'folders' | 'annales' | 'history';
+type StatViewTab = 'overview' | 'folders' | 'annales' | 'credits';
 
 interface MCQGrade {
   id: string;
@@ -345,22 +345,31 @@ export default function Statistics() {
       return 'Apprenti Motivé 🌟';
     };
 
-    // Calculate Streak (Consecutive Days)
-    const allGradeDates = [
-      ...mcqGrades.map(g => g.date.split('T')[0]),
-      ...legacyAnnales.map(a => a.date.split('T')[0])
-    ];
-    const uniqueDates = Array.from(new Set(allGradeDates)).sort().reverse();
-    let streak = 0;
-    const today = new Date().toISOString().split('T')[0];
-    let checkDate = new Date();
+    // Calculate Streak (Consecutive Days in local timezone, kept alive if active today OR yesterday)
+    const toLocalDay = (d: Date | string) => {
+      const dateObj = typeof d === 'string' ? new Date(d) : d;
+      if (isNaN(dateObj.getTime())) return '';
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
 
-    if (uniqueDates.includes(today)) {
-      streak++;
+    const allGradeDates = [
+      ...mcqGrades.map(g => toLocalDay(g.date)),
+      ...legacyAnnales.map(a => toLocalDay(a.date))
+    ].filter(Boolean);
+    const uniqueDates = new Set(allGradeDates);
+    let streak = 0;
+    const checkDate = new Date();
+    const todayStr = toLocalDay(checkDate);
+
+    // If no activity yet today, check if yesterday was active so the streak isn't lost before today's session
+    if (!uniqueDates.has(todayStr)) {
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
-    while (uniqueDates.includes(checkDate.toISOString().split('T')[0])) {
+    while (uniqueDates.has(toLocalDay(checkDate))) {
       streak++;
       checkDate.setDate(checkDate.getDate() - 1);
     }
@@ -644,10 +653,10 @@ export default function Statistics() {
             <Trophy size={14} /> Annales & Concours
           </button>
           <button
-            className={`shadcn-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('history')}
+            className={`shadcn-tab-btn ${activeTab === 'credits' ? 'active' : ''}`}
+            onClick={() => setActiveTab('credits')}
           >
-            <Calendar size={14} /> Historique Détaillé
+            <Zap size={14} /> Crédits Utilisés
           </button>
         </div>
       </div>
@@ -788,14 +797,14 @@ export default function Statistics() {
                 Dossiers d'Étude & Séances QCM Dépliables
               </h3>
               <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Séances d'entraînement QCM classées par cours et dossiers théoriques (hors épreuves d'annales).
+                Séances d'entraînement QCM et épreuves d'annales classées par cours et dossiers.
               </p>
             </div>
           </div>
 
           <QcmFolderTreeRoot
             nodes={nodes}
-            mcqGrades={metrics.pureMcqGrades}
+            mcqGrades={mcqGrades}
             expandedQcm={expandedQcm}
             setExpandedQcm={setExpandedQcm}
             onDelete={handleDeleteGrade}
@@ -824,9 +833,9 @@ export default function Statistics() {
                   fontWeight: 700,
                   padding: '0.3rem 0.75rem',
                   borderRadius: 'var(--radius-full)',
-                  backgroundColor: 'rgba(225, 29, 72, 0.12)',
-                  border: '1px solid rgba(225, 29, 72, 0.25)',
-                  color: 'var(--accent-primary)'
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)'
                 }}>
                   🎓 {metrics.totalAnnalesCount} épreuve{metrics.totalAnnalesCount > 1 ? 's' : ''} passée{metrics.totalAnnalesCount > 1 ? 's' : ''}
                 </span>
@@ -861,37 +870,9 @@ export default function Statistics() {
         </div>
       )}
 
-      {/* 7. Tab 4: Full History List */}
-      {activeTab === 'history' && (
-        <div className="analytics-card">
-          <h3 className="analytics-card-title">
-            <Calendar size={18} className="text-accent" />
-            Historique Global des Examens & QCM
-          </h3>
-          <p style={{ margin: '0.2rem 0 0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Consulte et déplie la correction complète de chaque test passé.
-          </p>
-
-          {mcqGrades.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Aucun examen dans l'historique.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              {mcqGrades.map(grade => (
-                <QcmGradeItem
-                  key={grade.id}
-                  g={grade}
-                  expandedQcm={expandedQcm}
-                  setExpandedQcm={setExpandedQcm}
-                  onDelete={handleDeleteGrade}
-                  onOpenCourse={handleOpenCourse}
-                  showCourseLink={true}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      {/* 7. Tab 4: Monthly Credits Usage & Management Architecture */}
+      {activeTab === 'credits' && (
+        <CreditsUsageTab />
       )}
 
     </div>
@@ -1490,16 +1471,16 @@ function AnnaleTreeFolder({ folder, nodes, annaleGrades, expandedQcm, setExpande
           padding: '0.9rem 1.25rem',
           cursor: 'pointer',
           backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid rgba(225, 29, 72, 0.25)',
+          border: '1px solid var(--border-color)',
           borderRadius: 'var(--radius-md)'
         }}
         onClick={() => setIsOpen(!isOpen)}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
           {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-          <Folder size={18} color="var(--accent-primary)" />
+          <Folder size={18} color={folder.color || 'var(--accent-primary)'} />
           <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{folder.name}</span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 600 }}>({stats.count} annale{stats.count > 1 ? 's' : ''})</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>({stats.count} annale{stats.count > 1 ? 's' : ''})</span>
         </div>
 
         {avgPct !== null && (
@@ -1567,7 +1548,7 @@ function AnnaleTreeCourse({ course, annaleGrades, expandedQcm, setExpandedQcm, o
           padding: '0.85rem 1.15rem',
           cursor: 'pointer',
           backgroundColor: 'var(--bg-elevated)',
-          border: '1px solid rgba(225, 29, 72, 0.3)',
+          border: '1px solid var(--border-color)',
           borderRadius: 'var(--radius-md)'
         }}
         onClick={() => setIsOpen(!isOpen)}
@@ -1601,8 +1582,8 @@ function AnnaleTreeCourse({ course, annaleGrades, expandedQcm, setExpandedQcm, o
             <button
               onClick={(e) => { e.stopPropagation(); onOpenCourse(course.id, course.name); }}
               style={{
-                background: 'rgba(225, 29, 72, 0.12)',
-                border: '1px solid rgba(225, 29, 72, 0.25)',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid var(--border-color)',
                 color: 'var(--accent-primary)',
                 borderRadius: 'var(--radius-sm)',
                 padding: '0.25rem 0.6rem',
@@ -1851,7 +1832,7 @@ function QcmTreeCourse({ course, mcqGrades, expandedQcm, setExpandedQcm, onDelet
           padding: '0.85rem 1.15rem',
           cursor: 'pointer',
           backgroundColor: 'var(--bg-elevated)',
-          border: isAnnale ? '1px solid rgba(225, 29, 72, 0.45)' : '1px solid var(--accent-primary)',
+          border: '1px solid var(--accent-primary)',
           borderRadius: 'var(--radius-md)'
         }}
         onClick={() => setIsOpen(!isOpen)}
@@ -1872,7 +1853,7 @@ function QcmTreeCourse({ course, mcqGrades, expandedQcm, setExpandedQcm, onDelet
               fontWeight: 700,
               padding: '0.1rem 0.45rem',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(225, 29, 72, 0.12)',
+              backgroundColor: 'var(--accent-light)',
               color: 'var(--accent-primary)'
             }}>
               Annale
@@ -1934,6 +1915,156 @@ function QcmTreeCourse({ course, mcqGrades, expandedQcm, setExpandedQcm, onDelet
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// Component: CreditsUsageTab (Architecture for monthly AI credits management)
+// -------------------------------------------------------------
+function CreditsUsageTab() {
+  const currentMonthLabel = format(new Date(), 'MMMM yyyy', { locale: fr });
+  const monthlyBudget = 1750;
+  const usedCredits = 0;
+
+  const creditCategories = [
+    {
+      id: 'chat_sofia',
+      label: 'Chat SofIA & Explications',
+      desc: 'Questions de cours, synthèses et explications contextuelles',
+      used: 0,
+      color: '#6366f1',
+      icon: '💬'
+    },
+    {
+      id: 'generations',
+      label: 'Génération QCM, Flashcards & Fiches',
+      desc: 'Création de supports de révision à partir de tes PDF',
+      used: 0,
+      color: '#10b981',
+      icon: '⚡'
+    },
+    {
+      id: 'annales',
+      label: 'Importation & Correction d\'Annales',
+      desc: 'Extraction de sujets, correction de QROC et schémas de légendage',
+      used: 0,
+      color: '#f59e0b',
+      icon: '🎓'
+    },
+    {
+      id: 'web_search',
+      label: 'Recherche Web & Sources Externes',
+      desc: 'Recherches documentaires approfondies sur internet',
+      used: 0,
+      color: '#06b6d4',
+      icon: '🌐'
+    }
+  ];
+
+  const usedPct = Math.min(100, Math.round((usedCredits / monthlyBudget) * 100));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="analytics-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h3 className="analytics-card-title">
+              <Zap size={18} className="text-accent" />
+              Gestion des Crédits Utilisés ({currentMonthLabel})
+            </h3>
+            <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Suivi mensuel de ta consommation de crédits IA par catégorie d'utilisation.
+            </p>
+          </div>
+          <span style={{
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            padding: '0.3rem 0.75rem',
+            borderRadius: 'var(--radius-full)',
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-secondary)'
+          }}>
+            {usedCredits.toLocaleString()} / {monthlyBudget.toLocaleString()} crédits
+          </span>
+        </div>
+
+        <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            <span>Consommation du mois en cours</span>
+            <strong style={{ color: 'var(--text-primary)' }}>{usedPct}%</strong>
+          </div>
+          <div style={{
+            height: '10px',
+            borderRadius: 'var(--radius-full)',
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-color)',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${usedPct}%`,
+              height: '100%',
+              backgroundColor: 'var(--accent-primary)',
+              borderRadius: 'var(--radius-full)',
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+        </div>
+
+        <div style={{
+          marginTop: '1.25rem',
+          padding: '0.85rem 1rem',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: 'var(--bg-elevated)',
+          border: '1px solid var(--border-color)',
+          fontSize: '0.82rem',
+          color: 'var(--text-secondary)'
+        }}>
+          Architecture prête : le suivi détaillé en temps réel par catégorie s'activera automatiquement dès le déploiement du nouveau système de crédits.
+        </div>
+      </div>
+
+      <div className="analytics-card">
+        <h3 className="analytics-card-title" style={{ marginBottom: '1rem' }}>
+          Répartition par Catégorie ({currentMonthLabel})
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+          {creditCategories.map(cat => {
+            const catPct = usedCredits > 0 ? Math.round((cat.used / usedCredits) * 100) : 0;
+            return (
+              <div
+                key={cat.id}
+                style={{
+                  padding: '1rem 1.15rem',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.6rem'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.1rem' }}>{cat.icon}</span>
+                    <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{cat.label}</strong>
+                  </div>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {cat.used} cr.
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                  {cat.desc}
+                </p>
+                <div style={{ height: '6px', borderRadius: 'var(--radius-full)', backgroundColor: 'var(--bg-primary)', overflow: 'hidden' }}>
+                  <div style={{ width: `${catPct}%`, height: '100%', backgroundColor: cat.color, borderRadius: 'var(--radius-full)' }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
