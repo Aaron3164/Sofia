@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { 
   explainMCQErrors, 
   getDailyUsage, 
@@ -11,6 +10,7 @@ import {
 import { BookOpen, Loader2, Sparkles, RotateCcw, MapPin, Undo2, CheckCircle2 } from 'lucide-react';
 import { AIProgressCard } from '../common/AIProgressCard';
 import { ErrorBookService } from '../../lib/ErrorBookService';
+import { computeExamScore, upsertGradeEverywhere, stripHeavyImagesFromMcqs, type GradeRecord } from '../../lib/gradesService';
 
 export interface MarkerPin {
   id: number;
@@ -132,6 +132,9 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   const [showDetailedPanel, setShowDetailedPanel] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [dailyUsage, setDailyUsage] = useState<number>(0);
+  const lastSavedGradeIdRef = useRef<string | null>(
+    courseId ? localStorage.getItem(`aura_mcq_grade_id_${courseId}`) : null
+  );
 
   const maxGenerations = profile?.plan === 'premium' ? 50 : 5;
   const isQuotaReached = dailyUsage >= maxGenerations;
@@ -183,6 +186,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
       setShowResults(false);
       setDetailedCorrections({});
       setShowDetailedPanel(false);
+      lastSavedGradeIdRef.current = null;
       if (courseId) {
         localStorage.removeItem(`aura_mcq_answers_${courseId}`);
         localStorage.removeItem(`aura_mcq_written_${courseId}`);
@@ -192,6 +196,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
         localStorage.removeItem(`aura_mcq_label_scores_${courseId}`);
         localStorage.removeItem(`aura_mcq_results_${courseId}`);
         localStorage.removeItem(`aura_mcq_corrections_${courseId}`);
+        localStorage.removeItem(`aura_mcq_grade_id_${courseId}`);
       }
     }
   }, [data, courseId]);
@@ -510,6 +515,58 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
     }
   };
 
+  const saveCurrentGrade = async (existingId?: string | null) => {
+    if (!courseId || !courseName || mcqs.length === 0) return;
+
+    const { score: totalScore, total: totalQuestions } = computeExamScore(
+      mcqs,
+      selectedAnswers,
+      openEvaluations,
+      labelingEvaluations,
+      manualLabelingScores
+    );
+
+    if (totalQuestions <= 0) return;
+
+    const gradeId = existingId || lastSavedGradeIdRef.current || crypto.randomUUID();
+    lastSavedGradeIdRef.current = gradeId;
+    try {
+      localStorage.setItem(`aura_mcq_grade_id_${courseId}`, gradeId);
+    } catch {}
+
+    const isAnnale = courseName.startsWith('🎓') || courseName.toLowerCase().includes('annale');
+
+    const newGrade: GradeRecord = {
+      id: gradeId,
+      courseId,
+      courseName,
+      score: totalScore,
+      total: totalQuestions,
+      date: new Date().toISOString(),
+      mcqs: stripHeavyImagesFromMcqs(mcqs),
+      selectedAnswers: {
+        ...selectedAnswers,
+        __meta: {
+          exactScore: totalScore,
+          total: totalQuestions,
+          isAnnale,
+          openEvaluations,
+          labelingEvaluations,
+          manualLabelingScores
+        }
+      }
+    };
+
+    await upsertGradeEverywhere(newGrade, profile?.id);
+  };
+
+  // Auto-update saved grade when user evaluates open or labeling questions after clicking Validate
+  useEffect(() => {
+    if (showResults && lastSavedGradeIdRef.current && courseId && courseName && mcqs.length > 0) {
+      saveCurrentGrade(lastSavedGradeIdRef.current);
+    }
+  }, [openEvaluations, labelingEvaluations, manualLabelingScores]);
+
   const handleValidate = async () => {
     setShowResults(true);
 
@@ -530,46 +587,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
       });
     }
 
-    if (courseId && courseName && qcmCount > 0) {
-      const newGrade = {
-        id: crypto.randomUUID(),
-        courseId,
-        courseName,
-        score,
-        total: qcmCount,
-        date: new Date().toISOString(),
-        mcqs,
-        selectedAnswers
-      };
-
-      if (profile) {
-        // Optimistically update localStorage as instant fallback
-        const savedStr = localStorage.getItem('aura_mcq_grades');
-        const saved = savedStr ? JSON.parse(savedStr) : [];
-        saved.unshift(newGrade);
-        localStorage.setItem('aura_mcq_grades', JSON.stringify(saved));
-
-        const { error } = await supabase.from('mcq_grades').insert([{
-          id: newGrade.id,
-          user_id: profile.id,
-          course_id: newGrade.courseId,
-          course_name: newGrade.courseName,
-          score: newGrade.score,
-          total: newGrade.total,
-          date: newGrade.date,
-          mcqs: newGrade.mcqs,
-          selected_answers: newGrade.selectedAnswers
-        }]);
-        if (error) {
-          console.error('Failed to sync grade with Supabase:', error);
-        }
-      } else {
-        const savedStr = localStorage.getItem('aura_mcq_grades');
-        const saved = savedStr ? JSON.parse(savedStr) : [];
-        saved.unshift(newGrade);
-        localStorage.setItem('aura_mcq_grades', JSON.stringify(saved));
-      }
-    }
+    await saveCurrentGrade(crypto.randomUUID());
   };
 
   return (
@@ -1671,6 +1689,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
               setManualLabelingScores({});
               setDetailedCorrections({});
               setShowDetailedPanel(false);
+              lastSavedGradeIdRef.current = null;
               if (courseId) {
                 localStorage.removeItem(`aura_mcq_answers_${courseId}`);
                 localStorage.removeItem(`aura_mcq_written_${courseId}`);
@@ -1680,6 +1699,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
                 localStorage.removeItem(`aura_mcq_label_scores_${courseId}`);
                 localStorage.removeItem(`aura_mcq_results_${courseId}`);
                 localStorage.removeItem(`aura_mcq_corrections_${courseId}`);
+                localStorage.removeItem(`aura_mcq_grade_id_${courseId}`);
               }
             }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}

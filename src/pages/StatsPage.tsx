@@ -12,6 +12,14 @@ import { useFileSystem, type FileNode } from '../hooks/useFileSystem';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { supabase } from '../lib/supabase';
+import { getCachedAllCourseData } from '../lib/courseDataCache';
+import {
+  getLocalGrades,
+  saveLocalGrades,
+  normalizeGradeRecord,
+  syncGradeToSupabase,
+  recoverMissingGrades
+} from '../lib/gradesService';
 import './StatsPage.css';
 
 type StatViewTab = 'overview' | 'folders' | 'annales' | 'history';
@@ -108,14 +116,8 @@ export default function Statistics() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<StatViewTab>('overview');
-  const [mcqGrades, setMcqGrades] = useState<MCQGrade[]>(() => {
-    try {
-      const s = localStorage.getItem('aura_mcq_grades');
-      return s ? JSON.parse(s) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [mcqGrades, setMcqGrades] = useState<MCQGrade[]>(() => getLocalGrades());
+  const [annaleCourseDataIds, setAnnaleCourseDataIds] = useState<Set<string>>(() => new Set());
   const [legacyAnnales, setLegacyAnnales] = useState<AnnaleGrade[]>(() => {
     try {
       const s = localStorage.getItem('aura_annales_grades');
@@ -134,13 +136,32 @@ export default function Statistics() {
   });
   const [expandedQcm, setExpandedQcm] = useState<string | null>(null);
 
-  // 1. Data Fetching & Sync (Loads both mcq_grades, course_stats and legacy annales_grades)
+  // 1. Data Fetching & Sync (Loads mcq_grades, course_stats, legacy annales_grades, course_data flags & retroactive recovery)
   useEffect(() => {
     async function loadStats() {
       try {
+        // Also inspect local aura_subject_* to identify any annale courses even offline
+        const localAnnaleIds = new Set<string>();
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('aura_subject_')) {
+            try {
+              const parsed = JSON.parse(localStorage.getItem(k) || '{}');
+              if (parsed?.generations?.is_annale) {
+                localAnnaleIds.add(k.replace('aura_subject_', ''));
+              }
+            } catch {}
+          }
+        }
+
         if (!profile) {
-          const mcqStr = localStorage.getItem('aura_mcq_grades');
-          if (mcqStr) setMcqGrades(JSON.parse(mcqStr));
+          const localGrades = getLocalGrades();
+          const recovered = await recoverMissingGrades(localGrades, nodes);
+          const allGrades = [...recovered, ...localGrades].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          setMcqGrades(allGrades);
+          setAnnaleCourseDataIds(localAnnaleIds);
 
           const annalesStr = localStorage.getItem('aura_annales_grades');
           if (annalesStr) setLegacyAnnales(JSON.parse(annalesStr));
@@ -150,38 +171,52 @@ export default function Statistics() {
           return;
         }
 
-        const [mcqRes, statsRes, annalesRes] = await Promise.all([
+        const [mcqRes, statsRes, annalesRes, allCourseData] = await Promise.all([
           supabase.from('mcq_grades').select('*').order('date', { ascending: false }),
           supabase.from('course_stats').select('*'),
-          supabase.from('annales_grades').select('*').order('date', { ascending: false })
+          supabase.from('annales_grades').select('*').order('date', { ascending: false }),
+          getCachedAllCourseData(profile.id).catch(() => [])
         ]);
 
-        // MCQ Grades (Merge Supabase + any pending local grades without duplicates)
-        const local = localStorage.getItem('aura_mcq_grades');
-        const localGrades: MCQGrade[] = local ? JSON.parse(local) : [];
+        const detectedAnnaleIds = new Set<string>(localAnnaleIds);
+        if (Array.isArray(allCourseData)) {
+          allCourseData.forEach((row: any) => {
+            if (row?.generations?.is_annale) {
+              detectedAnnaleIds.add(row.course_id);
+            }
+          });
+        }
+        setAnnaleCourseDataIds(detectedAnnaleIds);
+
+        // MCQ Grades (Merge Supabase + any pending local grades + retroactive recovery)
+        const localGrades = getLocalGrades();
+        let merged: MCQGrade[] = localGrades;
 
         if (!mcqRes.error && mcqRes.data) {
-          const cloudGrades: MCQGrade[] = mcqRes.data.map((m: any) => ({
-            id: m.id,
-            courseId: m.course_id,
-            courseName: m.course_name,
-            score: m.score,
-            total: m.total,
-            date: m.date,
-            mcqs: m.mcqs,
-            selectedAnswers: m.selected_answers
-          }));
-
+          const cloudGrades: MCQGrade[] = mcqRes.data.map(normalizeGradeRecord);
           const cloudIds = new Set(cloudGrades.map(g => g.id));
           const missingLocals = localGrades.filter(g => !cloudIds.has(g.id));
-          const merged = [...missingLocals, ...cloudGrades].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setMcqGrades(merged);
-          try {
-            localStorage.setItem('aura_mcq_grades', JSON.stringify(merged));
-          } catch {}
-        } else {
-          setMcqGrades(localGrades);
+
+          // Push any pending local grades to Supabase in background so they stay permanently
+          if (missingLocals.length > 0) {
+            Promise.all(missingLocals.map(g => syncGradeToSupabase(profile.id, g))).catch(() => {});
+          }
+
+          merged = [...missingLocals, ...cloudGrades].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
         }
+
+        // Retroactively recover any completed QCM/Annale that has aura_mcq_results_<courseId> === 'true'
+        const recovered = await recoverMissingGrades(merged, nodes, profile.id);
+        if (recovered.length > 0) {
+          merged = [...recovered, ...merged].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+        }
+
+        setMcqGrades(merged);
+        saveLocalGrades(merged);
 
         // Legacy Annales Grades (if any in Supabase or local storage)
         if (annalesRes && annalesRes.data && annalesRes.data.length > 0) {
@@ -257,6 +292,8 @@ export default function Statistics() {
     );
 
     const isGradeAnnale = (g: MCQGrade): boolean => {
+      if ((g.selectedAnswers as any)?.__meta?.isAnnale) return true;
+      if (g.courseId && annaleCourseDataIds.has(g.courseId)) return true;
       if (g.courseId && annaleNodeIds.has(g.courseId)) return true;
       if (g.courseName?.startsWith('🎓')) return true;
       if (g.courseName?.toLowerCase().includes('annale')) return true;
@@ -345,7 +382,7 @@ export default function Statistics() {
       progressPercent,
       streak: Math.max(streak, totalSeconds > 60 ? 1 : 0)
     };
-  }, [mcqGrades, legacyAnnales, timeData]);
+  }, [mcqGrades, legacyAnnales, timeData, nodes, annaleCourseDataIds]);
 
   // 3. Chronological Progression Curve Data
   const chartPoints = useMemo(() => {
@@ -392,7 +429,7 @@ export default function Statistics() {
 
   const handleOpenCourse = (courseId: string, courseName?: string) => {
     if (!courseId || courseId === 'deleted') return;
-    if (courseName?.startsWith('🎓')) {
+    if (courseName?.startsWith('🎓') || annaleCourseDataIds.has(courseId)) {
       navigate(`/annale/${courseId}`);
     } else {
       navigate(`/subject/${courseId}`);
@@ -1004,7 +1041,19 @@ function AnnaleCardItem({ g, expandedQcm, setExpandedQcm, onDelete, onOpenCourse
                   )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {q.options?.map((option: string, oIndex: number) => {
+                    {(!q.options || q.options.length === 0) ? (
+                      <div style={{ padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                        <strong style={{ color: 'var(--accent-primary)' }}>
+                          {q.type === 'labeling' || (q.itemsToPlace && q.itemsToPlace.length > 0) ? '📍 Question de légendage / schéma' : '✍️ Question rédactionnelle / QROC'}
+                        </strong>
+                        {q.expectedAnswer && (
+                          <div style={{ marginTop: '0.4rem', color: 'var(--text-primary)' }}>
+                            <strong>Réponse attendue :</strong> {q.expectedAnswer}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      q.options.map((option: string, oIndex: number) => {
                       const isSelected = isOptionSelected(selected, option, oIndex);
                       const isCorrect = isCorrectOption(correctOpts, option, oIndex);
 
@@ -1059,7 +1108,7 @@ function AnnaleCardItem({ g, expandedQcm, setExpandedQcm, onDelete, onOpenCourse
                           </div>
                         </div>
                       );
-                    })}
+                    }))}
                   </div>
                 </div>
               );
@@ -1186,7 +1235,19 @@ function QcmGradeItem({ g, expandedQcm, setExpandedQcm, onDelete, onOpenCourse, 
                   )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                    {q.options.map((option: string, oIndex: number) => {
+                    {(!q.options || q.options.length === 0) ? (
+                      <div style={{ padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                        <strong style={{ color: 'var(--accent-primary)' }}>
+                          {q.type === 'labeling' || (q.itemsToPlace && q.itemsToPlace.length > 0) ? '📍 Question de légendage / schéma' : '✍️ Question rédactionnelle / QROC'}
+                        </strong>
+                        {q.expectedAnswer && (
+                          <div style={{ marginTop: '0.4rem', color: 'var(--text-primary)' }}>
+                            <strong>Réponse attendue :</strong> {q.expectedAnswer}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      q.options.map((option: string, oIndex: number) => {
                       const isSelected = isOptionSelected(selected, option, oIndex);
                       const isCorrect = isCorrectOption(correctOpts, option, oIndex);
 
@@ -1241,7 +1302,7 @@ function QcmGradeItem({ g, expandedQcm, setExpandedQcm, onDelete, onOpenCourse, 
                           </div>
                         </div>
                       );
-                    })}
+                    }))}
                   </div>
                 </div>
               );
@@ -1257,8 +1318,17 @@ function QcmGradeItem({ g, expandedQcm, setExpandedQcm, onDelete, onOpenCourse, 
 // Component: AnnaleFolderTreeRoot (Hierarchical tree structure strictly for Annales)
 // -------------------------------------------------------------
 function AnnaleFolderTreeRoot({ nodes, annaleGrades, legacyAnnales, expandedQcm, setExpandedQcm, onDelete, onDeleteLegacy, onOpenCourse }: any) {
-  const rootNodes = nodes.filter((n: FileNode) => n.parentId === null);
+  const rootNodes = nodes.filter((n: FileNode) => !n.parentId);
   const annaleCourseIdsWithGrades = new Set(annaleGrades.map((g: any) => g.courseId));
+
+  const reachableCourseIds = new Set<string>();
+  const collectReachable = (list: FileNode[]) => {
+    list.forEach(n => {
+      if (n.type === 'course') reachableCourseIds.add(n.id);
+      else collectReachable(nodes.filter((c: FileNode) => c.parentId === n.id));
+    });
+  };
+  collectReachable(rootNodes);
 
   const hasAnnaleGrades = (nodeId: string): boolean => {
     const childs = nodes.filter((n: FileNode) => n.parentId === nodeId);
@@ -1266,8 +1336,7 @@ function AnnaleFolderTreeRoot({ nodes, annaleGrades, legacyAnnales, expandedQcm,
   };
 
   const relevantRoots = rootNodes.filter((c: FileNode) => c.type === 'course' ? annaleCourseIdsWithGrades.has(c.id) : hasAnnaleGrades(c.id));
-  const existingNodeIds = new Set(nodes.map((n: FileNode) => n.id));
-  const detachedAnnales = annaleGrades.filter((g: any) => !existingNodeIds.has(g.courseId));
+  const detachedAnnales = annaleGrades.filter((g: any) => !reachableCourseIds.has(g.courseId));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -1575,8 +1644,17 @@ function AnnaleTreeCourse({ course, annaleGrades, expandedQcm, setExpandedQcm, o
 // Component: QcmFolderTreeRoot (Hierarchical recursive folder tree with calculated average scores)
 // -------------------------------------------------------------
 function QcmFolderTreeRoot({ nodes, mcqGrades, expandedQcm, setExpandedQcm, onDelete, onOpenCourse }: any) {
-  const rootNodes = nodes.filter((n: FileNode) => n.parentId === null);
+  const rootNodes = nodes.filter((n: FileNode) => !n.parentId);
   const courseIdsWithGrades = new Set(mcqGrades.map((g: any) => g.courseId));
+
+  const reachableCourseIds = new Set<string>();
+  const collectReachable = (list: FileNode[]) => {
+    list.forEach(n => {
+      if (n.type === 'course') reachableCourseIds.add(n.id);
+      else collectReachable(nodes.filter((c: FileNode) => c.parentId === n.id));
+    });
+  };
+  collectReachable(rootNodes);
 
   const hasGrades = (nodeId: string): boolean => {
     const childs = nodes.filter((n: FileNode) => n.parentId === nodeId);
@@ -1584,8 +1662,7 @@ function QcmFolderTreeRoot({ nodes, mcqGrades, expandedQcm, setExpandedQcm, onDe
   };
 
   const relevantRoots = rootNodes.filter((c: FileNode) => c.type === 'course' ? courseIdsWithGrades.has(c.id) : hasGrades(c.id));
-  const existingCourseIds = new Set(nodes.filter((n: FileNode) => n.type === 'course').map((n: FileNode) => n.id));
-  const detachedGrades = mcqGrades.filter((g: any) => !existingCourseIds.has(g.courseId));
+  const detachedGrades = mcqGrades.filter((g: any) => !reachableCourseIds.has(g.courseId));
 
   if (relevantRoots.length === 0 && detachedGrades.length === 0) {
     return (

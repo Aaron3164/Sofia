@@ -90,7 +90,7 @@ create table if not exists public.mcq_grades (
   user_id uuid references auth.users not null,
   course_id uuid references public.nodes(id) on delete cascade,
   course_name text not null,
-  score integer not null,
+  score numeric not null,
   total integer not null,
   date timestamptz default now(),
   mcqs jsonb default '[]'::jsonb,
