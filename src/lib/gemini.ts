@@ -457,7 +457,8 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
       requestContents,
       {
         temperature: mode === 'resume' ? 0.2 : 0.7,
-        responseMimeType: isJSON ? 'application/json' : undefined
+        responseMimeType: isJSON ? 'application/json' : undefined,
+        maxOutputTokens: mode === 'resume' ? 6000 : (mode === 'flashcards' ? 3500 : 2500)
       }
     );
     
@@ -707,7 +708,8 @@ Consignes de formatage strictes (PRIORITÉ #1) :
   
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt], {
-      systemInstruction: `${systemInstruction}${baseInstruction}`
+      systemInstruction: `${systemInstruction}${baseInstruction}`,
+      maxOutputTokens: isAnnaleOrQcmQuery ? 6000 : 2500
     });
     const resultText = response.text || '';
     sessionStorage.setItem(cacheKey, resultText);
@@ -764,7 +766,9 @@ Ta mission :
 4. FORMATAGE : Utilise du **gras**, des listes à puces, et SURTOUT du surlignage '==' pour les notions clés.`;
   
   try {
-    const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt]);
+    const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt], {
+      maxOutputTokens: 2500
+    });
     const resultText = response.text || '';
     sessionStorage.setItem(cacheKey, resultText);
     return resultText;
@@ -848,7 +852,8 @@ Exemple :
 
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt], {
-      responseMimeType: 'application/json'
+      responseMimeType: 'application/json',
+      maxOutputTokens: 1500
     });
 
     let generatedText = response.text || '{}';
@@ -988,7 +993,8 @@ ${rawPdfText.substring(0, 300000)}`;
 
   const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [prompt], {
     responseMimeType: 'application/json',
-    temperature: 0.1
+    temperature: 0.1,
+    maxOutputTokens: 6500
   });
 
   let jsonStr = response.text || '[]';
@@ -1298,6 +1304,7 @@ RÈGLE D'OR DE PRIORITÉ :
   const config: Record<string, any> = {
     temperature: 0.7,
     systemInstruction,
+    maxOutputTokens: 2500,
   };
 
   if (options?.useWebSearch) {

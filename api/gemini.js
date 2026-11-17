@@ -87,6 +87,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Contenu manquant pour la génération.' });
     }
 
+    // Garde-fou serveur anti-explosion de tokens en sortie (ne raccourcit pas les réponses normales, borne uniquement le max absolu)
+    const MAX_ALLOWED_OUTPUT_TOKENS = 6500;
+    const requestedMax = Number(config?.maxOutputTokens);
+    const safeConfig = {
+      ...(config || {}),
+      maxOutputTokens: Number.isFinite(requestedMax) && requestedMax > 0
+        ? Math.min(requestedMax, MAX_ALLOWED_OUTPUT_TOKENS)
+        : 4096
+    };
+
     const ai = new GoogleGenAI({ apiKey });
 
     // Unified resilient cascade for all users:
@@ -112,7 +122,7 @@ export default async function handler(req, res) {
           const response = await ai.models.generateContent({
             model: currentModel,
             contents,
-            config,
+            config: safeConfig,
           });
 
           return res.status(200).json({ 
