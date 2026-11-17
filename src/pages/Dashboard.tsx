@@ -541,30 +541,6 @@ export default function Dashboard() {
                 </button>
 
                 {profile?.plan !== 'premium' && (
-                  <div style={{
-                    marginTop: '0.65rem',
-                    padding: '0.75rem 0.85rem',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                    border: '1px solid rgba(234, 179, 8, 0.3)',
-                    fontSize: '0.78rem',
-                    lineHeight: 1.45,
-                    color: '#facc15',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.3rem'
-                  }}>
-                    <span style={{ fontWeight: 600 }}>⚠️ Attention avant de payer :</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      Si vous êtes déjà connecté à un compte Payhip avec une autre adresse, <strong>déconnectez-vous</strong> ou veillez bien à renseigner votre email Sofia (<strong style={{ color: 'var(--text-primary)' }}>{user.email}</strong>).
-                    </span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.73rem' }}>
-                      C'est cet email précis qui valide automatiquement votre abonnement sur l'application.
-                    </span>
-                  </div>
-                )}
-
-                {profile?.plan !== 'premium' && (
                   <button
                     onClick={async () => {
                       setIsRefreshing(true);
@@ -594,6 +570,32 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+
+            {profile?.plan !== 'premium' && (
+              <div style={{
+                marginTop: '1.5rem',
+                maxWidth: '850px',
+                marginInline: 'auto',
+                padding: '0.9rem 1.25rem',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(234, 179, 8, 0.08)',
+                border: '1px solid rgba(234, 179, 8, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.85rem',
+                fontSize: '0.82rem',
+                lineHeight: 1.45,
+                color: 'var(--text-secondary)'
+              }}>
+                <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>⚠️</span>
+                <div>
+                  <strong style={{ color: '#facc15' }}>Attention avant de payer sur Payhip : </strong>
+                  Si vous êtes déjà connecté à un compte Payhip avec une autre adresse, déconnectez-vous ou veillez à renseigner votre email Sofia (
+                  <strong style={{ color: 'var(--text-primary)' }}>{user.email}</strong>
+                  ). C'est cet email précis qui valide automatiquement votre statut Premium sur l'application.
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
