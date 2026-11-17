@@ -332,7 +332,7 @@ export default async function handler(req, res) {
     const free = total - premium;
     // Exclure les 3 comptes tests d'Aaron (Aaron Karsenti, AKA test, Daniel) pour le CA réel
     const realPayingUsers = Math.max(0, premium - 3);
-    const realRevenueEur = (realPayingUsers * 9.99).toFixed(2);
+    const realRevenueEur = (realPayingUsers * 4.99).toFixed(2);
 
     // 2. Volume de générations IA réelles de la veille
     const now = new Date();

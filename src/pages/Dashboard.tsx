@@ -494,14 +494,18 @@ export default function Dashboard() {
                     ACTUEL
                   </span>
                 )}
-                <div style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--accent-primary)', color: 'white', fontSize: '0.75rem', padding: '0.25rem 1rem', borderRadius: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Crown size={12} /> RECOMMANDÉ
+                <div style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--accent-primary)', color: 'white', fontSize: '0.75rem', padding: '0.25rem 1rem', borderRadius: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
+                  <Crown size={12} /> 🔥 BLACK FRIDAY • -50%
                 </div>
                 <div>
                   <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>Premium</h3>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>L'expérience ultime</p>
                 </div>
-                <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>9,99€ <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span></div>
+                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'baseline', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.35rem', color: 'var(--text-muted)', textDecoration: 'line-through', fontWeight: 600 }}>9,99€</span>
+                  <span>4,99€</span>
+                  <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/mois</span>
+                </div>
                 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                   <div style={{ display: 'flex', gap: '0.65rem', fontSize: '0.85rem' }}><Check size={16} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} /> <span><strong>50 générations IA par jour</strong> (soit ~1 500 flashcards ou ~500 QCM)</span></div>

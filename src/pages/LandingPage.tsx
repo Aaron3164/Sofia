@@ -1167,10 +1167,13 @@ export default function LandingPage(props: LandingPageProps) {
                             )}
                         </article>
                         <article className="card price-card premium">
-                            <span className="badge">RECOMMANDÉ</span>
+                            <span className="badge">🔥 BLACK FRIDAY • -50%</span>
                             <h3>Premium Élite</h3>
-                            <p className="price-value">
-                                9,99€
+                            <p className="price-value" style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 20, fontWeight: 600, color: '#9ca3af', textDecoration: 'line-through' }}>
+                                    9,99€
+                                </span>
+                                <span>4,99€</span>
                                 <span style={{ fontSize: 16, fontWeight: 500 }}>
                                     /mois
                                 </span>
