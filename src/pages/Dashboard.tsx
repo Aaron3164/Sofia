@@ -543,20 +543,23 @@ export default function Dashboard() {
                 {profile?.plan !== 'premium' && (
                   <div style={{
                     marginTop: '0.65rem',
-                    padding: '0.65rem 0.85rem',
+                    padding: '0.75rem 0.85rem',
                     borderRadius: '8px',
                     backgroundColor: 'rgba(234, 179, 8, 0.1)',
                     border: '1px solid rgba(234, 179, 8, 0.3)',
                     fontSize: '0.78rem',
-                    lineHeight: 1.4,
+                    lineHeight: 1.45,
                     color: '#facc15',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.25rem'
+                    gap: '0.3rem'
                   }}>
-                    <span style={{ fontWeight: 600 }}>⚠️ Important pour l'activation automatique :</span>
+                    <span style={{ fontWeight: 600 }}>⚠️ Attention avant de payer :</span>
                     <span style={{ color: 'var(--text-secondary)' }}>
-                      Vérifiez bien lors du paiement sur Payhip que l'adresse e-mail renseignée est exactement : <strong style={{ color: 'var(--text-primary)' }}>{user.email}</strong>. L'activation se fait instantanément grâce à ce mail.
+                      Si vous êtes déjà connecté à un compte Payhip avec une autre adresse, <strong>déconnectez-vous</strong> ou veillez bien à renseigner votre email Sofia (<strong style={{ color: 'var(--text-primary)' }}>{user.email}</strong>).
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.73rem' }}>
+                      C'est cet email précis qui valide automatiquement votre abonnement sur l'application.
                     </span>
                   </div>
                 )}
