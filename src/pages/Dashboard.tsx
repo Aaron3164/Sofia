@@ -541,6 +541,27 @@ export default function Dashboard() {
                 </button>
 
                 {profile?.plan !== 'premium' && (
+                  <div style={{
+                    marginTop: '0.65rem',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                    border: '1px solid rgba(234, 179, 8, 0.3)',
+                    fontSize: '0.78rem',
+                    lineHeight: 1.4,
+                    color: '#facc15',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.25rem'
+                  }}>
+                    <span style={{ fontWeight: 600 }}>⚠️ Important pour l'activation automatique :</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      Vérifiez bien lors du paiement sur Payhip que l'adresse e-mail renseignée est exactement : <strong style={{ color: 'var(--text-primary)' }}>{user.email}</strong>. L'activation se fait instantanément grâce à ce mail.
+                    </span>
+                  </div>
+                )}
+
+                {profile?.plan !== 'premium' && (
                   <button
                     onClick={async () => {
                       setIsRefreshing(true);
