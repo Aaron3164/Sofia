@@ -716,14 +716,33 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
                   justifyContent: 'center',
                   padding: showBackImage ? '1.25rem' : '2.25rem',
                   textAlign: 'center',
-                  backgroundColor: 'var(--accent-primary)',
-                  color: '#ffffff',
+                  backgroundColor: 'var(--bg-elevated)',
+                  color: 'var(--text-primary)',
                   borderRadius: '1.75rem',
+                  border: '1px solid var(--accent-primary)',
+                  boxShadow: '0 0 25px -5px var(--accent-glow)',
                   transform: 'rotateX(180deg)',
-                  boxShadow: '0 10px 30px rgba(99, 102, 241, 0.25)',
                   overflowY: 'auto'
                 }}
               >
+                {/* Badge discret Réponse */}
+                <div style={{
+                  position: 'absolute',
+                  top: '0.85rem',
+                  left: '1.15rem',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: 'var(--radius-full)',
+                  backgroundColor: 'var(--accent-light)',
+                  border: '1px solid rgba(225, 29, 72, 0.25)',
+                  color: 'var(--accent-primary)'
+                }}>
+                  Réponse (Verso)
+                </div>
+
                 {showBackImage && currentItem.card.image && (
                   <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                     <OccludedImageViewer
@@ -740,7 +759,7 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
                     fontSize: showBackImage ? '1.05rem' : '1.25rem',
                     lineHeight: 1.55,
                     fontWeight: 500,
-                    color: '#ffffff',
+                    color: 'var(--text-primary)',
                     maxWidth: '92%'
                   }}>
                     {currentItem.card.back}

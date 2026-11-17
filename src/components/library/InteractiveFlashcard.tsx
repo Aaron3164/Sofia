@@ -687,12 +687,32 @@ export const InteractiveFlashcard: React.FC<{
               justifyContent: 'center', 
               padding: showBackImage ? '1rem' : '1.75rem',
               textAlign: 'center', 
-              backgroundColor: 'var(--accent-primary)', 
-              color: 'white', 
+              backgroundColor: 'var(--bg-elevated)', 
+              color: 'var(--text-primary)', 
               borderRadius: '1.5rem',
+              border: '1px solid var(--accent-primary)',
+              boxShadow: '0 0 25px -5px var(--accent-glow)',
               transform: 'rotateX(180deg)', 
               overflowY: 'auto'
             }}>
+              {/* Badge discret Réponse */}
+              <div style={{
+                position: 'absolute',
+                top: '0.85rem',
+                left: '1rem',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                padding: '0.2rem 0.6rem',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: 'var(--accent-light)',
+                border: '1px solid rgba(225, 29, 72, 0.25)',
+                color: 'var(--accent-primary)'
+              }}>
+                Réponse (Verso)
+              </div>
+
               {showBackImage && currentCard.image && (
                 <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                   <OccludedImageViewer
@@ -706,13 +726,15 @@ export const InteractiveFlashcard: React.FC<{
               )}
               {currentCard.back && (
                 <div style={{ 
-                  fontSize: showBackImage ? '1rem' : '1.15rem', 
-                  lineHeight: 1.5, 
-                  color: '#ffffff',
+                  fontSize: showBackImage ? '1rem' : '1.2rem', 
+                  lineHeight: 1.55, 
+                  fontWeight: 500,
+                  color: 'var(--text-primary)',
                   marginTop: showBackImage ? '0.6rem' : 0,
                   padding: showBackImage ? '0.4rem 1rem' : 0,
-                  backgroundColor: showBackImage ? 'rgba(0, 0, 0, 0.25)' : 'transparent',
+                  backgroundColor: showBackImage ? 'var(--bg-primary)' : 'transparent',
                   borderRadius: showBackImage ? '0.75rem' : 0,
+                  border: showBackImage ? '1px solid var(--border-color)' : 'none',
                   maxWidth: '95%'
                 }}>
                   {currentCard.back}
