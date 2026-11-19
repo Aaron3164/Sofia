@@ -369,11 +369,11 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
         }
         sessionRef.current = liveSession;
 
-        // 5. Déclencher la prise de parole immédiate de Sofia
+        // 5. Déclencher la prise de parole immédiate et accueillante de Sofia
         liveSession.sendClientContent({
           turns: [{
             role: 'user',
-            parts: [{ text: 'Salut Sofia, je suis prêt ! Lance la première question sur mon cours.' }]
+            parts: [{ text: 'Salut Sofia ! Dis-moi rapidement sur quoi porte notre cours et demande-moi comment je veux qu’on l’aborde (questions, explications, histoire ou autre).' }]
           }],
           turnComplete: true
         });
