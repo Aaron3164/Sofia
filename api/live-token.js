@@ -20,22 +20,40 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // 1. Authentification stricte via JWT Supabase (sans toucher ni décompter les quotas de génération)
+  // 1. Authentification stricte via JWT Supabase & Décompte de 1 crédit par appel vocal
   const authHeader = req.headers.authorization || req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Authentification requise : token manquant.' });
   }
 
   const token = authHeader.replace('Bearer ', '').trim();
+  let supabaseClient = null;
+  let quotaWasIncremented = false;
 
   if (supabaseUrl && supabaseAnonKey) {
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${token}` } }
     });
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ error: 'Session invalide ou expirée. Veuillez vous reconnecter.' });
+    }
+
+    // Décompte de 1 crédit sur le quota quotidien (5/j gratuit, 50/j premium)
+    const { data: quotaAllowed, error: quotaError } = await supabaseClient.rpc('check_and_increment_ai_usage');
+    if (quotaError) {
+      console.error('[LiveToken] Erreur RPC quota:', quotaError.message);
+      if (!quotaError.message.includes('does not exist')) {
+        return res.status(500).json({ error: 'Erreur lors de la vérification de vos quotas IA.' });
+      }
+    } else if (quotaAllowed === false) {
+      return res.status(429).json({
+        error: 'QUOTA_EXCEEDED',
+        message: 'Limite quotidienne atteinte (5/jour en gratuit, 50/jour en Premium). Revenez demain ou passez Premium !'
+      });
+    } else if (quotaAllowed === true) {
+      quotaWasIncremented = true;
     }
   }
 
@@ -58,6 +76,9 @@ export default async function handler(req, res) {
     const safeVoice = ['Kore', 'Zephyr', 'Aoede', 'Leda'].includes(voice) ? voice : 'Kore';
 
     if (!safeContext && !safeSummary) {
+      if (quotaWasIncremented && supabaseClient) {
+        await supabaseClient.rpc('decrement_ai_usage').catch(() => {});
+      }
       return res.status(400).json({ error: 'Aucun contenu de cours disponible pour la discussion vocale.' });
     }
 
@@ -133,6 +154,9 @@ ${safeSummary ? '3' : '2'}. Format oral spontané :
     });
   } catch (error) {
     console.error('[LiveToken] Erreur création token éphémère:', error);
+    if (quotaWasIncremented && supabaseClient) {
+      await supabaseClient.rpc('decrement_ai_usage').catch(() => {});
+    }
     return res.status(500).json({
       error: error?.message || 'Impossible de démarrer la session vocale.'
     });
