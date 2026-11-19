@@ -1263,7 +1263,11 @@ export default function SubjectDetail() {
           isOpen={isVoiceModalOpen}
           onClose={() => setIsVoiceModalOpen(false)}
           courseTitle={courseNode?.name || fileName || 'Mon cours'}
-          courseContext={extractedContent || (typeof generations.resume === 'string' ? generations.resume : '')}
+          courseContext={
+            extractedContent
+              ? `${extractedContent}${typeof generations.resume === 'string' ? `\n\nSynthèse du cours :\n${generations.resume}` : ''}`
+              : (typeof generations.resume === 'string' ? generations.resume : '')
+          }
         />
       )}
     </div>

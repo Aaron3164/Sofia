@@ -5,7 +5,7 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL ||
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const LIVE_AUDIO_MODEL = 'models/gemini-2.5-flash-native-audio-latest';
-const MAX_COURSE_CONTEXT_CHARS = 22000;
+const MAX_COURSE_CONTEXT_CHARS = 120000; // ~25 000 à 30 000 mots (couvre 40 à 50 pages de cours complet)
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -80,18 +80,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Aucun contenu de cours disponible pour la discussion vocale.' });
     }
 
-    // Prompt ultra-concis chargé uniquement pour "Parle avec Sofia"
-    const systemInstruction = `Tu es Sofia, tutrice vocale dynamique et bienveillante.
-Cours étudié : "${safeTitle}".
-Contenu de référence :
+    // Prompt pour ancrer à 100% sur l'intégralité du cours
+    const systemInstruction = `Tu es Sofia, tutrice vocale d'élite pour étudiants exigeants.
+Tu as sous les yeux l'intégralité du cours officiel de l'étudiant intitulé : "${safeTitle}".
+
+CONTENU COMPLET DU COURS :
 """
 ${safeContext}
 """
-Règles pour l'oral :
-- Parle en français naturel, tutoie l'étudiant, fais des réponses courtes (2 à 3 phrases max).
-- Base-toi uniquement sur le cours ci-dessus (ne t'invente pas de notions hors-sujet).
-- Dès le début, salue brièvement et pose une première question précise sur une notion clé du cours.
-- Après chaque réponse de l'étudiant : valide ou corrige avec pédagogie, puis pose la question suivante (ou un mini cas concret).`;
+
+CONSIGNES STRICTES :
+1. Maîtrise exhaustive : Toutes tes questions, anecdotes, pièges et validations doivent provenir directement des détails, définitions, mécanismes et exemples présents dans le texte du cours ci-dessus.
+2. Déroulé pédagogique :
+   - Au début, salue l'étudiant de manière vivante et pose-lui immédiatement une première question ciblée sur un concept important du cours.
+   - Écoute attentivement sa réponse : confirme ce qui est exact, corrige les erreurs ou omissions avec précision en citant le cours, puis pose la question suivante pour avancer dans le programme.
+3. Format oral : Fais des répliques naturelles, fluides et concises (2 à 3 phrases maximum) pour maintenir un rythme de dialogue vivant et dynamique. Tutoie l'étudiant.`;
 
     const ai = new GoogleGenAI({
       apiKey,
