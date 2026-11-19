@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, FileText, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar, Zap, GraduationCap, MessageSquare, BookOpen, SlidersHorizontal, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, UploadCloud, FileText, RefreshCw, Trash2, Plus, ChevronDown, Maximize2, Minimize2, Calendar, Zap, GraduationCap, MessageSquare, BookOpen, SlidersHorizontal, CheckCircle2, Mic } from 'lucide-react';
 import { uploadPDF, deletePDFFromR2, supabase } from '../lib/supabase';
 import { updateCachedCourseData, getSyncCachedCourseData } from '../lib/courseDataCache';
 import { generateStudyMaterials, getDailyUsage } from '../lib/gemini';
@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import { GoogleDriveImportModal } from '../components/library/GoogleDriveImportModal';
 import { FolderRevisionModal } from '../components/library/FolderRevisionModal';
+import { TalkWithSofiaModal } from '../components/library/TalkWithSofiaModal';
 import { isGoogleDriveUrl } from '../lib/google-drive';
 import { AIProgressCard } from '../components/common/AIProgressCard';
 import './SubjectDetail.css';
@@ -37,6 +38,7 @@ export default function SubjectDetail() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   
   const [extractedContent, setExtractedContent] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
@@ -675,6 +677,31 @@ export default function SubjectDetail() {
               <Calendar size={18} style={{ color: '#f43f5e' }} /> <span>Programmer</span>
             </button>
           )}
+          <button
+            className="btn btn-primary"
+            onClick={async () => {
+              const ctxText = extractedContent || (typeof generations.resume === 'string' ? generations.resume : '');
+              if (!ctxText.trim()) {
+                await alert('Importez d’abord un cours PDF pour pouvoir lancer "Parle avec Sofia".');
+                return;
+              }
+              setIsVoiceModalOpen(true);
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #e11d48, #be123c)',
+              border: 'none',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              fontWeight: 600,
+              boxShadow: '0 4px 14px rgba(225, 29, 72, 0.35)'
+            }}
+            title="Discuter à l'oral avec Sofia sur ce cours"
+          >
+            <Mic size={17} /> <span>Parle avec Sofia</span>
+          </button>
+
           <button 
             className="btn btn-outline" 
             style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
@@ -1227,6 +1254,16 @@ export default function SubjectDetail() {
           folderId={id}
           folderName={courseNode?.name || fileName || 'Cours'}
           allNodes={nodes}
+        />
+      )}
+
+      {/* Parle avec Sofia (Mode Vocal Live) */}
+      {isVoiceModalOpen && (
+        <TalkWithSofiaModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          courseTitle={courseNode?.name || fileName || 'Mon cours'}
+          courseContext={extractedContent || (typeof generations.resume === 'string' ? generations.resume : '')}
         />
       )}
     </div>
