@@ -69,10 +69,11 @@ export default async function handler(req, res) {
       try { body = JSON.parse(body); } catch { body = {}; }
     }
 
-    const { courseTitle = 'Cours sans titre', courseContext = '', courseSummary = '' } = body || {};
+    const { courseTitle = 'Cours sans titre', courseContext = '', courseSummary = '', voice = 'Kore' } = body || {};
     const safeTitle = String(courseTitle).slice(0, 120);
     const safeContext = String(courseContext || '').trim().slice(0, MAX_COURSE_CONTEXT_CHARS);
     const safeSummary = String(courseSummary || '').trim().slice(0, 25000);
+    const safeVoice = ['Kore', 'Zephyr', 'Aoede', 'Leda'].includes(voice) ? voice : 'Kore';
 
     if (!safeContext && !safeSummary) {
       if (quotaWasIncremented && supabaseClient) {
@@ -134,7 +135,7 @@ ${safeSummary ? '3' : '2'}. Format oral spontané :
             speechConfig: {
               voiceConfig: {
                 prebuiltVoiceConfig: {
-                  voiceName: 'Aoede'
+                  voiceName: safeVoice
                 }
               }
             },

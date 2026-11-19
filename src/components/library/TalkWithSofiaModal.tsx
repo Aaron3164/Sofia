@@ -11,6 +11,12 @@ interface TalkWithSofiaModalProps {
   courseSummary?: string;
 }
 
+const VOICE_OPTIONS = [
+  { id: 'Kore', label: 'Kore (Claire & Posée)', desc: 'Chaleureuse et naturelle' },
+  { id: 'Zephyr', label: 'Zephyr (Dynamique)', desc: 'Plus lumineuse et expressive' },
+  { id: 'Aoede', label: 'Aoede (Douce)', desc: 'Rythme calme' }
+];
+
 interface TranscriptEntry {
   id: string;
   role: 'sofia' | 'user';
@@ -85,6 +91,9 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [micDebugInfo, setMicDebugInfo] = useState<string>('');
   const [isMuted, setIsMuted] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<'Kore' | 'Zephyr' | 'Aoede'>(() => {
+    return (localStorage.getItem('sofia_preferred_voice') as any) || 'Kore';
+  });
   const [hasMic, setHasMic] = useState(true);
   const [textReply, setTextReply] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -300,7 +309,8 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
           body: JSON.stringify({
             courseTitle,
             courseContext,
-            courseSummary
+            courseSummary,
+            voice: selectedVoice
           })
         });
 
@@ -381,17 +391,22 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
           turnComplete: true
         });
 
-        // 6. Démarrer le streaming micro vers Gemini (uniquement si un micro est disponible)
+        // 6. Démarrer le streaming micro vers Gemini (avec porte de bruit VAD anti-souffle)
         if (stream && captureCtx) {
           const source = captureCtx.createMediaStreamSource(stream);
           const processor = captureCtx.createScriptProcessor(4096, 1, 1);
           processorRef.current = processor;
 
+          // Seuil de déclenchement vocal (Voice Activity Detection - VAD)
+          // Évite d'envoyer les bruits de fond, soupirs, ventilateurs ou frappes clavier
+          const NOISE_GATE_THRESHOLD = 0.018;
+          let voiceActiveFrames = 0;
+
           processor.onaudioprocess = (event) => {
             if (isClosingRef.current || !sessionRef.current) return;
             const inputData = event.inputBuffer.getChannelData(0);
 
-            // Calcul du volume pour le feedback visuel
+            // Calcul du niveau RMS réel
             let sum = 0;
             for (let i = 0; i < inputData.length; i++) {
               sum += inputData[i] * inputData[i];
@@ -400,6 +415,19 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
             setMicLevel(isMutedRef.current ? 0 : Math.min(1, rms * 6));
 
             if (isMutedRef.current) return;
+
+            // Porte de bruit : si le son est trop faible (souffle, micro d'ambiance), on ne l'envoie pas
+            const isSpeakingNow = rms >= NOISE_GATE_THRESHOLD;
+            if (isSpeakingNow) {
+              voiceActiveFrames = 3; // Maintient 3 frames pour ne pas couper les fins de mots
+            } else if (voiceActiveFrames > 0) {
+              voiceActiveFrames--;
+            }
+
+            // Si ce n'est que du bruit ambiant, ignorer
+            if (!isSpeakingNow && voiceActiveFrames <= 0) {
+              return;
+            }
 
             const pcm16k = downsampleTo16k(inputData, captureCtx.sampleRate);
             const base64 = int16ToBase64(pcm16k);
@@ -557,17 +585,44 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
             </div>
           </div>
 
-          <div style={{
-            padding: '0.3rem 0.7rem',
-            borderRadius: '999px',
-            backgroundColor: 'var(--bg-secondary)',
-            fontSize: '0.78rem',
-            fontWeight: 600,
-            fontVariantNumeric: 'tabular-nums',
-            color: remainingSeconds < 60 ? '#fb7185' : 'var(--text-secondary)',
-            border: '1px solid var(--border-color)'
-          }}>
-            {formatTime(elapsedSeconds)} / 10:00
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <select
+              value={selectedVoice}
+              disabled={status === 'speaking'}
+              onChange={e => {
+                const v = e.target.value as any;
+                setSelectedVoice(v);
+                localStorage.setItem('sofia_preferred_voice', v);
+              }}
+              style={{
+                fontSize: '0.75rem',
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '0.3rem 0.5rem',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+              title="Changer le timbre de voix de Sofia"
+            >
+              {VOICE_OPTIONS.map(opt => (
+                <option key={opt.id} value={opt.id}>{opt.label}</option>
+              ))}
+            </select>
+
+            <div style={{
+              padding: '0.3rem 0.7rem',
+              borderRadius: '999px',
+              backgroundColor: 'var(--bg-secondary)',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              fontVariantNumeric: 'tabular-nums',
+              color: remainingSeconds < 60 ? '#fb7185' : 'var(--text-secondary)',
+              border: '1px solid var(--border-color)'
+            }}>
+              {formatTime(elapsedSeconds)} / 10:00
+            </div>
           </div>
         </div>
 
