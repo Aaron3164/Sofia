@@ -206,27 +206,50 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
       if (!navigator.mediaDevices?.getUserMedia) {
         return null;
       }
+
+      // 1. D'abord lister tous les périphériques audio disponibles (comme Discord et Google Meet)
+      let audioInputDevices: MediaDeviceInfo[] = [];
+      try {
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        audioInputDevices = allDevices.filter(d => d.kind === 'audioinput');
+      } catch (e) {
+        console.warn('[Micro] Impossible d\'énumérer les périphériques:', e);
+      }
+
+      // 2. Si des périphériques sont listés, tenter avec chaque deviceId
+      if (audioInputDevices.length > 0) {
+        for (const dev of audioInputDevices) {
+          try {
+            const constraints: MediaStreamConstraints = dev.deviceId
+              ? { audio: { deviceId: { exact: dev.deviceId } } }
+              : { audio: true };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            if (stream) return stream;
+          } catch (err) {
+            // Continuer pour tester le prochain périphérique
+          }
+        }
+      }
+
+      // 3. Essai standard sans contraintes strictes
+      try {
+        return await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err1: any) {
+        console.warn('[Micro] Échec audio: true, essai avec contraintes basiques:', err1);
+      }
+
+      // 4. Dernier essai avec contraintes audio basiques
       try {
         return await navigator.mediaDevices.getUserMedia({
           audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            channelCount: 1
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
           }
         });
-      } catch (firstErr: any) {
-        if (firstErr?.name === 'OverconstrainedError' || firstErr?.name === 'NotFoundError') {
-          try {
-            return await navigator.mediaDevices.getUserMedia({ audio: true });
-          } catch (secondErr: any) {
-            if (secondErr?.name === 'NotFoundError' || secondErr?.name === 'DevicesNotFoundError') {
-              return null; // Aucun micro physique détecté -> bascule en mode Écoute + Clavier
-            }
-            throw secondErr;
-          }
-        }
-        throw firstErr;
+      } catch (finalErr: any) {
+        console.warn('[Micro] Aucun périphérique audio utilisable:', finalErr);
+        return null;
       }
     };
 
