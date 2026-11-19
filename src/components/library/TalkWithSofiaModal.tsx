@@ -8,6 +8,7 @@ interface TalkWithSofiaModalProps {
   onClose: () => void;
   courseTitle: string;
   courseContext: string;
+  courseSummary?: string;
 }
 
 interface TranscriptEntry {
@@ -77,7 +78,8 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
   isOpen,
   onClose,
   courseTitle,
-  courseContext
+  courseContext,
+  courseSummary = ''
 }) => {
   const [status, setStatus] = useState<'connecting' | 'listening' | 'speaking' | 'error' | 'ended'>('connecting');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -297,7 +299,8 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
           },
           body: JSON.stringify({
             courseTitle,
-            courseContext
+            courseContext,
+            courseSummary
           })
         });
 
