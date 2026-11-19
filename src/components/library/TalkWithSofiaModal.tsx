@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GoogleGenAI, Modality, type LiveServerMessage } from '@google/genai';
-import { Mic, MicOff, PhoneOff, Sparkles, Volume2, AlertCircle, Loader2 } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, Sparkles, Volume2, AlertCircle, Loader2, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface TalkWithSofiaModalProps {
@@ -82,6 +82,8 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
   const [status, setStatus] = useState<'connecting' | 'listening' | 'speaking' | 'error' | 'ended'>('connecting');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [hasMic, setHasMic] = useState(true);
+  const [textReply, setTextReply] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [micLevel, setMicLevel] = useState(0);
@@ -194,14 +196,18 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
     setElapsedSeconds(0);
     setTranscripts([]);
     setIsMuted(false);
+    setHasMic(true);
+    setTextReply('');
     isMutedRef.current = false;
 
     let cancelled = false;
 
-    const startVoiceSession = async () => {
+    const acquireMicStream = async (): Promise<MediaStream | null> => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        return null;
+      }
       try {
-        // 1. Demander l'accès micro immédiatement pendant le geste utilisateur
-        const stream = await navigator.mediaDevices.getUserMedia({
+        return await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
@@ -209,15 +215,39 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
             channelCount: 1
           }
         });
+      } catch (firstErr: any) {
+        if (firstErr?.name === 'OverconstrainedError' || firstErr?.name === 'NotFoundError') {
+          try {
+            return await navigator.mediaDevices.getUserMedia({ audio: true });
+          } catch (secondErr: any) {
+            if (secondErr?.name === 'NotFoundError' || secondErr?.name === 'DevicesNotFoundError') {
+              return null; // Aucun micro physique détecté -> bascule en mode Écoute + Clavier
+            }
+            throw secondErr;
+          }
+        }
+        throw firstErr;
+      }
+    };
+
+    const startVoiceSession = async () => {
+      try {
+        // 1. Demander l'accès micro (avec fallback si aucun micro connecté)
+        const stream = await acquireMicStream();
         if (cancelled) {
-          stream.getTracks().forEach(t => t.stop());
+          stream?.getTracks().forEach(t => t.stop());
           return;
         }
-        mediaStreamRef.current = stream;
+        if (stream) {
+          mediaStreamRef.current = stream;
+          setHasMic(true);
+        } else {
+          setHasMic(false);
+        }
 
-        // 2. Préparer les AudioContext (capture + lecture)
+        // 2. Préparer les AudioContext (lecture toujours active, capture si micro présent)
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        const captureCtx = new AudioCtx();
+        const captureCtx = stream ? new AudioCtx() : null;
         const playbackCtx = new AudioCtx();
         captureCtxRef.current = captureCtx;
         playbackCtxRef.current = playbackCtx;
@@ -319,47 +349,52 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
           turnComplete: true
         });
 
-        // 6. Démarrer le streaming micro vers Gemini
-        const source = captureCtx.createMediaStreamSource(stream);
-        const processor = captureCtx.createScriptProcessor(4096, 1, 1);
-        processorRef.current = processor;
+        // 6. Démarrer le streaming micro vers Gemini (uniquement si un micro est disponible)
+        if (stream && captureCtx) {
+          const source = captureCtx.createMediaStreamSource(stream);
+          const processor = captureCtx.createScriptProcessor(4096, 1, 1);
+          processorRef.current = processor;
 
-        processor.onaudioprocess = (event) => {
-          if (isClosingRef.current || !sessionRef.current) return;
-          const inputData = event.inputBuffer.getChannelData(0);
+          processor.onaudioprocess = (event) => {
+            if (isClosingRef.current || !sessionRef.current) return;
+            const inputData = event.inputBuffer.getChannelData(0);
 
-          // Calcul du volume pour le feedback visuel
-          let sum = 0;
-          for (let i = 0; i < inputData.length; i++) {
-            sum += inputData[i] * inputData[i];
-          }
-          const rms = Math.sqrt(sum / inputData.length);
-          setMicLevel(isMutedRef.current ? 0 : Math.min(1, rms * 6));
+            // Calcul du volume pour le feedback visuel
+            let sum = 0;
+            for (let i = 0; i < inputData.length; i++) {
+              sum += inputData[i] * inputData[i];
+            }
+            const rms = Math.sqrt(sum / inputData.length);
+            setMicLevel(isMutedRef.current ? 0 : Math.min(1, rms * 6));
 
-          if (isMutedRef.current) return;
+            if (isMutedRef.current) return;
 
-          const pcm16k = downsampleTo16k(inputData, captureCtx.sampleRate);
-          const base64 = int16ToBase64(pcm16k);
-          try {
-            sessionRef.current.sendRealtimeInput({
-              audio: {
-                data: base64,
-                mimeType: 'audio/pcm;rate=16000'
-              }
-            });
-          } catch {
-            // Ignore send errors while closing
-          }
-        };
+            const pcm16k = downsampleTo16k(inputData, captureCtx.sampleRate);
+            const base64 = int16ToBase64(pcm16k);
+            try {
+              sessionRef.current.sendRealtimeInput({
+                audio: {
+                  data: base64,
+                  mimeType: 'audio/pcm;rate=16000'
+                }
+              });
+            } catch {
+              // Ignore send errors while closing
+            }
+          };
 
-        source.connect(processor);
-        processor.connect(captureCtx.destination);
+          source.connect(processor);
+          processor.connect(captureCtx.destination);
+        }
       } catch (err: any) {
         console.error('[ParleAvecSofia] Erreur initialisation:', err);
         if (!cancelled) {
-          const msg = err?.name === 'NotAllowedError'
-            ? 'Accès au microphone refusé. Autorisez le micro dans votre navigateur pour parler avec Sofia.'
-            : (err?.message || 'Impossible de lancer la discussion vocale.');
+          let msg = err?.message || 'Impossible de lancer la discussion vocale.';
+          if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+            msg = 'Accès au microphone refusé. Autorisez le micro dans votre navigateur pour parler avec Sofia.';
+          } else if (err?.name === 'NotReadableError') {
+            msg = 'Votre microphone est déjà utilisé par une autre application (Discord, Zoom, etc.).';
+          }
           setErrorMessage(msg);
           setStatus('error');
           cleanupAll();
@@ -408,6 +443,23 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
   const handleHangUp = () => {
     cleanupAll();
     onClose();
+  };
+
+  const handleSendTextReply = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = textReply.trim();
+    if (!trimmed || !sessionRef.current || status === 'error' || status === 'ended') return;
+    stopPlaybackQueue();
+    appendTranscript('user', trimmed);
+    setTextReply('');
+    try {
+      sessionRef.current.sendClientContent({
+        turns: [{ role: 'user', parts: [{ text: trimmed }] }],
+        turnComplete: true
+      });
+    } catch (err) {
+      console.error('[ParleAvecSofia] Erreur envoi texte:', err);
+    }
   };
 
   if (!isOpen) return null;
@@ -536,12 +588,18 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
               <div style={{ textAlign: 'center' }}>
                 <p style={{ margin: 0, fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                   {status === 'connecting' && 'Connexion à Sofia en cours...'}
-                  {status === 'listening' && (isMuted ? 'Micro coupé (Muet)' : 'Sofia t’écoute... Parle naturellement !')}
-                  {status === 'speaking' && 'Sofia te répond... (tu peux l’interrompre)'}
+                  {status === 'listening' && (!hasMic
+                    ? 'Aucun micro détecté — Écris ta réponse ci-dessous'
+                    : isMuted
+                      ? 'Micro coupé (Muet)'
+                      : 'Sofia t’écoute... Parle naturellement !')}
+                  {status === 'speaking' && 'Sofia te répond...'}
                   {status === 'ended' && 'Séance terminée ! Bien joué 👏'}
                 </p>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Basé en direct sur ton cours • Zéro effort de lecture
+                  {!hasMic
+                    ? 'Mode Écoute + Clavier actif (Sofia parle à voix haute)'
+                    : 'Basé en direct sur ton cours • Zéro effort de lecture'}
                 </p>
               </div>
             </>
@@ -583,9 +641,46 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
           </div>
         )}
 
+        {/* Saisie clavier (utile s'il n'y a pas de micro ou en bibliothèque) */}
+        {(status === 'listening' || status === 'speaking') && (
+          <form onSubmit={handleSendTextReply} style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              type="text"
+              value={textReply}
+              onChange={e => setTextReply(e.target.value)}
+              placeholder={!hasMic ? 'Écris ta réponse à Sofia...' : 'Ou écris une réponse rapide...'}
+              style={{
+                flex: 1,
+                padding: '0.65rem 0.9rem',
+                borderRadius: '0.75rem',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                fontSize: '0.85rem',
+                outline: 'none'
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!textReply.trim()}
+              className="btn btn-primary"
+              style={{
+                padding: '0.65rem 0.9rem',
+                borderRadius: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Envoyer"
+            >
+              <Send size={16} />
+            </button>
+          </form>
+        )}
+
         {/* Controls */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', paddingTop: '0.25rem' }}>
-          {status !== 'error' && status !== 'ended' && (
+          {hasMic && status !== 'error' && status !== 'ended' && (
             <button
               type="button"
               onClick={toggleMute}
