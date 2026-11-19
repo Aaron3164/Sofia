@@ -271,6 +271,12 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         const captureCtx = new AudioCtx();
         const playbackCtx = new AudioCtx();
+        if (captureCtx.state === 'suspended') {
+          await captureCtx.resume().catch(() => {});
+        }
+        if (playbackCtx.state === 'suspended') {
+          await playbackCtx.resume().catch(() => {});
+        }
         captureCtxRef.current = captureCtx;
         playbackCtxRef.current = playbackCtx;
         nextPlayTimeRef.current = playbackCtx.currentTime;
@@ -380,8 +386,9 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
           processorRef.current = processor;
 
           // Seuil de déclenchement vocal (Voice Activity Detection - VAD)
-          // Évite d'envoyer les bruits de fond, soupirs, ventilateurs ou frappes clavier
-          const NOISE_GATE_THRESHOLD = 0.018;
+          // Remplace les bruits faibles (souffle, ventilateur, ambiance) par du silence pur (0)
+          // tout en maintenant le flux continu 16kHz nécessaire pour que Gemini détecte la fin de phrase.
+          const NOISE_GATE_THRESHOLD = 0.007;
           let voiceActiveFrames = 0;
 
           processor.onaudioprocess = (event) => {
@@ -394,24 +401,25 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
               sum += inputData[i] * inputData[i];
             }
             const rms = Math.sqrt(sum / inputData.length);
-            setMicLevel(isMutedRef.current ? 0 : Math.min(1, rms * 6));
+            setMicLevel(isMutedRef.current ? 0 : Math.min(1, rms * 8));
 
-            if (isMutedRef.current) return;
-
-            // Porte de bruit : si le son est trop faible (souffle, micro d'ambiance), on ne l'envoie pas
-            const isSpeakingNow = rms >= NOISE_GATE_THRESHOLD;
+            const isSpeakingNow = !isMutedRef.current && rms >= NOISE_GATE_THRESHOLD;
             if (isSpeakingNow) {
-              voiceActiveFrames = 3; // Maintient 3 frames pour ne pas couper les fins de mots
+              voiceActiveFrames = 6; // Maintient ~500ms pour ne pas couper les fins de mots
             } else if (voiceActiveFrames > 0) {
               voiceActiveFrames--;
             }
 
-            // Si ce n'est que du bruit ambiant, ignorer
-            if (!isSpeakingNow && voiceActiveFrames <= 0) {
-              return;
+            // Si ce n'est que du bruit ambiant ou micro muet, envoyer du silence numérique (0s)
+            // afin que le VAD côté serveur détecte bien la fin de tour de parole
+            let pcm16k: Int16Array;
+            if (!isMutedRef.current && (isSpeakingNow || voiceActiveFrames > 0)) {
+              pcm16k = downsampleTo16k(inputData, captureCtx.sampleRate);
+            } else {
+              const silentLen = Math.max(1, Math.round(inputData.length / (captureCtx.sampleRate / 16000)));
+              pcm16k = new Int16Array(silentLen); // rempli de 0
             }
 
-            const pcm16k = downsampleTo16k(inputData, captureCtx.sampleRate);
             const base64 = int16ToBase64(pcm16k);
             try {
               sessionRef.current.sendRealtimeInput({
