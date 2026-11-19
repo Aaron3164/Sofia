@@ -81,6 +81,7 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
 }) => {
   const [status, setStatus] = useState<'connecting' | 'listening' | 'speaking' | 'error' | 'ended'>('connecting');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [micDebugInfo, setMicDebugInfo] = useState<string>('');
   const [isMuted, setIsMuted] = useState(false);
   const [hasMic, setHasMic] = useState(true);
   const [textReply, setTextReply] = useState('');
@@ -204,53 +205,58 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
 
     const acquireMicStream = async (): Promise<MediaStream | null> => {
       if (!navigator.mediaDevices?.getUserMedia) {
+        setMicDebugInfo('API getUserMedia indisponible dans ce navigateur.');
         return null;
       }
 
-      // 1. D'abord lister tous les périphériques audio disponibles (comme Discord et Google Meet)
-      let audioInputDevices: MediaDeviceInfo[] = [];
+      const errors: string[] = [];
+
+      // 1. Essai direct natif avec simple { audio: true }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (stream) return stream;
+      } catch (err: any) {
+        errors.push(`audio:true -> ${err?.name || err?.message || err}`);
+      }
+
+      // 2. Énumérer les périphériques audio
       try {
         const allDevices = await navigator.mediaDevices.enumerateDevices();
-        audioInputDevices = allDevices.filter(d => d.kind === 'audioinput');
-      } catch (e) {
-        console.warn('[Micro] Impossible d\'énumérer les périphériques:', e);
-      }
-
-      // 2. Si des périphériques sont listés, tenter avec chaque deviceId
-      if (audioInputDevices.length > 0) {
-        for (const dev of audioInputDevices) {
-          try {
-            const constraints: MediaStreamConstraints = dev.deviceId
-              ? { audio: { deviceId: { exact: dev.deviceId } } }
-              : { audio: true };
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            if (stream) return stream;
-          } catch (err) {
-            // Continuer pour tester le prochain périphérique
+        const audioInputs = allDevices.filter(d => d.kind === 'audioinput');
+        if (audioInputs.length === 0) {
+          errors.push('enumerateDevices: 0 audioinput trouvé');
+        } else {
+          for (const dev of audioInputs) {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: dev.deviceId ? { exact: dev.deviceId } : undefined }
+              });
+              if (stream) return stream;
+            } catch (dErr: any) {
+              errors.push(`${dev.label || dev.deviceId || 'inconnu'} -> ${dErr?.name || dErr?.message}`);
+            }
           }
         }
+      } catch (enumErr: any) {
+        errors.push(`enumerateDevices -> ${enumErr?.message}`);
       }
 
-      // 3. Essai standard sans contraintes strictes
+      // 3. Essai contraintes basiques
       try {
-        return await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (err1: any) {
-        console.warn('[Micro] Échec audio: true, essai avec contraintes basiques:', err1);
-      }
-
-      // 4. Dernier essai avec contraintes audio basiques
-      try {
-        return await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: false,
             noiseSuppression: false,
             autoGainControl: false
           }
         });
-      } catch (finalErr: any) {
-        console.warn('[Micro] Aucun périphérique audio utilisable:', finalErr);
-        return null;
+        if (stream) return stream;
+      } catch (err3: any) {
+        errors.push(`unconstrained -> ${err3?.name || err3?.message}`);
       }
+
+      setMicDebugInfo(errors.join(' | '));
+      return null;
     };
 
     const startVoiceSession = async () => {
@@ -621,7 +627,7 @@ export const TalkWithSofiaModal: React.FC<TalkWithSofiaModalProps> = ({
                 </p>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   {!hasMic
-                    ? 'Mode Écoute + Clavier actif (Sofia parle à voix haute)'
+                    ? (micDebugInfo ? `Détail : ${micDebugInfo}` : 'Mode Écoute + Clavier actif (Sofia parle à voix haute)')
                     : 'Basé en direct sur ton cours • Zéro effort de lecture'}
                 </p>
               </div>
