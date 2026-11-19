@@ -22,6 +22,8 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  isPasswordRecovery: boolean;
+  clearPasswordRecovery: () => void;
   signInWithGoogle: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -39,6 +41,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState<boolean>(() => {
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    return (
+      hash.includes('type=recovery') ||
+      hash.includes('reset-password') ||
+      search.includes('type=recovery')
+    );
+  });
+
+  function clearPasswordRecovery() {
+    setIsPasswordRecovery(false);
+    if (window.location.hash || window.location.search.includes('code=') || window.location.search.includes('type=recovery')) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
 
   useEffect(() => {
     // Check active session
@@ -49,7 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
       setUser(session?.user ?? null);
       if (session?.user) fetchProfile(session.user.id);
       else {
@@ -252,7 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signIn, signUp, resetPassword, updatePassword, signOut, updateProfile, updatePreferences, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, isPasswordRecovery, clearPasswordRecovery, signInWithGoogle, signIn, signUp, resetPassword, updatePassword, signOut, updateProfile, updatePreferences, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import LandingPage from './LandingPage';
 
 export default function AuthPage() {
-  const { signIn, signUp, resetPassword, loading } = useAuth();
+  const { signIn, signUp, resetPassword, loading, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { alert } = useDialog();
   const [showAuth, setShowAuth] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -23,6 +23,13 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tokens, setTokens] = useState<{ accessToken?: string; refreshToken?: string } | null>(null);
+
+  useEffect(() => {
+    if (isPasswordRecovery) {
+      setShowAuth(true);
+      setIsResetMode(true);
+    }
+  }, [isPasswordRecovery]);
 
   // Check if URL contains reset password recovery tokens / hash / code
   useEffect(() => {
@@ -123,7 +130,7 @@ export default function AuthPage() {
         await alert('Votre mot de passe a été mis à jour avec succès !');
         setIsResetMode(false);
         setIsForgotPassword(false);
-        window.location.hash = '';
+        clearPasswordRecovery();
       } else if (isForgotPassword) {
         if (!email.trim()) {
           setError('Veuillez renseigner votre adresse e-mail.');

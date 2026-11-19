@@ -52,7 +52,7 @@ import { FileSystemProvider } from './hooks/useFileSystem';
 import { SpacedRepetitionProvider } from './hooks/useSpacedRepetition';
 
 function AppContent() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isPasswordRecovery } = useAuth();
   const { setTheme } = useTheme();
 
   // Sync theme from profile only when profile preference changes
@@ -102,7 +102,7 @@ function AppContent() {
     return <AuthPage />;
   }
 
-  if (!user) {
+  if (!user || isPasswordRecovery) {
     return <AuthPage />;
   }
 
