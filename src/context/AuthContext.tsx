@@ -44,7 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState<boolean>(() => {
     const hash = window.location.hash || '';
     const search = window.location.search || '';
+    const pathname = window.location.pathname || '';
     return (
+      pathname === '/reset-password' ||
       hash.includes('type=recovery') ||
       hash.includes('reset-password') ||
       search.includes('type=recovery')
@@ -53,8 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function clearPasswordRecovery() {
     setIsPasswordRecovery(false);
-    if (window.location.hash || window.location.search.includes('code=') || window.location.search.includes('type=recovery')) {
-      window.history.replaceState({}, document.title, window.location.pathname);
+    if (
+      window.location.pathname === '/reset-password' ||
+      window.location.hash ||
+      window.location.search.includes('code=') ||
+      window.location.search.includes('type=recovery')
+    ) {
+      window.history.replaceState({}, document.title, '/');
     }
   }
 
@@ -202,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function resetPassword(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/#reset-password`
+      redirectTo: `${window.location.origin}/reset-password`
     });
     if (error) throw error;
   }

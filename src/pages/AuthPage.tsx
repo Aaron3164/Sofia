@@ -36,6 +36,7 @@ export default function AuthPage() {
     const handleRecovery = async () => {
       const hash = window.location.hash;
       const search = window.location.search;
+      const pathname = window.location.pathname;
       const urlParams = new URLSearchParams(search);
       const code = urlParams.get('code');
 
@@ -43,15 +44,24 @@ export default function AuthPage() {
         setShowAuth(true);
         setIsResetMode(true);
         try {
-          await supabase.auth.exchangeCodeForSession(code);
+          const { data: { session: existing } } = await supabase.auth.getSession();
+          if (!existing) {
+            await supabase.auth.exchangeCodeForSession(code);
+          }
         } catch (e: any) {
           console.warn('[AuthPage] exchangeCodeForSession error:', e);
         }
-      } else if (hash && (hash.includes('type=recovery') || hash.includes('reset-password') || hash.includes('access_token'))) {
+      } else if (
+        pathname === '/reset-password' ||
+        (hash && (hash.includes('type=recovery') || hash.includes('reset-password') || hash.includes('access_token')))
+      ) {
         setShowAuth(true);
         setIsResetMode(true);
-        // If hash contains access_token and refresh_token, set session
-        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+        // Handle both standard #access_token=... and legacy double-hash #reset-password#access_token=...
+        const tokenSegment = hash.includes('access_token=')
+          ? hash.slice(hash.indexOf('access_token='))
+          : hash.replace(/^#/, '');
+        const hashParams = new URLSearchParams(tokenSegment);
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         if (accessToken && refreshToken) {
@@ -109,8 +119,12 @@ export default function AuthPage() {
         }
 
         if (!sessionData.session) {
-          // Try checking url hash directly one more time
-          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+          // Try checking url hash directly one more time (supports double-hash legacy links too)
+          const rawHash = window.location.hash || '';
+          const tokenSegment = rawHash.includes('access_token=')
+            ? rawHash.slice(rawHash.indexOf('access_token='))
+            : rawHash.replace(/^#/, '');
+          const hashParams = new URLSearchParams(tokenSegment);
           const at = hashParams.get('access_token');
           const rt = hashParams.get('refresh_token');
           if (at && rt) {
