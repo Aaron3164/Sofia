@@ -883,7 +883,7 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
               </div>
             ) : (
               <button
-                className="btn btn-primary hover-lift shadow-md"
+                className="btn btn-outline hover-lift shadow-sm"
                 onClick={() => setIsFlipped(true)}
                 style={{
                   width: '100%',
@@ -895,6 +895,18 @@ export const FolderRevisionModal: React.FC<FolderRevisionModalProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.5rem',
+                  backgroundColor: 'rgba(225, 29, 72, 0.06)',
+                  borderColor: 'rgba(225, 29, 72, 0.35)',
+                  color: '#f43f5e',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(225, 29, 72, 0.12)';
+                  e.currentTarget.style.borderColor = 'rgba(225, 29, 72, 0.5)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(225, 29, 72, 0.06)';
+                  e.currentTarget.style.borderColor = 'rgba(225, 29, 72, 0.35)';
                 }}
               >
                 Afficher la Réponse <span style={{ opacity: 0.7, fontSize: '0.85rem' }}>(Espace)</span>

@@ -900,9 +900,24 @@ export const InteractiveFlashcard: React.FC<{
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               <button className="btn btn-outline" onClick={handlePrev}>Précédente</button>
               <button 
-                className="btn btn-primary shadow-sm" 
+                className="btn btn-outline" 
                 onClick={() => setIsFlipped(true)}
-                style={{ padding: '0.65rem 1.75rem', fontWeight: 600 }}
+                style={{ 
+                  padding: '0.65rem 1.75rem', 
+                  fontWeight: 600,
+                  backgroundColor: 'rgba(225, 29, 72, 0.06)',
+                  borderColor: 'rgba(225, 29, 72, 0.35)',
+                  color: '#f43f5e',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(225, 29, 72, 0.12)';
+                  e.currentTarget.style.borderColor = 'rgba(225, 29, 72, 0.5)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(225, 29, 72, 0.06)';
+                  e.currentTarget.style.borderColor = 'rgba(225, 29, 72, 0.35)';
+                }}
               >
                 Afficher la Réponse
               </button>
