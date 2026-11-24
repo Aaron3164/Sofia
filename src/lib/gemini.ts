@@ -65,7 +65,7 @@ async function callGeminiProxy(
   }
   window.dispatchEvent(new CustomEvent('ai-usage-updated'));
 
-  return { 
+  return {
     text: data.text || '',
     groundingMetadata: data.groundingMetadata || null
   };
@@ -452,7 +452,7 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
   };
 
   let fullPromptHeader = `${systemInstruction}${prompts[mode]}`;
-  
+
   if (customInstructions && customInstructions.trim().length > 0) {
     fullPromptHeader += `\n\nCONSIGNE COMPLÉMENTAIRE DE L'ÉTUDIANT : Tout en respectant à 100% le prompt principal ci-dessus et en balayant l'ensemble du cours, accorde un soin, une profondeur et une densité légèrement supérieures aux notions, consignes ou mots-clés suivants : ${customInstructions.trim()}.`;
 
@@ -477,12 +477,12 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
         maxOutputTokens: mode === 'resume' ? 6500 : (mode === 'flashcards' ? 6500 : 5000)
       }
     );
-    
+
     let generatedText = response.text || '';
 
-      // Clean up any accidental raw or unrendered figure references (e.g. "(voir FIGURE_1)", "voir figure 1")
-      generatedText = generatedText.replace(/\(?(?:voir|cf\.?)\s+(?:la\s+)?(?:figure|schéma|diagramme)\s*#?(?:FIGURE_?)?\d+\)?/gi, '');
-    
+    // Clean up any accidental raw or unrendered figure references (e.g. "(voir FIGURE_1)", "voir figure 1")
+    generatedText = generatedText.replace(/\(?(?:voir|cf\.?)\s+(?:la\s+)?(?:figure|schéma|diagramme)\s*#?(?:FIGURE_?)?\d+\)?/gi, '');
+
     if (isJSON) {
       // Robust JSON extraction: look for either { or [
       const firstBrace = generatedText.indexOf('{');
@@ -580,7 +580,7 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
         }
       }
     }
-    
+
     return generatedText;
   } catch (error) {
     console.error('Error generating content with Gemini:', error);
@@ -691,7 +691,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 
   let historyPrompt = "";
   if (history && history.length > 0) {
-    historyPrompt = "\nHistorique précédent de cette conversation :\n" + 
+    historyPrompt = "\nHistorique précédent de cette conversation :\n" +
       formatSlidingHistory(history, 'Étudiant', 'Sofia (IA)', 6) + '\n';
   }
 
@@ -723,7 +723,7 @@ Consignes de formatage strictes (PRIORITÉ #1) :
 
   const cachedPrefixBlock = buildCourseCachePrefix(courseId, cleanContext);
   const fullPrompt = `${cachedPrefixBlock}\n\n=== INSTRUCTIONS PÉDAGOGIQUES & QUESTION ===\n${annalePrompt}\n${historyPrompt}\nQuestion actuelle de l'étudiant : ${question}`;
-  
+
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt], {
       systemInstruction: `${systemInstruction}${baseInstruction}`,
@@ -765,8 +765,8 @@ export async function globalSearch(query: string, allCoursesContext: string, pre
   }
 
   const systemInstruction = getSystemInstruction(prefs);
-  const customBlock = customInstructions && customInstructions.trim() 
-    ? `\nCONSIGNE PARTICULIÈRE DE L'ÉTUDIANT POUR CETTE SYNTHÈSE (À RESPECTER EN PRIORITÉ) :\n"${customInstructions.trim()}"\n` 
+  const customBlock = customInstructions && customInstructions.trim()
+    ? `\nCONSIGNE PARTICULIÈRE DE L'ÉTUDIANT POUR CETTE SYNTHÈSE (À RESPECTER EN PRIORITÉ) :\n"${customInstructions.trim()}"\n`
     : '';
 
   const cleanAllContext = compactCourseText(allCoursesContext);
@@ -782,7 +782,7 @@ Ta mission :
 2. RÉPONSE SYNTHÉTIQUE : Réponds directement à la question de manière structurée et pédagogique.
 3. CITATION SOURCE : C'est CRITIQUE. Pour chaque bloc d'information, cite explicitement le cours d'où il provient en utilisant le format [Source: Nom du Cours] (le nom du cours est indiqué par les balises --- COURS: ... ---).
 4. FORMATAGE : Utilise du **gras**, des listes à puces, et SURTOUT du surlignage '==' pour les notions clés.`;
-  
+
   try {
     const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [fullPrompt], {
       maxOutputTokens: 2500
@@ -985,6 +985,7 @@ CONSIGNES PARTICULIÈRES SUR LES MISES EN PAGE D'ANNALES :
    - Si une question est coupée sur deux pages (énoncé en bas de page N, propositions A..D en haut de page N+1) avec le titre du DP suivant intercalé entre les deux, rattache bien les propositions à la question en cours et n'applique le nouveau titre/contexte de DP qu'à partir de la "Question 1" suivante.
    - Si la numérotation repart à "Question 1" à chaque nouveau DP (Questions isolées 1..8, puis DP2 1..5, puis DP1 1..5), extrais TOUTES les questions dans l'ordre chronologique sans jamais en sauter ni en écraser.
    - Si une question mentionne une image/IRM/radio ("Voici l'IRM...") et que l'image se trouve sur la page suivante, mets "hasFigure": true et indique dans "pageNumber" la page de l'image si la question est à cheval sur deux pages.
+   - Si une question porte la mention "Annulée - Question X", extrais-la quand même normalement dans la liste avec toutes ses propositions et ses cases cochées (ne la saute jamais).
 
 Format attendu STRICTEMENT en JSON :
 Un tableau JSON d'objets, ou un objet avec la clé "questions" :
@@ -1034,7 +1035,7 @@ async function parseAnnaleChunkWithAI(
   let jsonStr = (response.text || '[]').replace(/```json\s*|```/gi, '').trim();
   const firstBracket = jsonStr.indexOf('[');
   const firstBrace = jsonStr.indexOf('{');
-  
+
   if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
     const lastBracket = jsonStr.lastIndexOf(']');
     if (lastBracket > firstBracket) {
@@ -1065,15 +1066,25 @@ async function parseAnnaleChunkWithAI(
       throw parseErr;
     }
   }
-  const list = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
-  return Array.isArray(list) ? list : [];
+  let list: any[] = [];
+  if (Array.isArray(parsed)) {
+    list = parsed;
+  } else if (parsed && typeof parsed === 'object') {
+    const candidateArr = parsed.questions || parsed.data || parsed.items || parsed.mcqs || Object.values(parsed).find(v => Array.isArray(v));
+    if (Array.isArray(candidateArr)) {
+      list = candidateArr;
+    } else if (parsed.question || parsed.questionNumber) {
+      list = [parsed];
+    }
+  }
+  return list;
 }
 
 export async function parseAnnaleWithAI(rawPdfText: string): Promise<any[]> {
-  // Split by "--- Page X ---" markers to process in small reliable chunks (4 pages/batch)
-  // so long 9+ page exams never hit JSON truncation or mid-output syntax glitches.
+  // Split by "--- Page X ---" markers to process in balanced chunks (5 pages/batch)
+  // so long exams never hit JSON truncation while keeping DPs and trailing pages together.
   const pageSections = rawPdfText.split(/(?=--- Page \d+ ---)/g).filter(s => s.trim().length > 0);
-  const PAGES_PER_BATCH = 4;
+  const PAGES_PER_BATCH = 5;
 
   let questionsList: any[] = [];
 
@@ -1255,7 +1266,7 @@ Format JSON STRICTEMENT ATTENDU :
     const grade = typeof parsed.grade === 'number' ? parsed.grade : 10;
     const maxGrade = typeof parsed.maxGrade === 'number' ? parsed.maxGrade : 20;
     const scorePercentage = typeof parsed.scorePercentage === 'number' ? parsed.scorePercentage : Math.round((grade / maxGrade) * 100);
-    const status: 'correct' | 'partial' | 'incorrect' = 
+    const status: 'correct' | 'partial' | 'incorrect' =
       parsed.status === 'correct' || parsed.status === 'partial' || parsed.status === 'incorrect'
         ? parsed.status
         : (grade >= 14 ? 'correct' : (grade >= 8 ? 'partial' : 'incorrect'));
