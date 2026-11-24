@@ -981,6 +981,11 @@ CONSIGNES PARTICULIÈRES SUR LES MISES EN PAGE D'ANNALES :
 5. PAGES ET NUMÉROS :
    - Note le numéro de page où se trouve la question d'après les repères "--- Page X ---".
    - Conserve le numéro officiel de chaque question ("questionNumber": 1, 2, 3...).
+6. FORMATS SIDES / UNESS & TABLEAUX INVERSÉS (TRÈS FRÉQUENT) :
+   - Dans certains PDF d'annales (SIDES/UNESS), l'ordre du texte extrait place "Réponse attendue" et les propositions (A..E) AVANT l'énoncé de la question (qui apparaît juste après E). Associe toujours cet énoncé à la question correspondante !
+   - Si une question est coupée sur deux pages (énoncé en bas de page N, propositions A..D en haut de page N+1) avec le titre du DP suivant intercalé entre les deux, rattache bien les propositions à la question en cours et n'applique le nouveau titre/contexte de DP qu'à partir de la "Question 1" suivante.
+   - Si la numérotation repart à "Question 1" à chaque nouveau DP (Questions isolées 1..8, puis DP2 1..5, puis DP1 1..5), extrais TOUTES les questions dans l'ordre chronologique sans jamais en sauter ni en écraser.
+   - Si une question mentionne une image/IRM/radio ("Voici l'IRM...") et que l'image se trouve sur la page suivante, mets "hasFigure": true et indique dans "pageNumber" la page de l'image si la question est à cheval sur deux pages.
 
 Format attendu STRICTEMENT en JSON :
 Un tableau JSON d'objets, ou un objet avec la clé "questions" :
