@@ -92,9 +92,15 @@ export default function Library() {
 
   const handleRename = async (e: React.MouseEvent, item: FileNode) => {
     e.stopPropagation();
-    const newName = await prompt('Nouveau nom :', item.name);
-    if (newName && newName !== item.name) {
-      renameNode(item.id, newName);
+    const isAnnale = item.type === 'course' && item.name.startsWith('🎓');
+    const initialDisplayName = isAnnale ? item.name.replace(/^🎓\s*/, '') : item.name;
+    const newName = await prompt('Nouveau nom :', initialDisplayName);
+    if (newName && newName.trim()) {
+      const trimmed = newName.trim();
+      const finalName = isAnnale && !trimmed.startsWith('🎓') ? `🎓 ${trimmed}` : trimmed;
+      if (finalName !== item.name) {
+        renameNode(item.id, finalName);
+      }
     }
   };
 
