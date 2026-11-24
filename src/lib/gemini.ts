@@ -927,8 +927,7 @@ export interface OpenQuestionEvaluation {
  * checkboxes ☑/■, multi-column tables, SIDES/EDN formats, open essay questions / QROC,
  * and hybrid subjects containing both MCQ and written questions).
  */
-export async function parseAnnaleWithAI(rawPdfText: string): Promise<any[]> {
-  const prompt = `Tu es un assistant expert dans la numérisation et la structuration d'annales d'examens (notamment médicales et universitaires : PASS, LAS, DFGSM, EDN, ECN, droit, prépa, etc.).
+const ANNALE_PARSER_INSTRUCTIONS = `Tu es un assistant expert dans la numérisation et la structuration d'annales d'examens (notamment médicales et universitaires : PASS, LAS, DFGSM, EDN, ECN, droit, prépa, etc.).
 Ta mission est d'analyser le texte brut issu d'une annale PDF et de le convertir en une liste structurée de questions d'examen, STRICTEMENT MOT POUR MOT, sans rien inventer, résumer ou modifier.
 
 IMPORTANT - NATURE DE L'ÉPREUVE (HYBRIDE / QCM / RÉDACTIONNELLE) :
@@ -1007,12 +1006,24 @@ Un tableau JSON d'objets, ou un objet avec la clé "questions" :
     "expectedAnswer": "Éléments attendus de la correction",
     "pageNumber": 1,
     "hasFigure": false, // Mettre true si et seulement si l'énoncé fait référence à une figure, schéma, radio, photo ou image
-    "explanation": "..." 
+    "explanation": "" // Laisser "" s'il n'y a pas d'explication textuelle écrite dans l'annale (ne rien inventer)
   }
-]
+]`;
 
-Texte brut de l'annale :
-${rawPdfText.substring(0, 300000)}`;
+async function parseAnnaleChunkWithAI(
+  chunkText: string,
+  instructionsHeader: string,
+  prevContextHint?: string,
+  targetPagesLabel?: string
+): Promise<any[]> {
+  const scopeNote = targetPagesLabel
+    ? `\nCONSIGNE DE PÉRIMÈTRE : Extrais UNIQUEMENT les questions dont l'énoncé ou les propositions se trouvent dans ${targetPagesLabel}.`
+    : '';
+  const hintBlock = prevContextHint
+    ? `\n[RAPPEL FIN DES PAGES PRÉCÉDENTES — SERT UNIQUEMENT POUR LE CONTEXTE D'UN DP OU QUESTION COUPÉE, NE PAS RÉ-EXTRAIRE LES QUESTIONS DÉJÀ COMPLÈTES CI-DESSOUS] :\n${prevContextHint}\n[FIN RAPPEL]\n`
+    : '';
+
+  const prompt = `${instructionsHeader}${scopeNote}${hintBlock}\nTexte brut de l'annale :\n${chunkText.substring(0, 150000)}`;
 
   const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [prompt], {
     responseMimeType: 'application/json',
@@ -1038,7 +1049,7 @@ ${rawPdfText.substring(0, 300000)}`;
     }
   }
 
-  // Clean common LLM JSON glitches (trailing commas, raw control characters inside strings)
+  // Clean common LLM JSON glitches (trailing commas)
   jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
 
   let parsed: any;
@@ -1054,7 +1065,38 @@ ${rawPdfText.substring(0, 300000)}`;
       throw parseErr;
     }
   }
-  const questionsList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
+  const list = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
+  return Array.isArray(list) ? list : [];
+}
+
+export async function parseAnnaleWithAI(rawPdfText: string): Promise<any[]> {
+  // Split by "--- Page X ---" markers to process in small reliable chunks (4 pages/batch)
+  // so long 9+ page exams never hit JSON truncation or mid-output syntax glitches.
+  const pageSections = rawPdfText.split(/(?=--- Page \d+ ---)/g).filter(s => s.trim().length > 0);
+  const PAGES_PER_BATCH = 4;
+
+  let questionsList: any[] = [];
+
+  if (pageSections.length > PAGES_PER_BATCH) {
+    const batches: { text: string; hint?: string; label: string }[] = [];
+    for (let i = 0; i < pageSections.length; i += PAGES_PER_BATCH) {
+      const slice = pageSections.slice(i, i + PAGES_PER_BATCH);
+      const startPage = i + 1;
+      const endPage = Math.min(i + PAGES_PER_BATCH, pageSections.length);
+      const prevText = i > 0 ? pageSections.slice(Math.max(0, i - 1), i).join('').slice(-1500) : undefined;
+      batches.push({
+        text: slice.join(''),
+        hint: prevText,
+        label: `les pages ${startPage} à ${endPage}`
+      });
+    }
+    const batchResults = await Promise.all(
+      batches.map(b => parseAnnaleChunkWithAI(b.text, ANNALE_PARSER_INSTRUCTIONS, b.hint, b.label))
+    );
+    questionsList = batchResults.flat();
+  } else {
+    questionsList = await parseAnnaleChunkWithAI(rawPdfText, ANNALE_PARSER_INSTRUCTIONS);
+  }
 
   // Re-expand "IDEM" context references into full clinical case text on the client (0 extra output tokens)
   let lastValidContext: string | undefined;
