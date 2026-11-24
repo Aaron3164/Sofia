@@ -100,15 +100,15 @@ export default async function handler(req, res) {
     const ai = new GoogleGenAI({ apiKey });
 
     // Unified resilient cascade for all users:
-    // 1. models/gemini-3.1-flash-lite (500 RPD free tier, très rapide et stable)
-    // 2. models/gemini-3.5-flash-lite (500 RPD free tier)
+    // 1. models/gemini-3.5-flash-lite (500 RPD free tier, prioritaire)
+    // 2. models/gemini-3.1-flash-lite (500 RPD free tier)
     // 3. models/gemini-2.5-flash (20 RPD fallback / web search grounding)
     // Total free capacity: 1,000+ generations/day, 0€ cost.
     const candidateModels = model === 'models/gemini-2.5-flash'
-      ? ['models/gemini-2.5-flash', 'models/gemini-3.1-flash-lite', 'models/gemini-3.5-flash-lite']
+      ? ['models/gemini-2.5-flash', 'models/gemini-3.5-flash-lite', 'models/gemini-3.1-flash-lite']
       : [
-          'models/gemini-3.1-flash-lite',
           'models/gemini-3.5-flash-lite',
+          'models/gemini-3.1-flash-lite',
           'models/gemini-2.5-flash'
         ];
 
