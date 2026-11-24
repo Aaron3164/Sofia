@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     }
 
     // Garde-fou serveur anti-explosion de tokens en sortie (ne raccourcit pas les réponses normales, borne uniquement le max absolu)
-    const MAX_ALLOWED_OUTPUT_TOKENS = 6500;
+    const MAX_ALLOWED_OUTPUT_TOKENS = 8192;
     const requestedMax = Number(config?.maxOutputTokens);
     const safeConfig = {
       ...(config || {}),
@@ -100,60 +100,52 @@ export default async function handler(req, res) {
     const ai = new GoogleGenAI({ apiKey });
 
     // Unified resilient cascade for all users:
-    // 1. models/gemini-3.5-flash-lite (500 RPD free tier)
-    // 2. models/gemini-3.1-flash-lite (500 RPD free tier)
+    // 1. models/gemini-3.1-flash-lite (500 RPD free tier, très rapide et stable)
+    // 2. models/gemini-3.5-flash-lite (500 RPD free tier)
     // 3. models/gemini-2.5-flash (20 RPD fallback / web search grounding)
     // Total free capacity: 1,000+ generations/day, 0€ cost.
     const candidateModels = model === 'models/gemini-2.5-flash'
-      ? ['models/gemini-2.5-flash', 'models/gemini-3.5-flash-lite', 'models/gemini-3.1-flash-lite']
+      ? ['models/gemini-2.5-flash', 'models/gemini-3.1-flash-lite', 'models/gemini-3.5-flash-lite']
       : [
-          'models/gemini-3.5-flash-lite',
           'models/gemini-3.1-flash-lite',
+          'models/gemini-3.5-flash-lite',
           'models/gemini-2.5-flash'
         ];
 
     let lastError = null;
 
     for (const currentModel of candidateModels) {
-      let attempts = 0;
-      while (attempts < 2) {
-        try {
-          attempts++;
-          const response = await ai.models.generateContent({
-            model: currentModel,
-            contents,
-            config: safeConfig,
-          });
+      try {
+        const response = await ai.models.generateContent({
+          model: currentModel,
+          contents,
+          config: safeConfig,
+        });
 
-          return res.status(200).json({ 
-            text: response.text || '',
-            groundingMetadata: response.candidates?.[0]?.groundingMetadata || null,
-            usageMetadata: response.usageMetadata || null
-          });
-        } catch (err) {
-          lastError = err;
-          const errMsg = String(err?.message || err);
-          const is503Or404 =
-            errMsg.includes('503') ||
-            errMsg.includes('UNAVAILABLE') ||
-            errMsg.includes('high demand') ||
-            errMsg.includes('overloaded') ||
-            errMsg.includes('404') ||
-            errMsg.includes('NOT_FOUND');
-          
-          if (is503Or404) {
-            console.warn(`[Gemini Proxy] Modèle ${currentModel} indisponible (${errMsg.slice(0, 80)}). Tentative ${attempts}/2...`);
-            if (errMsg.includes('404') || errMsg.includes('NOT_FOUND')) {
-              break; // Switch immediately to next fallback model if model name is not found
-            }
-            await new Promise((r) => setTimeout(r, 1200));
-          } else {
-            // Not a 503/404 error, rethrow immediately
-            throw err;
-          }
+        return res.status(200).json({ 
+          text: response.text || '',
+          groundingMetadata: response.candidates?.[0]?.groundingMetadata || null,
+          usageMetadata: response.usageMetadata || null
+        });
+      } catch (err) {
+        lastError = err;
+        const errMsg = String(err?.message || err);
+        const isTransientOrMissing =
+          errMsg.includes('503') ||
+          errMsg.includes('UNAVAILABLE') ||
+          errMsg.includes('high demand') ||
+          errMsg.includes('overloaded') ||
+          errMsg.includes('429') ||
+          errMsg.includes('RESOURCE_EXHAUSTED') ||
+          errMsg.includes('404') ||
+          errMsg.includes('NOT_FOUND');
+
+        if (isTransientOrMissing) {
+          console.warn(`[Gemini Proxy] Modèle ${currentModel} indisponible/saturé (${errMsg.slice(0, 80)}). Basculement immédiat...`);
+          continue;
         }
+        throw err;
       }
-      console.warn(`[Gemini Proxy] Basculement automatique vers le modèle de secours suite à indisponibilité de ${currentModel}`);
     }
 
     throw lastError;

@@ -474,7 +474,7 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
       {
         temperature: mode === 'resume' ? 0.2 : 0.7,
         responseMimeType: isJSON ? 'application/json' : undefined,
-        maxOutputTokens: mode === 'resume' ? 6000 : (mode === 'flashcards' ? 3500 : 2500)
+        maxOutputTokens: mode === 'resume' ? 6500 : (mode === 'flashcards' ? 6500 : 5000)
       }
     );
     
@@ -1012,17 +1012,19 @@ ${rawPdfText.substring(0, 300000)}`;
   const response = await callGeminiProxy('models/gemini-3.5-flash-lite', [prompt], {
     responseMimeType: 'application/json',
     temperature: 0.1,
-    maxOutputTokens: 6500
+    maxOutputTokens: 8192
   });
 
-  let jsonStr = response.text || '[]';
+  let jsonStr = (response.text || '[]').replace(/```json\s*|```/gi, '').trim();
   const firstBracket = jsonStr.indexOf('[');
   const firstBrace = jsonStr.indexOf('{');
   
-  if (firstBracket !== -1 && (firstBracket === -1 || firstBracket < firstBrace)) {
+  if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
     const lastBracket = jsonStr.lastIndexOf(']');
     if (lastBracket > firstBracket) {
       jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
+    } else {
+      jsonStr = jsonStr.substring(firstBracket);
     }
   } else if (firstBrace !== -1) {
     const lastBrace = jsonStr.lastIndexOf('}');
@@ -1031,7 +1033,22 @@ ${rawPdfText.substring(0, 300000)}`;
     }
   }
 
-  const parsed = JSON.parse(jsonStr);
+  // Clean common LLM JSON glitches (trailing commas, raw control characters inside strings)
+  jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch (parseErr) {
+    // Recovery if array JSON was truncated mid-object or had a minor glitch near the end
+    const lastCompleteObjIdx = jsonStr.lastIndexOf('},');
+    if (jsonStr.trim().startsWith('[') && lastCompleteObjIdx > 0) {
+      const repaired = jsonStr.substring(0, lastCompleteObjIdx + 1) + ']';
+      parsed = JSON.parse(repaired);
+    } else {
+      throw parseErr;
+    }
+  }
   const questionsList = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.data || []);
 
   // Re-expand "IDEM" context references into full clinical case text on the client (0 extra output tokens)
