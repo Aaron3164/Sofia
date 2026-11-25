@@ -434,21 +434,24 @@ CONSIGNE VERSO (b) : Les réponses doivent rester CONCISES (entre 2 et 15 mots m
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec les clés courtes "f" (question) et "b" (réponse).`,
     mcq: `[Session unique: ${randomSeed}] Génère exactement 10 questions à choix multiples de niveau intermédiaire basées sur le texte. Il peut y avoir UNE ou PLUSIEURS bonnes réponses (format QCM multi-choix). Varie les questions par rapport aux éventuelles sessions précédentes pour ce même texte pour aborder d'autres détails ou notions du cours.
 Réponds STRICTEMENT en français. Format attendu : un tableau JSON d'objets avec "q" (énoncé de la question), "o" (tableau d'EXACTEMENT 5 chaînes correspondant aux 5 propositions/items par question), et "a" (tableau contenant UNIQUEMENT les indices numériques 0 à 4 des propositions vraies, ex: [0, 2]). N'inclus aucune clé "scenario" ou "context". Chaque question DOIT impérativement comporter 5 propositions (items).`,
-    resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer un compte-rendu ULTRA-DÉTAILLÉ et EXHAUSTIF du cours fourni. 
-    
-CONSIGNE DE LONGUEUR ET DE PRÉCISION : NE SAUTE AUCUNE PARTIE. Analyse le cours section par section, paragraphe par paragraphe. Si une information est dans le texte, elle DOIT être dans ton résumé. Je préfère un texte très long plutôt qu'un texte qui oublie des détails.
+    resume: `Tu es un expert en synthèse pédagogique. Ta mission est de créer une fiche de révision COMPLÈTE, STRUCTURÉE et VISUELLE du cours fourni.
+
+COUVERTURE TOTALE DU PLAN (RÈGLE ABSOLUE N°1 — PRIORITÉ SUPRÊME) :
+- Tu DOIS IMPÉRATIVEMENT couvrir **100 % des parties, chapitres et objectifs du cours, du début jusqu'à la toute dernière section**, sans JAMAIS t'arrêter en plein milieu ni couper une phrase.
+- ADAPTATION DE LA DENSITÉ : Si le cours est long ou très dense (ex : grande ronéo), rédige de façon plus **synthétique et percutante** (puces concises, style fiche de révision efficace au lieu de recopier des phrases entières mot pour mot, et **tableaux Markdown** pour regrouper les listes comme les muscles, nerfs, actions, pathologies ou comparaisons) afin que **TOUTES les parties tiennent confortablement jusqu'à la fin**.
 
 CONSIGNE CRITIQUE : NE DIS PAS BONJOUR. NE TE PRÉSENTE PAS. COMMENCE IMMÉDIATEMENT PAR LE TITRE DU RÉSUMÉ OU LE PREMIER CHAPITRE.
 
 Consignes de formatage strictes :
 - Utilise '# ', '## ', '### ', '#### ' pour la structure hiérarchique.
-- Fais des listes à puces avec '* ' pour chaque détail important.
+- Fais des listes à puces concises avec '* ' pour chaque notion clé.
+- Utilise des **tableaux Markdown** (| Colonne 1 | Colonne 2 | \n | --- | --- |) dès que plusieurs éléments se comparent ou se listent (ex: muscle / origine / terminaison / innervation / action).
 - Mets en **gras** les termes techniques.
-- UTILISE MASSIVEMENT ET SYSTÉMATIQUEMENT '==' POUR SURLIGNER TOUTES LES INFORMATIONS LES PLUS FONDAMENTALES. 
+- UTILISE '==' POUR SURLIGNER LES INFORMATIONS LES PLUS FONDAMENTALES (ex: ==mot clé==).
 - Utilise '__' pour souligner les précisions importantes.
-- Ne fais pas de conclusion ou de transition, reste sur le contenu pur.
+- Ne fais pas de conclusion ou de transition inutile, reste sur le contenu pur.
 
-Rédige tout en français de manière extrêmement précise, complète et académique.`
+Rédige tout en français de manière précise, claire, complète de A à Z et académique.`
   };
 
   let fullPromptHeader = `${systemInstruction}${prompts[mode]}`;
@@ -474,7 +477,7 @@ Rédige tout en français de manière extrêmement précise, complète et acadé
       {
         temperature: mode === 'resume' ? 0.2 : 0.7,
         responseMimeType: isJSON ? 'application/json' : undefined,
-        maxOutputTokens: mode === 'resume' ? 6500 : (mode === 'flashcards' ? 6500 : 5000)
+        maxOutputTokens: mode === 'resume' ? 8000 : (mode === 'flashcards' ? 6500 : 5000)
       }
     );
 
