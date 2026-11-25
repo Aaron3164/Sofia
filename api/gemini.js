@@ -134,6 +134,7 @@ export default async function handler(req, res) {
 
     let lastError = null;
     let fallbackMaxTokensResult = null;
+    const modelErrors = [];
     const PER_MODEL_TIMEOUT_MS = 22000;
 
     for (const currentModel of candidateModels) {
@@ -182,13 +183,16 @@ export default async function handler(req, res) {
         // Si le modèle a coupé pour SAFETY/RECITATION ou texte vide, basculer sur le suivant
         if (!trimmedOut || (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS')) {
           console.warn(`[Gemini Proxy] Modèle ${currentModel} interrompu (finishReason=${finishReason}, len=${textOut.length}). Basculement...`);
-          lastError = new Error(`Réponse interrompue (${finishReason || 'EMPTY'}) sur ${currentModel}`);
+          const reason = finishReason || 'EMPTY';
+          modelErrors.push(`${currentModel} -> [${reason}] Réponse interrompue`);
+          lastError = new Error(`Réponse interrompue (${reason}) sur ${currentModel}`);
           continue;
         }
 
         // Si le modèle a saturé MAX_TOKENS ou coupé sur une puce isolée, garder en secours et tenter le modèle suivant
         if (finishReason === 'MAX_TOKENS' || looksCutMidBullet) {
           console.warn(`[Gemini Proxy] Modèle ${currentModel} tronqué (finishReason=${finishReason}, len=${textOut.length}). Tentative sur le modèle suivant...`);
+          modelErrors.push(`${currentModel} -> [${finishReason || 'CUT_BULLET'}] Réponse tronquée (${textOut.length} car.)`);
           if (!fallbackMaxTokensResult || textOut.length > fallbackMaxTokensResult.text.length) {
             fallbackMaxTokensResult = {
               text: textOut,
@@ -202,11 +206,16 @@ export default async function handler(req, res) {
         return res.status(200).json({ 
           text: textOut,
           groundingMetadata: candidate?.groundingMetadata || null,
-          usageMetadata: response.usageMetadata || null
+          usageMetadata: response.usageMetadata || null,
+          ...(modelErrors.length > 0 ? { fallbackHistory: modelErrors } : {})
         });
       } catch (err) {
         lastError = err;
         const errMsg = String(err?.message || err);
+        const codeMatch = errMsg.match(/\b(400|401|403|404|429|500|502|503|504)\b/) || errMsg.match(/(TIMEOUT_\d+MS)/);
+        const errCode = codeMatch ? codeMatch[1] : 'ERR';
+        modelErrors.push(`${currentModel} -> [${errCode}] ${errMsg.slice(0, 120)}`);
+
         const isTransientOrMissing =
           errMsg.includes('TIMEOUT_') ||
           errMsg.includes('503') ||
@@ -227,7 +236,15 @@ export default async function handler(req, res) {
     }
 
     if (fallbackMaxTokensResult) {
-      return res.status(200).json(fallbackMaxTokensResult);
+      return res.status(200).json({
+        ...fallbackMaxTokensResult,
+        ...(modelErrors.length > 0 ? { fallbackHistory: modelErrors } : {})
+      });
+    }
+
+    if (modelErrors.length > 0) {
+      const formattedList = modelErrors.map((e, i) => `${i + 1}. ${e}`).join('\n');
+      throw new Error(`Échec de la cascade Gemini :\n${formattedList}`);
     }
 
     throw lastError;
