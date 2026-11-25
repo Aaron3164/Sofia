@@ -94,7 +94,14 @@ export default async function handler(req, res) {
       ...(config || {}),
       maxOutputTokens: Number.isFinite(requestedMax) && requestedMax > 0
         ? Math.min(requestedMax, MAX_ALLOWED_OUTPUT_TOKENS)
-        : 4096
+        : 4096,
+      // Évite les faux positifs de censure sur les cours de médecine/reproduction/anatomie
+      safetySettings: config?.safetySettings || [
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      ]
     };
 
     const ai = new GoogleGenAI({ apiKey });
@@ -122,9 +129,20 @@ export default async function handler(req, res) {
           config: safeConfig,
         });
 
+        const candidate = response.candidates?.[0];
+        const finishReason = candidate?.finishReason;
+        const textOut = response.text || '';
+
+        // Si le modèle a coupé en plein milieu pour SAFETY, RECITATION ou contenu vide, basculer sur le suivant
+        if (!textOut.trim() || (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS')) {
+          console.warn(`[Gemini Proxy] Modèle ${currentModel} interrompu (finishReason=${finishReason}, len=${textOut.length}). Basculement...`);
+          lastError = new Error(`Réponse interrompue (${finishReason || 'EMPTY'}) sur ${currentModel}`);
+          continue;
+        }
+
         return res.status(200).json({ 
-          text: response.text || '',
-          groundingMetadata: response.candidates?.[0]?.groundingMetadata || null,
+          text: textOut,
+          groundingMetadata: candidate?.groundingMetadata || null,
           usageMetadata: response.usageMetadata || null
         });
       } catch (err) {
