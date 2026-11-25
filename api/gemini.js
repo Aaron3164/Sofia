@@ -135,9 +135,11 @@ export default async function handler(req, res) {
     let lastError = null;
     let fallbackMaxTokensResult = null;
     const modelErrors = [];
-    const PER_MODEL_TIMEOUT_MS = 22000;
 
-    for (const currentModel of candidateModels) {
+    for (let idx = 0; idx < candidateModels.length; idx++) {
+      const currentModel = candidateModels[idx];
+      const isLastModel = idx === candidateModels.length - 1;
+      const modelTimeoutMs = isLastModel ? 35000 : 22000;
       try {
         const useThinkingOverride = !config?.thinkingConfig && !modelsRejectingThinkingConfig.has(currentModel);
         const fastConfig = useThinkingOverride
@@ -152,7 +154,7 @@ export default async function handler(req, res) {
               contents,
               config: fastConfig,
             }),
-            PER_MODEL_TIMEOUT_MS,
+            modelTimeoutMs,
             currentModel
           );
         } catch (innerErr) {
@@ -166,7 +168,7 @@ export default async function handler(req, res) {
                 contents,
                 config: safeConfig,
               }),
-              PER_MODEL_TIMEOUT_MS,
+              modelTimeoutMs,
               currentModel
             );
           } else {
@@ -178,7 +180,12 @@ export default async function handler(req, res) {
         const finishReason = candidate?.finishReason;
         const textOut = response.text || '';
         const trimmedOut = textOut.trim();
+        const lastLine = trimmedOut.split('\n').pop()?.trim() || '';
         const looksCutMidBullet = /(?:^|\n)\s*[*-]$/.test(trimmedOut);
+        const looksCutMidTable =
+          (lastLine.startsWith('|') && !lastLine.endsWith('|')) ||
+          /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(lastLine);
+        const looksCutPrematurely = looksCutMidBullet || looksCutMidTable;
 
         // Si le modèle a coupé pour SAFETY/RECITATION ou texte vide, basculer sur le suivant
         if (!trimmedOut || (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS')) {
@@ -189,15 +196,18 @@ export default async function handler(req, res) {
           continue;
         }
 
-        // Si le modèle a saturé MAX_TOKENS ou coupé sur une puce isolée, garder en secours et tenter le modèle suivant
-        if (finishReason === 'MAX_TOKENS' || looksCutMidBullet) {
-          console.warn(`[Gemini Proxy] Modèle ${currentModel} tronqué (finishReason=${finishReason}, len=${textOut.length}). Tentative sur le modèle suivant...`);
-          modelErrors.push(`${currentModel} -> [${finishReason || 'CUT_BULLET'}] Réponse tronquée (${textOut.length} car.)`);
+        // Si le modèle a saturé MAX_TOKENS ou coupé sur une puce / un tableau, garder en secours et tenter le modèle suivant
+        if (finishReason === 'MAX_TOKENS' || looksCutPrematurely) {
+          const cutType = finishReason === 'MAX_TOKENS' ? 'MAX_TOKENS' : (looksCutMidTable ? 'CUT_TABLE' : 'CUT_BULLET');
+          console.warn(`[Gemini Proxy] Modèle ${currentModel} tronqué (${cutType}, len=${textOut.length}). Tentative sur le modèle suivant...`);
+          modelErrors.push(`${currentModel} -> [${cutType}] Réponse tronquée (${textOut.length} car.)`);
           if (!fallbackMaxTokensResult || textOut.length > fallbackMaxTokensResult.text.length) {
             fallbackMaxTokensResult = {
               text: textOut,
               groundingMetadata: candidate?.groundingMetadata || null,
-              usageMetadata: response.usageMetadata || null
+              usageMetadata: response.usageMetadata || null,
+              modelUsed: currentModel,
+              finishReason: cutType
             };
           }
           continue;
@@ -207,6 +217,8 @@ export default async function handler(req, res) {
           text: textOut,
           groundingMetadata: candidate?.groundingMetadata || null,
           usageMetadata: response.usageMetadata || null,
+          modelUsed: currentModel,
+          finishReason: finishReason || 'STOP',
           ...(modelErrors.length > 0 ? { fallbackHistory: modelErrors } : {})
         });
       } catch (err) {
