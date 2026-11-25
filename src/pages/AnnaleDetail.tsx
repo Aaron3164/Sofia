@@ -249,7 +249,7 @@ export default function AnnaleDetail() {
         user_id: user.id,
         generations: updatedGenerations,
         updated_at: new Date().toISOString()
-      });
+      }, { onConflict: 'course_id' });
     }
   };
 

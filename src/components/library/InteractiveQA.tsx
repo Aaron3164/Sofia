@@ -245,6 +245,8 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
     const newQuestion: QAMessage = { role: 'user', text: inputValue.trim() };
     const isNewChat = !activeChatId || !activeConversation;
     const currentChatId = isNewChat ? crypto.randomUUID() : activeChatId;
+    const savedDraftAnnale = isNewChat ? draftAnnale : null;
+    const prevActiveChatId = activeChatId;
 
     let updatedConversations = [...conversations];
 
@@ -296,8 +298,16 @@ export const InteractiveQA: React.FC<InteractiveQAProps> = ({ data, onUpdate, do
       
       setConversations(updatedConversations);
       onUpdate(JSON.stringify(updatedConversations));
-    } catch (error) {
-      alert("Erreur lors de la communication avec l'IA. Veuillez réessayer.");
+    } catch (error: any) {
+      // Roll back unanswered user message and restore draft state so the student doesn't lose their question
+      setConversations(conversations);
+      onUpdate(JSON.stringify(conversations));
+      if (isNewChat) {
+        setActiveChatId(prevActiveChatId);
+        if (savedDraftAnnale) setDraftAnnale(savedDraftAnnale);
+      }
+      setInputValue(newQuestion.text);
+      alert(error?.message || "Erreur lors de la communication avec l'IA. Veuillez réessayer.");
     } finally {
       setIsAsking(false);
     }

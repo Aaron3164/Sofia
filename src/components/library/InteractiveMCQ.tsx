@@ -5,6 +5,7 @@ import {
   getDailyUsage, 
   evaluateOpenQuestionAnswer, 
   evaluateLabelingAnswer,
+  safeParseJsonWithRecovery,
   type OpenQuestionEvaluation 
 } from '../../lib/gemini';
 import { BookOpen, Loader2, Sparkles, RotateCcw, MapPin, Undo2, CheckCircle2 } from 'lucide-react';
@@ -205,33 +206,7 @@ export const InteractiveMCQ: React.FC<InteractiveMCQProps> = ({
   let mcqs: MCQ[] = [];
   try {
     if (typeof data === 'string') {
-      let jsonStr = data.trim();
-      jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
-
-      const firstBrace = jsonStr.indexOf('{');
-      const firstBracket = jsonStr.indexOf('[');
-
-      if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-        const lastBrace = jsonStr.lastIndexOf('}');
-        if (lastBrace > firstBrace) {
-          jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-        }
-      } else if (firstBracket !== -1) {
-        const lastBracket = jsonStr.lastIndexOf(']');
-        if (lastBracket > firstBracket) {
-          jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
-        }
-      }
-
-      // Clean trailing commas before closing braces/brackets
-      const cleanedJsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
-
-      let parsedObj;
-      try {
-        parsedObj = JSON.parse(cleanedJsonStr);
-      } catch (e1) {
-        parsedObj = JSON.parse(jsonStr);
-      }
+      const parsedObj = safeParseJsonWithRecovery(data);
 
       if (Array.isArray(parsedObj)) {
         mcqs = parsedObj;

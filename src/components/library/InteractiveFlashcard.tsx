@@ -11,6 +11,7 @@ import {
   type SpacedCardData 
 } from '../../lib/spaced-repetition';
 import { ErrorBookService } from '../../lib/ErrorBookService';
+import { safeParseJsonWithRecovery } from '../../lib/gemini';
 
 export interface Flashcard extends SpacedCardData {
   id?: string;
@@ -75,19 +76,17 @@ export const InteractiveFlashcard: React.FC<{
   let cards: Flashcard[] = [];
   try {
     if (typeof data === 'string') {
-      let jsonStr = data;
-      // Robust JSON extraction
-      const startIdx = jsonStr.indexOf('[');
-      const endIdx = jsonStr.lastIndexOf(']');
-      
-      if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-        jsonStr = jsonStr.substring(startIdx, endIdx + 1);
-      } else {
-        jsonStr = jsonStr.replace(/```json\n?|```/g, '').trim();
-      }
-      
-      const parsedData = JSON.parse(jsonStr);
-      cards = Array.isArray(parsedData) ? parsedData : [];
+      const parsedData = safeParseJsonWithRecovery(data);
+      const rawArr = Array.isArray(parsedData)
+        ? parsedData
+        : (parsedData?.flashcards || parsedData?.cards || []);
+      cards = Array.isArray(rawArr)
+        ? rawArr.map((c: any) => ({
+            ...c,
+            front: c.front ?? c.f ?? c.question ?? '',
+            back: c.back ?? c.b ?? c.answer ?? '',
+          }))
+        : [];
     } else {
       cards = data;
     }

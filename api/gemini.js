@@ -4,6 +4,17 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+// Mémorise sur l'instance chaude les modèles qui rejettent thinkingConfig pour éviter un aller-retour 400 inutile
+const modelsRejectingThinkingConfig = new Set();
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`TIMEOUT_${ms}MS (${label})`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -17,7 +28,28 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // 1. Authenticate user via Supabase JWT
+  // 1. Validate server API key and request body BEFORE touching user quota
+  let apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (apiKey) apiKey = apiKey.replace(/^["']|["']$/g, '');
+  if (!apiKey) {
+    return res.status(500).json({ error: 'La clé GEMINI_API_KEY est manquante dans les variables d\'environnement du serveur Vercel.' });
+  }
+
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      body = {};
+    }
+  }
+
+  const { model = 'models/gemini-3.5-flash-lite', contents, config } = body || {};
+  if (!contents) {
+    return res.status(400).json({ error: 'Contenu manquant pour la génération.' });
+  }
+
+  // 2. Authenticate user via Supabase JWT
   const authHeader = req.headers.authorization || req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Authentification requise : token manquant.' });
@@ -46,7 +78,7 @@ export default async function handler(req, res) {
     }
     authenticatedUserId = user.id;
 
-    // 2. Strict Server-Side Quota Verification & Increment (RPC already checks user plan)
+    // 3. Strict Server-Side Quota Verification & Increment (RPC already checks user plan)
     const { data: quotaAllowed, error: quotaError } = await supabaseClient.rpc('check_and_increment_ai_usage');
 
     if (quotaError) {
@@ -65,27 +97,7 @@ export default async function handler(req, res) {
     }
   }
 
-  let apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  if (apiKey) apiKey = apiKey.replace(/^["']|["']$/g, '');
-  if (!apiKey) {
-    return res.status(500).json({ error: 'La clé GEMINI_API_KEY est manquante dans les variables d\'environnement du serveur Vercel.' });
-  }
-
   try {
-    let body = req.body;
-    if (typeof body === 'string') {
-      try {
-        body = JSON.parse(body);
-      } catch (e) {
-        body = {};
-      }
-    }
-    
-    const { model = 'models/gemini-3.5-flash-lite', contents, config } = body || {};
-
-    if (!contents) {
-      return res.status(400).json({ error: 'Contenu manquant pour la génération.' });
-    }
 
     // Garde-fou serveur anti-explosion de tokens en sortie (inclut les éventuels thinking tokens sur Gemini 2.5/3.x)
     const MAX_ALLOWED_OUTPUT_TOKENS = 20000;
@@ -109,41 +121,53 @@ export default async function handler(req, res) {
     // Unified resilient cascade for all users:
     // 1. models/gemini-3.5-flash-lite (500 RPD free tier, prioritaire)
     // 2. models/gemini-3.1-flash-lite (500 RPD free tier)
-    // 3. models/gemini-2.5-flash (20 RPD fallback / web search grounding)
-    // Total free capacity: 1,000+ generations/day, 0€ cost.
+    // 3. models/gemini-2.5-flash-lite (secours rapide GA)
+    // 4. models/gemini-2.5-flash (20 RPD fallback / web search grounding)
     const candidateModels = model === 'models/gemini-2.5-flash'
-      ? ['models/gemini-2.5-flash', 'models/gemini-3.5-flash-lite', 'models/gemini-3.1-flash-lite']
+      ? ['models/gemini-2.5-flash', 'models/gemini-3.5-flash-lite', 'models/gemini-3.1-flash-lite', 'models/gemini-2.5-flash-lite']
       : [
           'models/gemini-3.5-flash-lite',
           'models/gemini-3.1-flash-lite',
+          'models/gemini-2.5-flash-lite',
           'models/gemini-2.5-flash'
         ];
 
     let lastError = null;
     let fallbackMaxTokensResult = null;
+    const PER_MODEL_TIMEOUT_MS = 22000;
 
     for (const currentModel of candidateModels) {
       try {
-        const fastConfig = config?.thinkingConfig
-          ? safeConfig
-          : { ...safeConfig, thinkingConfig: { thinkingBudget: 0 } };
+        const useThinkingOverride = !config?.thinkingConfig && !modelsRejectingThinkingConfig.has(currentModel);
+        const fastConfig = useThinkingOverride
+          ? { ...safeConfig, thinkingConfig: { thinkingBudget: 0 } }
+          : safeConfig;
 
         let response;
         try {
-          response = await ai.models.generateContent({
-            model: currentModel,
-            contents,
-            config: fastConfig,
-          });
-        } catch (innerErr) {
-          const innerMsg = String(innerErr?.message || innerErr);
-          // Si ce modèle précis refuse thinkingBudget: 0 (400 / INVALID_ARGUMENT), réessayer sans thinkingConfig
-          if (!config?.thinkingConfig && (innerMsg.includes('400') || innerMsg.includes('INVALID_ARGUMENT') || innerMsg.toLowerCase().includes('thinking'))) {
-            response = await ai.models.generateContent({
+          response = await withTimeout(
+            ai.models.generateContent({
               model: currentModel,
               contents,
-              config: safeConfig,
-            });
+              config: fastConfig,
+            }),
+            PER_MODEL_TIMEOUT_MS,
+            currentModel
+          );
+        } catch (innerErr) {
+          const innerMsg = String(innerErr?.message || innerErr);
+          // Si ce modèle précis refuse thinkingBudget: 0 (400 / INVALID_ARGUMENT), mémoriser et réessayer sans thinkingConfig
+          if (useThinkingOverride && (innerMsg.includes('400') || innerMsg.includes('INVALID_ARGUMENT') || innerMsg.toLowerCase().includes('thinking'))) {
+            modelsRejectingThinkingConfig.add(currentModel);
+            response = await withTimeout(
+              ai.models.generateContent({
+                model: currentModel,
+                contents,
+                config: safeConfig,
+              }),
+              PER_MODEL_TIMEOUT_MS,
+              currentModel
+            );
           } else {
             throw innerErr;
           }
@@ -184,6 +208,7 @@ export default async function handler(req, res) {
         lastError = err;
         const errMsg = String(err?.message || err);
         const isTransientOrMissing =
+          errMsg.includes('TIMEOUT_') ||
           errMsg.includes('503') ||
           errMsg.includes('UNAVAILABLE') ||
           errMsg.includes('high demand') ||
@@ -194,7 +219,7 @@ export default async function handler(req, res) {
           errMsg.includes('NOT_FOUND');
 
         if (isTransientOrMissing) {
-          console.warn(`[Gemini Proxy] Modèle ${currentModel} indisponible/saturé (${errMsg.slice(0, 80)}). Basculement immédiat...`);
+          console.warn(`[Gemini Proxy] Modèle ${currentModel} indisponible/saturé/lent (${errMsg.slice(0, 80)}). Basculement immédiat...`);
           continue;
         }
         throw err;

@@ -189,7 +189,7 @@ export default function Library() {
             annale_folder_id: currentFolderId
           },
           updated_at: new Date().toISOString()
-        });
+        }, { onConflict: 'course_id' });
       }
 
       localStorage.setItem(`aura_subject_${newNode.id}`, JSON.stringify({

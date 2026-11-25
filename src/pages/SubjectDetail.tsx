@@ -567,7 +567,7 @@ export default function SubjectDetail() {
       }
     } catch (error: any) {
       console.error('Error generating materials:', error);
-      alert(error?.message || 'Erreur lors de la génération avec Sofia.');
+      await alert(error?.message || 'Erreur lors de la génération avec Sofia.');
     } finally {
       setIsGenerating(false);
     }

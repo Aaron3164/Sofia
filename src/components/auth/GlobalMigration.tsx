@@ -18,10 +18,11 @@ export function GlobalMigration() {
       console.log('Starting global data migration to Supabase...');
 
       try {
-        // Fetch current nodes from database to match by name
+        // Fetch current nodes from database to match by name / verify foreign key existence
         const { data: dbNodes } = await supabase
           .from('nodes')
           .select('id, name, type');
+        const dbNodeIds = new Set((dbNodes || []).map(n => n.id));
           
         // Retrieve local nodes from storage to get local names
         const localNodesStr = localStorage.getItem('aura_file_system');
@@ -59,8 +60,8 @@ export function GlobalMigration() {
                   }
                 }
 
-                // Only migrate if this course does NOT already exist in Supabase
-                if (!existingCourseIds.has(targetCourseId)) {
+                // Only migrate if node still exists in DB (avoids 409 FK error) AND course_data does not exist yet
+                if (dbNodeIds.has(targetCourseId) && !existingCourseIds.has(targetCourseId)) {
                   const { error: insertError } = await supabase.from('course_data').upsert({
                     user_id: user.id,
                     course_id: targetCourseId,
@@ -105,7 +106,7 @@ export function GlobalMigration() {
 
               const cloudSeconds = existingStatsMap.get(targetCourseId) || 0;
 
-              if (localSeconds > cloudSeconds) {
+              if (dbNodeIds.has(targetCourseId) && localSeconds > cloudSeconds) {
                 const { error: statsError } = await supabase.from('course_stats').upsert({
                   user_id: user.id,
                   course_id: targetCourseId,

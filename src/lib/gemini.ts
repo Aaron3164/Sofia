@@ -46,7 +46,7 @@ async function callGeminiProxy(
     }),
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok || data.error) {
     if (data.error === 'QUOTA_EXCEEDED' || response.status === 429) {
@@ -167,7 +167,7 @@ export async function ensureQuota(): Promise<void> {
   }
 }
 
-function getSystemInstruction(prefs?: AIPreferences) {
+function getSystemInstruction(prefs?: AIPreferences, includeConfidentiality = true) {
   const personality = prefs?.ai_personality || 'benevolent';
   const studyMode = prefs?.ai_study_mode || 'understanding';
 
@@ -185,7 +185,42 @@ function getSystemInstruction(prefs?: AIPreferences) {
 
   const boldInstruction = "CONSIGNE IMPORTANTE SUR LES MOTS EN GRAS DANS LE TEXTE DU COURS : Les mots ou phrases encadrés par des astérisques **gras** (ex: **notion**) dans le texte de cours fourni ont été détectés en gras dans le document source (PDF). En général, ce sont des concepts, définitions ou mots-clés importants mis en valeur par l'auteur du cours. Tu dois généralement leur accorder une attention et une priorité particulières dans tes résumés, flashcards et questions, tout en conservant ton discernement et jugement pédagogique pour décider s'ils méritent ou non d'être retenus selon le contexte.";
 
-  return `${personalities[personality]} ${modes[studyMode]}\n${boldInstruction}\n${SOFIA_CONFIDENTIALITY_INSTRUCTION}\n\n`;
+  return `${personalities[personality]} ${modes[studyMode]}\n${boldInstruction}${includeConfidentiality ? `\n${SOFIA_CONFIDENTIALITY_INSTRUCTION}` : ''}\n\n`;
+}
+
+/**
+ * Parses LLM JSON responses resiliently, cleaning markdown fences/trailing commas
+ * and recovering complete objects from truncated JSON arrays.
+ */
+export function safeParseJsonWithRecovery(raw: string): any {
+  let jsonStr = (raw || '').replace(/```json\s*|```/gi, '').trim();
+  const firstBracket = jsonStr.indexOf('[');
+  const firstBrace = jsonStr.indexOf('{');
+
+  if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+    const lastBracket = jsonStr.lastIndexOf(']');
+    jsonStr = lastBracket > firstBracket
+      ? jsonStr.substring(firstBracket, lastBracket + 1)
+      : jsonStr.substring(firstBracket);
+  } else if (firstBrace !== -1) {
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (lastBrace > firstBrace) {
+      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+    }
+  }
+
+  jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
+
+  try {
+    return JSON.parse(jsonStr);
+  } catch (parseErr) {
+    const lastCompleteObjIdx = jsonStr.lastIndexOf('},');
+    if (jsonStr.trim().startsWith('[') && lastCompleteObjIdx > 0) {
+      const repaired = jsonStr.substring(0, lastCompleteObjIdx + 1) + ']';
+      return JSON.parse(repaired);
+    }
+    throw parseErr;
+  }
 }
 
 export const SOFIA_CONFIDENTIALITY_INSTRUCTION = `
@@ -276,8 +311,27 @@ function extractRelevantCourseExcerpts(fullText: string, queryTerms: string, max
     return fullText.substring(0, maxChars);
   }
 
-  // Découper en blocs logiques tout en suivant le document et la page courante
-  const rawParagraphs = fullText.split(/\n{2,}/);
+  // Découper en blocs logiques tout en suivant le document et la page courante.
+  // Si certains PDF n'ont que des retours ligne simples (\n), subdiviser tout bloc > 2500 chars.
+  const initialBlocks = fullText.split(/\n{2,}/);
+  const rawParagraphs: string[] = [];
+  for (const blk of initialBlocks) {
+    if (blk.length <= 2500) {
+      rawParagraphs.push(blk);
+    } else {
+      const subLines = blk.split('\n');
+      let acc = '';
+      for (const sl of subLines) {
+        if (acc.length + sl.length + 1 > 2000 && acc) {
+          rawParagraphs.push(acc);
+          acc = sl;
+        } else {
+          acc = acc ? `${acc}\n${sl}` : sl;
+        }
+      }
+      if (acc) rawParagraphs.push(acc);
+    }
+  }
   interface ScoredChunk {
     idx: number;
     text: string;
@@ -365,6 +419,10 @@ function extractRelevantCourseExcerpts(fullText: string, queryTerms: string, max
     }
 
     outputParts.push(ch.text);
+  }
+
+  if (outputParts.length === 0) {
+    return fullText.substring(0, maxChars);
   }
 
   return outputParts.join('\n\n');
@@ -457,7 +515,7 @@ Rédige tout en français de manière précise, claire, complète de A à Z et a
   let fullPromptHeader = `${systemInstruction}${prompts[mode]}`;
 
   if (customInstructions && customInstructions.trim().length > 0) {
-    fullPromptHeader += `\n\nCONSIGNE COMPLÉMENTAIRE DE L'ÉTUDIANT : Tout en respectant à 100% le prompt principal ci-dessus et en balayant l'ensemble du cours, accorde un soin, une profondeur et une densité légèrement supérieures aux notions, consignes ou mots-clés suivants : ${customInstructions.trim()}.`;
+    fullPromptHeader += `\n\nCONSIGNE PRIORITAIRE DE L'ÉTUDIANT (À SUIVRE SCRUPULEUSEMENT EN PRIORITÉ SUR LA LONGUEUR, LE FORMAT ET LES THÈMES) : « ${customInstructions.trim()} ».\nSi l'étudiant demande une fiche concise, courte ou synthétique, réduis directement le volume de rédaction pour respecter sa demande tout en balayant l'ensemble des chapitres du cours sans jamais couper en plein milieu.`;
 
     const isClinicalRequested = /cas clinique|scénario|scenario|histoire|énoncé|enoncé|patient|mise en situation/i.test(customInstructions);
     if (mode === 'mcq' && isClinicalRequested) {
@@ -477,7 +535,7 @@ Rédige tout en français de manière précise, claire, complète de A à Z et a
       {
         temperature: mode === 'resume' ? 0.2 : 0.7,
         responseMimeType: isJSON ? 'application/json' : undefined,
-        maxOutputTokens: mode === 'resume' ? 16384 : (mode === 'flashcards' ? 6500 : 5000)
+        maxOutputTokens: mode === 'resume' ? 16384 : (mode === 'flashcards' ? 8192 : 6500)
       }
     );
 
@@ -487,29 +545,10 @@ Rédige tout en français de manière précise, claire, complète de A à Z et a
     generatedText = generatedText.replace(/\(?(?:voir|cf\.?)\s+(?:la\s+)?(?:figure|schéma|diagramme)\s*#?(?:FIGURE_?)?\d+\)?/gi, '');
 
     if (isJSON) {
-      // Robust JSON extraction: look for either { or [
-      const firstBrace = generatedText.indexOf('{');
-      const firstBracket = generatedText.indexOf('[');
-
-      if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-        const lastBrace = generatedText.lastIndexOf('}');
-        if (lastBrace > firstBrace) {
-          generatedText = generatedText.substring(firstBrace, lastBrace + 1);
-        }
-      } else {
-        const startIdx = generatedText.indexOf('[');
-        const endIdx = generatedText.lastIndexOf(']');
-        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-          generatedText = generatedText.substring(startIdx, endIdx + 1);
-        } else {
-          generatedText = generatedText.replace(/```json\n?|```/g, '').trim();
-        }
-      }
-
       // Normalize compact JSON keys ("f"/"b" for flashcards, "q"/"o"/"a" for mcq) into the standard schema expected by the UI
       if (mode === 'flashcards') {
         try {
-          const parsed = JSON.parse(generatedText);
+          const parsed = safeParseJsonWithRecovery(generatedText);
           const cardsArr = Array.isArray(parsed) ? parsed : (parsed.flashcards || parsed.cards || []);
           if (Array.isArray(cardsArr)) {
             const normalizedCards = cardsArr.map((c: any) => ({
@@ -529,7 +568,7 @@ Rédige tout en français de manière précise, claire, complète de A à Z et a
           customInstructions && /cas clinique|scénario|scenario|histoire|énoncé|enoncé|patient|mise en situation/i.test(customInstructions)
         );
         try {
-          const parsed = JSON.parse(generatedText);
+          const parsed = safeParseJsonWithRecovery(generatedText);
           const isWrappedObject = !Array.isArray(parsed) && parsed && typeof parsed === 'object';
           let questionsArray = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.mcqs || []);
           if (Array.isArray(questionsArray)) {
@@ -621,7 +660,7 @@ export async function askQuestion(
     return cached;
   }
 
-  const systemInstruction = getSystemInstruction(prefs);
+  const systemInstruction = getSystemInstruction(prefs, false);
 
   const isAnnaleOrQcmQuery = Boolean(
     (annaleContext && annaleContext.trim()) ||
@@ -1035,40 +1074,7 @@ async function parseAnnaleChunkWithAI(
     maxOutputTokens: 8192
   });
 
-  let jsonStr = (response.text || '[]').replace(/```json\s*|```/gi, '').trim();
-  const firstBracket = jsonStr.indexOf('[');
-  const firstBrace = jsonStr.indexOf('{');
-
-  if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
-    const lastBracket = jsonStr.lastIndexOf(']');
-    if (lastBracket > firstBracket) {
-      jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
-    } else {
-      jsonStr = jsonStr.substring(firstBracket);
-    }
-  } else if (firstBrace !== -1) {
-    const lastBrace = jsonStr.lastIndexOf('}');
-    if (lastBrace > firstBrace) {
-      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-    }
-  }
-
-  // Clean common LLM JSON glitches (trailing commas)
-  jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(jsonStr);
-  } catch (parseErr) {
-    // Recovery if array JSON was truncated mid-object or had a minor glitch near the end
-    const lastCompleteObjIdx = jsonStr.lastIndexOf('},');
-    if (jsonStr.trim().startsWith('[') && lastCompleteObjIdx > 0) {
-      const repaired = jsonStr.substring(0, lastCompleteObjIdx + 1) + ']';
-      parsed = JSON.parse(repaired);
-    } else {
-      throw parseErr;
-    }
-  }
+  const parsed = safeParseJsonWithRecovery(response.text || '[]');
   let list: any[] = [];
   if (Array.isArray(parsed)) {
     list = parsed;
@@ -1084,10 +1090,10 @@ async function parseAnnaleChunkWithAI(
 }
 
 export async function parseAnnaleWithAI(rawPdfText: string): Promise<any[]> {
-  // Split by "--- Page X ---" markers to process in balanced chunks (5 pages/batch)
-  // so long exams never hit JSON truncation while keeping DPs and trailing pages together.
+  // Split by "--- Page X ---" markers to process in balanced chunks (6 pages/batch, max 2 concurrent)
+  // so long exams never hit JSON truncation or RPM rate-limit bursts.
   const pageSections = rawPdfText.split(/(?=--- Page \d+ ---)/g).filter(s => s.trim().length > 0);
-  const PAGES_PER_BATCH = 5;
+  const PAGES_PER_BATCH = 6;
 
   let questionsList: any[] = [];
 
@@ -1104,9 +1110,15 @@ export async function parseAnnaleWithAI(rawPdfText: string): Promise<any[]> {
         label: `les pages ${startPage} à ${endPage}`
       });
     }
-    const batchResults = await Promise.all(
-      batches.map(b => parseAnnaleChunkWithAI(b.text, ANNALE_PARSER_INSTRUCTIONS, b.hint, b.label))
-    );
+    // Concurrency cap of 2 to avoid bursting RPM limits on very large 20-50p annales
+    const batchResults: any[][] = [];
+    for (let i = 0; i < batches.length; i += 2) {
+      const pair = batches.slice(i, i + 2);
+      const pairRes = await Promise.all(
+        pair.map(b => parseAnnaleChunkWithAI(b.text, ANNALE_PARSER_INSTRUCTIONS, b.hint, b.label))
+      );
+      batchResults.push(...pairRes);
+    }
     questionsList = batchResults.flat();
   } else {
     questionsList = await parseAnnaleChunkWithAI(rawPdfText, ANNALE_PARSER_INSTRUCTIONS);
