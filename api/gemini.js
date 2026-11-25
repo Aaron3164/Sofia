@@ -124,11 +124,30 @@ export default async function handler(req, res) {
 
     for (const currentModel of candidateModels) {
       try {
-        const response = await ai.models.generateContent({
-          model: currentModel,
-          contents,
-          config: safeConfig,
-        });
+        const fastConfig = config?.thinkingConfig
+          ? safeConfig
+          : { ...safeConfig, thinkingConfig: { thinkingBudget: 0 } };
+
+        let response;
+        try {
+          response = await ai.models.generateContent({
+            model: currentModel,
+            contents,
+            config: fastConfig,
+          });
+        } catch (innerErr) {
+          const innerMsg = String(innerErr?.message || innerErr);
+          // Si ce modèle précis refuse thinkingBudget: 0 (400 / INVALID_ARGUMENT), réessayer sans thinkingConfig
+          if (!config?.thinkingConfig && (innerMsg.includes('400') || innerMsg.includes('INVALID_ARGUMENT') || innerMsg.toLowerCase().includes('thinking'))) {
+            response = await ai.models.generateContent({
+              model: currentModel,
+              contents,
+              config: safeConfig,
+            });
+          } else {
+            throw innerErr;
+          }
+        }
 
         const candidate = response.candidates?.[0];
         const finishReason = candidate?.finishReason;
