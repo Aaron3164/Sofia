@@ -118,18 +118,24 @@ export default async function handler(req, res) {
     const ai = new GoogleGenAI({ apiKey });
 
     // Unified resilient cascade for all users:
-    // 1. models/gemini-3.5-flash-lite (500 RPD free tier, prioritaire)
-    // 2. models/gemini-3.1-flash-lite (500 RPD free tier)
-    // 3. models/gemini-2.5-flash-lite (secours rapide GA)
-    // 4. models/gemini-2.5-flash (20 RPD fallback / web search grounding)
-    const candidateModels = model === 'models/gemini-2.5-flash'
-      ? ['models/gemini-2.5-flash', 'models/gemini-3.5-flash-lite', 'models/gemini-3.1-flash-lite', 'models/gemini-2.5-flash-lite']
-      : [
-          'models/gemini-3.5-flash-lite',
-          'models/gemini-3.1-flash-lite',
-          'models/gemini-2.5-flash-lite',
-          'models/gemini-2.5-flash'
-        ];
+    // 1. models/gemini-3.5-flash-lite (500 RPD free tier, ultra-rapide)
+    // 2. models/gemini-3.5-flash (capacité élevée, très stable)
+    // 3. models/gemini-flash-lite-latest (alias dynamique toujours actif)
+    // 4. models/gemini-3.1-flash-lite (500 RPD free tier)
+    // 5. models/gemini-2.5-flash (20 RPD fallback)
+    const defaultCascade = [
+      'models/gemini-3.5-flash-lite',
+      'models/gemini-3.5-flash',
+      'models/gemini-flash-lite-latest',
+      'models/gemini-3.1-flash-lite',
+      'models/gemini-2.5-flash'
+    ];
+
+    const candidateModels = Array.from(new Set(
+      model && model !== 'models/gemini-3.5-flash-lite'
+        ? [model, ...defaultCascade]
+        : defaultCascade
+    ));
 
     let lastError = null;
     let fallbackMaxTokensResult = null;
