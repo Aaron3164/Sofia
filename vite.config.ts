@@ -1,13 +1,14 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
+// @ts-ignore JS serverless handler has no .d.ts declaration
+import geminiHandler from './api/gemini.js';
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  let apiKey = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  if (apiKey) apiKey = apiKey.replace(/^["']|["']$/g, ''); // Fix quote issue
+  for (const [k, v] of Object.entries(env)) {
+    if (!process.env[k]) process.env[k] = v;
+  }
 
   return {
     plugins: [
@@ -16,113 +17,43 @@ export default defineConfig(({ mode }) => {
         name: 'gemini-api-dev-middleware',
         configureServer(server) {
           server.middlewares.use('/api/gemini', async (req, res) => {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-            if (req.method === 'OPTIONS') {
-              res.statusCode = 200;
-              return res.end();
-            }
-
-            if (req.method !== 'POST') {
-              res.statusCode = 405;
-              res.setHeader('Content-Type', 'application/json');
-              return res.end(JSON.stringify({ error: 'Method not allowed' }));
-            }
-
-            if (!apiKey) {
-              res.statusCode = 500;
-              res.setHeader('Content-Type', 'application/json');
-              return res.end(JSON.stringify({ error: 'La clé GEMINI_API_KEY est manquante dans .env' }));
-            }
-
-            // Quota & Plan segmentation verification in development
-            const authHeader = req.headers['authorization'];
-            const token = authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
-            const sbUrl = env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-            const sbKey = env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-
-            if (token && sbUrl && sbKey) {
-              const supabase = createClient(sbUrl, sbKey, {
-                global: { headers: { Authorization: `Bearer ${token}` } }
-              });
-              const { data: quotaAllowed, error: quotaError } = await supabase.rpc('check_and_increment_ai_usage');
-              if (quotaError) {
-                console.warn('[Vite Dev Gemini Proxy] Quota RPC error:', quotaError.message);
-              } else if (quotaAllowed === false) {
-                res.statusCode = 429;
-                res.setHeader('Content-Type', 'application/json');
-                return res.end(JSON.stringify({
-                  error: 'QUOTA_EXCEEDED',
-                  message: 'Limite quotidienne de générations IA atteinte (5/jour en gratuit, 50/jour en Premium).'
-                }));
-              }
-            }
-
             let bodyStr = '';
             req.on('data', (chunk) => {
               bodyStr += chunk;
             });
             req.on('end', async () => {
+              const reqWithBody: any = req;
               try {
-                const body = JSON.parse(bodyStr || '{}');
-                const { model = 'models/gemini-3.5-flash-lite', contents, config } = body;
+                reqWithBody.body = bodyStr ? JSON.parse(bodyStr) : {};
+              } catch {
+                reqWithBody.body = {};
+              }
 
-                const ai = new GoogleGenAI({ apiKey });
-                // Unified resilient cascade for all users:
-                // 1. models/gemini-3.5-flash-lite (500 RPD free)
-                // 2. models/gemini-3.1-flash-lite (500 RPD free)
-                // 3. models/gemini-2.5-flash (fallback / web search grounding)
-                const candidateModels = model === 'models/gemini-2.5-flash'
-                  ? ['models/gemini-2.5-flash', 'models/gemini-3.5-flash-lite', 'models/gemini-3.1-flash-lite']
-                  : [
-                      'models/gemini-3.5-flash-lite',
-                      'models/gemini-3.1-flash-lite',
-                      'models/gemini-2.5-flash'
-                    ];
+              const resAdapter: any = {
+                setHeader: (k: string, v: string) => res.setHeader(k, v),
+                status: (code: number) => {
+                  res.statusCode = code;
+                  return resAdapter;
+                },
+                json: (obj: any) => {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify(obj));
+                  return resAdapter;
+                },
+                end: (data?: any) => {
+                  res.end(data);
+                  return resAdapter;
+                },
+              };
 
-                let lastError: any = null;
-
-                for (const currentModel of candidateModels) {
-                  let attempts = 0;
-                  while (attempts < 2) {
-                    try {
-                      attempts++;
-                      const response = await ai.models.generateContent({ model: currentModel, contents, config });
-                      res.setHeader('Content-Type', 'application/json');
-                      return res.end(JSON.stringify({ 
-                        text: response.text || '',
-                        groundingMetadata: response.candidates?.[0]?.groundingMetadata || null,
-                        usageMetadata: response.usageMetadata || null
-                      }));
-                    } catch (err: any) {
-                      lastError = err;
-                      const errMsg = String(err?.message || err);
-                      const is503Or404 =
-                        errMsg.includes('503') ||
-                        errMsg.includes('UNAVAILABLE') ||
-                        errMsg.includes('high demand') ||
-                        errMsg.includes('overloaded') ||
-                        errMsg.includes('404') ||
-                        errMsg.includes('NOT_FOUND');
-
-                      if (is503Or404) {
-                        if (errMsg.includes('404') || errMsg.includes('NOT_FOUND')) {
-                          break;
-                        }
-                        await new Promise((r) => setTimeout(r, 1200));
-                      } else {
-                        throw err;
-                      }
-                    }
-                  }
-                }
-                throw lastError;
+              try {
+                await geminiHandler(reqWithBody, resAdapter);
               } catch (err: any) {
-                res.statusCode = 500;
-                res.setHeader('Content-Type', 'application/json');
-                return res.end(JSON.stringify({ error: err?.message || String(err) }));
+                if (!res.writableEnded) {
+                  res.statusCode = 500;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ error: err?.message || String(err) }));
+                }
               }
             });
           });

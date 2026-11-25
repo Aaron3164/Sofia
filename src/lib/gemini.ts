@@ -68,7 +68,7 @@ async function callGeminiProxy(
   if (data.fallbackHistory && Array.isArray(data.fallbackHistory) && data.fallbackHistory.length > 0) {
     console.warn(`[SofIA AI] Basculements avant succès (${data.modelUsed || 'inconnu'}, finish=${data.finishReason || 'STOP'}) :\n` + data.fallbackHistory.map((e: string, i: number) => `${i + 1}. ${e}`).join('\n'));
   } else if (data.modelUsed) {
-    console.info(`[SofIA AI] Généré par ${data.modelUsed} (finish=${data.finishReason || 'STOP'})`);
+    console.log(`[SofIA AI] Généré par ${data.modelUsed} (finish=${data.finishReason || 'STOP'}, tokens=${data.usageMetadata?.candidatesTokenCount ?? '?'})`);
   }
 
   return {
