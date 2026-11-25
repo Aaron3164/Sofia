@@ -153,7 +153,7 @@ export default async function handler(req, res) {
         const finishReason = candidate?.finishReason;
         const textOut = response.text || '';
         const trimmedOut = textOut.trim();
-        const looksCutMidBullet = trimmedOut.endsWith('*') || trimmedOut.endsWith('-');
+        const looksCutMidBullet = /(?:^|\n)\s*[*-]$/.test(trimmedOut);
 
         // Si le modèle a coupé pour SAFETY/RECITATION ou texte vide, basculer sur le suivant
         if (!trimmedOut || (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS')) {
