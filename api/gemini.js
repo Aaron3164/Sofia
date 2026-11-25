@@ -87,14 +87,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Contenu manquant pour la génération.' });
     }
 
-    // Garde-fou serveur anti-explosion de tokens en sortie (ne raccourcit pas les réponses normales, borne uniquement le max absolu)
-    const MAX_ALLOWED_OUTPUT_TOKENS = 8192;
+    // Garde-fou serveur anti-explosion de tokens en sortie (inclut les éventuels thinking tokens sur Gemini 2.5/3.x)
+    const MAX_ALLOWED_OUTPUT_TOKENS = 20000;
     const requestedMax = Number(config?.maxOutputTokens);
     const safeConfig = {
       ...(config || {}),
       maxOutputTokens: Number.isFinite(requestedMax) && requestedMax > 0
         ? Math.min(requestedMax, MAX_ALLOWED_OUTPUT_TOKENS)
-        : 4096,
+        : 8192,
       // Évite les faux positifs de censure sur les cours de médecine/reproduction/anatomie
       safetySettings: config?.safetySettings || [
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -120,6 +120,7 @@ export default async function handler(req, res) {
         ];
 
     let lastError = null;
+    let fallbackMaxTokensResult = null;
 
     for (const currentModel of candidateModels) {
       try {
@@ -132,11 +133,26 @@ export default async function handler(req, res) {
         const candidate = response.candidates?.[0];
         const finishReason = candidate?.finishReason;
         const textOut = response.text || '';
+        const trimmedOut = textOut.trim();
+        const looksCutMidBullet = trimmedOut.endsWith('*') || trimmedOut.endsWith('-');
 
-        // Si le modèle a coupé en plein milieu pour SAFETY, RECITATION ou contenu vide, basculer sur le suivant
-        if (!textOut.trim() || (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS')) {
+        // Si le modèle a coupé pour SAFETY/RECITATION ou texte vide, basculer sur le suivant
+        if (!trimmedOut || (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS')) {
           console.warn(`[Gemini Proxy] Modèle ${currentModel} interrompu (finishReason=${finishReason}, len=${textOut.length}). Basculement...`);
           lastError = new Error(`Réponse interrompue (${finishReason || 'EMPTY'}) sur ${currentModel}`);
+          continue;
+        }
+
+        // Si le modèle a saturé MAX_TOKENS ou coupé sur une puce isolée, garder en secours et tenter le modèle suivant
+        if (finishReason === 'MAX_TOKENS' || looksCutMidBullet) {
+          console.warn(`[Gemini Proxy] Modèle ${currentModel} tronqué (finishReason=${finishReason}, len=${textOut.length}). Tentative sur le modèle suivant...`);
+          if (!fallbackMaxTokensResult || textOut.length > fallbackMaxTokensResult.text.length) {
+            fallbackMaxTokensResult = {
+              text: textOut,
+              groundingMetadata: candidate?.groundingMetadata || null,
+              usageMetadata: response.usageMetadata || null
+            };
+          }
           continue;
         }
 
@@ -164,6 +180,10 @@ export default async function handler(req, res) {
         }
         throw err;
       }
+    }
+
+    if (fallbackMaxTokensResult) {
+      return res.status(200).json(fallbackMaxTokensResult);
     }
 
     throw lastError;

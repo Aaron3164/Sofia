@@ -477,7 +477,7 @@ Rédige tout en français de manière précise, claire, complète de A à Z et a
       {
         temperature: mode === 'resume' ? 0.2 : 0.7,
         responseMimeType: isJSON ? 'application/json' : undefined,
-        maxOutputTokens: mode === 'resume' ? 8000 : (mode === 'flashcards' ? 6500 : 5000)
+        maxOutputTokens: mode === 'resume' ? 16384 : (mode === 'flashcards' ? 6500 : 5000)
       }
     );
 
